@@ -75,8 +75,7 @@ script:
     verification: [00_BASE, 01_PROMPTY, 05_VLDS, 06_TEMPLATES]
     detection:    [00_BASE, 01_PROMPTY, 03_PIONEER, 07_BIAS_PATTERNS]
     full:         [00_BASE, 01_PROMPTY, 02_PROMPTER, 03_PIONEER, 04_PUPPETEER,
-                   05_VLDS, 06_TEMPLATES, 07_BIAS_PATTERNS,
-                   08_ISOMORPHIC_OPS, 09_SJC_INDEXER]
+                   05_VLDS, 06_TEMPLATES, 07_BIAS_PATTERNS, isomorphic_operations, sjc_indexer]
     ```
 
     **Custom Requirements:** {custom_requirements}
@@ -114,8 +113,8 @@ script:
        - 05_VLDS depends on 00_BASE
        - 06_TEMPLATES depends on 00_BASE, 05_VLDS
        - 07_BIAS_PATTERNS depends on 00_BASE, 02_PROMPTER
-       - 08_ISOMORPHIC_OPS depends on 00_BASE, 05_VLDS
-       - 09_SJC_INDEXER depends on 00_BASE, 05_VLDS, 08_ISOMORPHIC_OPS
+       - isomorphic_operations depends on 00_BASE, 05_VLDS
+       - sjc_indexer depends on 00_BASE, 05_VLDS, isomorphic_operations
 
     2. No conflicting fragments?
     3. Appropriate for use case?

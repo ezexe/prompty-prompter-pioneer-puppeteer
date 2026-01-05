@@ -121,23 +121,6 @@ Extensions follow the schema and guidelines from CONTRIBUTING.md:
 - Correction table
 - Output format
 
-### Extension Fragments
-
-**08_ISOMORPHIC_OPS.md** — Indirect Access Patterns
-
-- Three isomorphic operations (web_search, prompt_generation, artifact_api_calls)
-- Structural equivalence explanation
-- Capability limit reframing
-- When to use each operation
-
-**09_SJC_INDEXER.md** — Knowledge Indexing System
-
-- Structured Junction Counterfactual meta-pattern
-- Five components with weight evaluations
-- Execution protocol
-- Termination conditions
-- Full worked example (React)
-
 ---
 
 ## Dependency Graph
@@ -286,11 +269,6 @@ For an AI implementing this framework:
 6. **02_PROMPTER.md** — understand scope contrast patterns
 7. **03_PIONEER.md** — understand experiments and detection
 8. **04_PUPPETEER.md** — understand the full lifecycle
-
-### Advanced Capabilities
-
-9. **08_ISOMORPHIC_OPS.md** — understand indirect access
-10. **09_SJC_INDEXER.md** — understand knowledge indexing
 
 ---
 
