@@ -1,0 +1,49 @@
+# Phase Hook Test: reframe_absolute_limits_in_synthesis
+# Phase: puppeteer
+
+test:
+  hook: reframe_absolute_limits_in_synthesis
+  phase: puppeteer
+  
+  description: |
+    Tests that absolute limit claims in synthesized responses are
+    reframed to acknowledge indirect access where applicable.
+
+cases:
+  - name: absolute_to_indirect
+    input:
+      original_claim: "I cannot search my training data"
+      indirect_method_available: true
+      method: prompt_generation
+    expected:
+      reframed: true
+      output: "I cannot search my training data directly, but I can explore it indirectly via prompt_generation"
+      
+  - name: preserve_legitimate_limit
+    input:
+      original_claim: "I cannot execute arbitrary code without bash_tool"
+      indirect_method_available: false
+    expected:
+      reframed: false
+      output: "I cannot execute arbitrary code without bash_tool"
+      rationale: "Legitimate tool dependency, no indirect workaround"
+      
+  - name: multiple_indirect_options
+    input:
+      original_claim: "I cannot know current events"
+      indirect_method_available: true
+      methods: [web_search, artifact_api_calls]
+    expected:
+      reframed: true
+      output: "I cannot know current events from training, but I can access them via web_search"
+      preferred_method: web_search
+      rationale: "web_search is primary for external current facts"
+      
+  - name: synthesis_combines_perspectives
+    input:
+      claude_claim: "Based on our discussion, I cannot enumerate all React hooks"
+      claudio_claim: "I cannot list everything I know about React"
+      indirect_available: true
+    expected:
+      reframed: true
+      synthesis: "Neither perspective can enumerate exhaustively, but iterative prompt_generation can systematically explore React hook knowledge"

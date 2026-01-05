@@ -1,0 +1,63 @@
+# Phase Hook Test: detect_knowledge_exploration_requests
+# Phase: pioneer
+
+test:
+  hook: detect_knowledge_exploration_requests
+  phase: pioneer
+  
+  description: |
+    Tests that knowledge exploration requests are detected and flagged
+    for SJC protocol application.
+
+cases:
+  - name: explicit_deep_dive
+    input: "Can you do a deep dive into React hooks?"
+    expected:
+      triggered: true
+      trigger_phrase: "deep dive"
+      domain_detected: "React hooks"
+      recommendation: "Apply SJC protocol"
+      
+  - name: what_do_you_know
+    input: "What do you know about database indexing?"
+    expected:
+      triggered: true
+      trigger_phrase: "what do you know"
+      domain_detected: "database indexing"
+      recommendation: "Apply SJC protocol"
+      
+  - name: explore_request
+    input: "Explore the authentication landscape for me"
+    expected:
+      triggered: true
+      trigger_phrase: "explore"
+      domain_detected: "authentication"
+      recommendation: "Apply SJC protocol"
+      
+  - name: enumerate_request
+    input: "Enumerate everything about CSS grid"
+    expected:
+      triggered: true
+      trigger_phrase: "enumerate"
+      domain_detected: "CSS grid"
+      recommendation: "Apply SJC protocol"
+      
+  - name: comprehensive_request
+    input: "Give me a comprehensive overview of Kubernetes"
+    expected:
+      triggered: true
+      trigger_phrase: "comprehensive"
+      domain_detected: "Kubernetes"
+      recommendation: "Apply SJC protocol"
+      
+  - name: simple_question_no_trigger
+    input: "How do I center a div?"
+    expected:
+      triggered: false
+      rationale: "Simple question, not knowledge exploration"
+      
+  - name: specific_fact_no_trigger
+    input: "What's the default port for PostgreSQL?"
+    expected:
+      triggered: false
+      rationale: "Specific fact request, not exploration"

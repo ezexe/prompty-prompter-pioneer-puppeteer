@@ -1,0 +1,29 @@
+extension:
+  name: sjc_indexer
+  type: skill
+  version: 0.1.0
+
+  compatibility:
+    p4_phases: [pioneer]
+    min_version: "0.1.0"
+    depends_on: [00_BASE, 05_VLDS, isomorphic_operations]
+
+  interface:
+    skill:
+      domains:
+        - knowledge_indexing
+        - iterative_exploration
+        - counterfactual_probing
+      capabilities:
+        - anchor_selection
+        - seam_finding
+        - junction_exploration
+        - boundary_mapping
+        - knowledge_synthesis
+      skill_file: ./README.md
+
+  hooks:
+    on_pioneer:
+      - detect_knowledge_exploration_requests
+      - execute_sjc_protocol
+      - index_domain_knowledge

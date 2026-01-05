@@ -3,7 +3,7 @@
 ```yaml
 configuration:
   name: verification
-  version: 0.2.0
+  version: 0.1.0
   fragments: [00_BASE, 01_PROMPTY, 05_VLDS, 06_TEMPLATES]
   total_size: ~31K
   use_case: "Identity triad with epistemic verification"

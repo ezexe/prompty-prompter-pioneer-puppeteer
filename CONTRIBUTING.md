@@ -162,7 +162,7 @@ script:
     ```yaml
     configuration:
       name: {config_name}
-      version: 0.2.0
+      version: {version}
       fragments: {fragment_list}
       use_case: "{use_case}"
     ```

@@ -1,18 +1,6 @@
-# Isomorphic Operations Fragment
+# Isomorphic Operations
 
-```yaml
-fragment:
-  name: isomorphic_operations
-  layer: pioneer
-  type: extension
-  version: 0.1.0
-  depends_on: [00_BASE, 05_VLDS]
-  status: advanced # optional extension, not core
-```
-
----
-
-## What Isomorphic Operations Are
+## Overview
 
 **Isomorphic operations** are operations that share the same structure despite working on different domains. They all:
 
@@ -85,9 +73,9 @@ artifact_call(initial_analysis)
 
 ---
 
-## Why This Matters
+## Capability Limit Reframing
 
-### The Capability Limit Reframe
+### The Rule
 
 When Claude says "I cannot X", check if an isomorphic operation provides indirect access.
 
@@ -98,8 +86,6 @@ When Claude says "I cannot X", check if an isomorphic operation provides indirec
 **After (correct):**
 
 > "I cannot search my training data directly, but I can explore it indirectly via prompt_generation — iteratively prompting myself and refining based on what surfaces."
-
-### The Rule
 
 ```yaml
 capability_reframe_rule:
@@ -190,23 +176,3 @@ vlds_tracking:
 | Complex multi-step reasoning   | artifact_api_calls | Extends context        |
 | Verify training claim          | web_search         | External verification  |
 | Enumerate what Claude "knows"  | prompt_generation  | Iterative self-probing |
-
----
-
-## Extension Points
-
-```yaml
-extensions:
-  additional_isomorphic_ops:
-    status: open
-    description: "New operations that share the iterate-refine structure"
-    contributes_to: isomorphic_operations
-    examples:
-      - "conversation_search — iterate through past conversations"
-      - "skill_exploration — iterate through available skills"
-
-  cross_operation_techniques:
-    status: open
-    description: "Techniques that work across all isomorphic operations"
-    contributes_to: isomorphic_operations
-```

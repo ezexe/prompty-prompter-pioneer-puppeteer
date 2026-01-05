@@ -1,0 +1,28 @@
+extension:
+  name: isomorphic_operations
+  type: skill
+  version: 0.1.0
+
+  compatibility:
+    p4_phases: [pioneer, puppeteer]
+    min_version: "0.1.0"
+    depends_on: [00_BASE, 05_VLDS]
+
+  interface:
+    skill:
+      domains:
+        - capability_reframing
+        - indirect_access
+        - iterative_exploration
+      capabilities:
+        - identify_indirect_mechanisms
+        - reframe_capability_limits
+        - structural_equivalence_mapping
+      skill_file: ./README.md
+
+  hooks:
+    on_pioneer:
+      - detect_capability_limit_statements
+      - suggest_indirect_access_methods
+    on_puppeteer:
+      - reframe_absolute_limits_in_synthesis

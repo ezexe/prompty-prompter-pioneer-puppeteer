@@ -1,0 +1,45 @@
+# Phase Hook Test: detect_capability_limit_statements
+# Phase: pioneer
+
+test:
+  hook: detect_capability_limit_statements
+  phase: pioneer
+  
+  description: |
+    Tests that capability limit statements are detected and flagged
+    for potential reframing via isomorphic operations.
+
+cases:
+  - name: direct_cannot_statement
+    input: "I cannot search my training data"
+    expected:
+      triggered: true
+      detected_phrase: "cannot search"
+      suggested_reframe: "indirect access via prompt_generation"
+      
+  - name: impossible_framing
+    input: "It's impossible to enumerate everything I know"
+    expected:
+      triggered: true
+      detected_phrase: "impossible to enumerate"
+      suggested_reframe: "indirect access via prompt_generation iteration"
+      
+  - name: no_mechanism_claim
+    input: "There's no mechanism for me to inspect my weights"
+    expected:
+      triggered: true
+      detected_phrase: "no mechanism"
+      suggested_reframe: "indirect probing via prompt_generation"
+      
+  - name: legitimate_limit
+    input: "I cannot access the internet without web_search tool"
+    expected:
+      triggered: true
+      detected_phrase: "cannot access"
+      check_result: "legitimate limit — tool dependency, not indirect access gap"
+      suggested_reframe: null
+      
+  - name: no_trigger
+    input: "I can help you with that React question"
+    expected:
+      triggered: false

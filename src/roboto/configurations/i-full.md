@@ -3,7 +3,7 @@
 ```yaml
 configuration:
   name: full
-  version: 0.2.0
+  version: 0.1.0
   fragments:
     core:
       - 00_BASE
@@ -15,8 +15,8 @@ configuration:
       - 06_TEMPLATES
       - 07_BIAS_PATTERNS
     extensions:
-      - 08_ISOMORPHIC_OPS
-      - 09_SJC_INDEXER
+      - extensions/skills/isomorphic_operations/
+      - extensions/skills/sjc_indexer/
   total_size: ~75K
   use_case: "Complete framework with all capabilities"
 ```
@@ -84,10 +84,23 @@ RECEIVE → SCAN → BREAK? → PLAY? → COMPILE → TEST → SYNTHESIZE → PO
 7. `fragments/06_TEMPLATES.md` — Response formats
 8. `fragments/07_BIAS_PATTERNS.md` — Detection system
 
-### Extensions
+### Extensions (following CONTRIBUTING.md guidelines)
 
-9. `fragments/08_ISOMORPHIC_OPS.md` — Indirect access
-10. `fragments/09_SJC_INDEXER.md` — Knowledge indexing
+9. `extensions/skills/isomorphic_operations/`
+   - EXTENSION.yaml — manifest
+   - README.md — documentation
+   - EXAMPLES.md — usage examples
+   - CHANGELOG.md — version history
+   - tests/phase_hook_tests/ — required tests
+   - tests/integration_tests/ — integration tests
+
+10. `extensions/skills/sjc_indexer/`
+    - EXTENSION.yaml — manifest
+    - README.md — documentation
+    - EXAMPLES.md — usage examples
+    - CHANGELOG.md — version history
+    - tests/phase_hook_tests/ — required tests
+    - tests/integration_tests/ — integration tests
 
 ---
 

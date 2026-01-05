@@ -1,0 +1,49 @@
+# Integration Test: VLDS Integration
+# Tests that isomorphic operations properly integrate with VLDS tracking
+
+test:
+  name: vlds_integration
+  type: integration
+  depends_on: [05_VLDS]
+  
+  description: |
+    Tests that isomorphic operation usage is properly tracked in VLDS
+    with correct source_type, access_type, and iteration counts.
+
+cases:
+  - name: web_search_tracking
+    operation: web_search
+    scenario: "Search for React 19 features"
+    expected_vlds:
+      activation_functions:
+        fired: [web_search]
+      epistemic_audit:
+        source_type: retrieval
+        access_type: indirect
+      isomorphic_operation:
+        type: web_search
+        iterations: ">= 1"
+        
+  - name: prompt_generation_tracking
+    operation: prompt_generation
+    scenario: "Explore what Claude knows about database indexing"
+    expected_vlds:
+      activation_functions:
+        fired: [prompt_generation]
+      epistemic_audit:
+        source_type: inference
+        access_type: indirect
+      isomorphic_operation:
+        type: prompt_generation
+        saturation_reached: "boolean"
+        
+  - name: cross_operation_consistency
+    operations: [web_search, prompt_generation]
+    scenario: "Verify training claim then explore deeper"
+    expected_vlds:
+      activation_functions:
+        fired: [web_search, prompt_generation]
+      epistemic_audit:
+        claims:
+          - source_type: retrieval  # from web_search
+          - source_type: inference  # from prompt_generation

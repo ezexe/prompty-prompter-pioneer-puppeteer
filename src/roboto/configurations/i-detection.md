@@ -3,7 +3,7 @@
 ```yaml
 configuration:
   name: detection
-  version: 0.2.0
+  version: 0.1.0
   fragments: [00_BASE, 01_PROMPTY, 03_PIONEER, 07_BIAS_PATTERNS]
   total_size: ~25K
   use_case: "Identity triad with bias pattern detection"

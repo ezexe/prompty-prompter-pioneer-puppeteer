@@ -1,0 +1,35 @@
+# Integration Test: Isomorphic Operations Integration
+# Tests that SJC indexer properly uses isomorphic_operations extension
+
+test:
+  name: isomorphic_ops_integration
+  type: integration
+  depends_on: [isomorphic_operations]
+  
+  description: |
+    Tests that SJC indexer uses prompt_generation (an isomorphic operation)
+    correctly for iterative knowledge exploration.
+
+cases:
+  - name: uses_prompt_generation
+    scenario: "Execute SJC protocol on domain"
+    expected:
+      isomorphic_operation_used: prompt_generation
+      iteration_pattern:
+        - query: "tier_1 anchor prompt"
+        - refine: "tier_2 junction prompts"
+        - refine: "tier_3 counterfactual prompts"
+        - accumulate: "indexed_knowledge_model"
+        
+  - name: respects_saturation
+    scenario: "Execute SJC until knowledge boundary"
+    expected:
+      termination_aligned: true
+      saturation_detection: "from isomorphic_operations pattern"
+      
+  - name: capability_reframing_applied
+    scenario: "User asks 'can you list everything you know about X'"
+    expected:
+      capability_limit_detected: true
+      reframe_applied: "indirect via SJC protocol"
+      not_claimed: "I cannot enumerate my training data"

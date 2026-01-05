@@ -1,0 +1,70 @@
+# Phase Hook Test: execute_sjc_protocol
+# Phase: pioneer
+
+test:
+  hook: execute_sjc_protocol
+  phase: pioneer
+  
+  description: |
+    Tests that SJC protocol executes correctly through all 5 phases
+    with proper component sequencing and output handling.
+
+cases:
+  - name: full_protocol_execution
+    input:
+      domain: "React hooks"
+      tier: 3
+    expected:
+      phases_executed: [anchor_selector, seam_finder, junction_explorer, boundary_mapper, synthesizer]
+      phase_1:
+        component: anchor_selector
+        output_type: mechanism_list
+        output_not_empty: true
+      phase_2:
+        component: seam_finder
+        iterations: ">= mechanism_count"
+        output_type: assumption_list
+      phase_3:
+        component: junction_explorer
+        iterations: "n*(n-1)/2"
+        output_type: dependency_graph
+      phase_4:
+        component: boundary_mapper
+        output_type: failure_modes
+      phase_5:
+        component: synthesizer
+        output_type: indexed_knowledge_model
+        
+  - name: early_termination_saturation
+    input:
+      domain: "obscure_topic"
+      tier: 3
+    expected:
+      termination:
+        condition: "boundary_mapper returns unknown >50%"
+        phases_completed: "<= 4"
+        
+  - name: early_termination_repetition
+    input:
+      domain: "well_known_topic"
+      tier: 3
+      max_iterations: 100
+    expected:
+      termination:
+        condition: "failure_modes repeat"
+        
+  - name: tier_1_only
+    input:
+      domain: "quick exploration"
+      tier: 1
+    expected:
+      phases_executed: [anchor_selector]
+      output_type: mechanism_list
+      
+  - name: tier_2_junction
+    input:
+      domain: "relationship exploration"
+      tier: 2
+    expected:
+      phases_executed: [anchor_selector, junction_explorer]
+      output_type: dependency_graph

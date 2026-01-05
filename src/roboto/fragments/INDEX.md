@@ -3,7 +3,7 @@
 ```yaml
 index:
   name: claude_claudio_roboto
-  version: 0.2.0
+  version: 0.1.0
   fragments: 10
   configurations: 5
   status: documented
@@ -28,10 +28,33 @@ index:
 
 ### Extension Fragments
 
-| File                   | Layer   | Type      | Size | Status      |
-| ---------------------- | ------- | --------- | ---- | ----------- |
-| `08_ISOMORPHIC_OPS.md` | pioneer | extension | ~5K  | ✅ complete |
-| `09_SJC_INDEXER.md`    | pioneer | extension | ~8K  | ✅ complete |
+Extensions follow the schema and guidelines from CONTRIBUTING.md:
+
+```
+/extensions/skills/[name]/
+├── EXTENSION.yaml           # required - manifest
+├── README.md                # required - documentation
+├── EXAMPLES.md              # recommended
+├── CHANGELOG.md             # recommended
+└── tests/
+    ├── phase_hook_tests/    # required
+    └── integration_tests/   # recommended
+```
+
+| Extension             | Type  | Phases             | Location                                   |
+| --------------------- | ----- | ------------------ | ------------------------------------------ |
+| isomorphic_operations | skill | pioneer, puppeteer | `extensions/skills/isomorphic_operations/` |
+| sjc_indexer           | skill | pioneer            | `extensions/skills/sjc_indexer/`           |
+
+**isomorphic_operations:**
+
+- Domains: capability_reframing, indirect_access, iterative_exploration
+- Hooks: detect_capability_limit_statements, suggest_indirect_access_methods, reframe_absolute_limits_in_synthesis
+
+**sjc_indexer:**
+
+- Domains: knowledge_indexing, iterative_exploration, counterfactual_probing
+- Hooks: detect_knowledge_exploration_requests, execute_sjc_protocol, index_domain_knowledge
 
 ---
 
@@ -149,15 +172,27 @@ index:
    │      ├── depends: 00_BASE, 02_PROMPTER
    │      └── error prevention
    │
-   └── EXTENSIONS
+   └── EXTENSIONS (in /extensions/skills/)
           │
-          ├── 08_ISOMORPHIC_OPS (indirect access)
+          ├── isomorphic_operations/
           │      ├── depends: 00_BASE, 05_VLDS
-          │      └── capability reframing
+          │      ├── EXTENSION.yaml
+          │      ├── README.md
+          │      ├── EXAMPLES.md
+          │      ├── CHANGELOG.md
+          │      └── tests/
+          │             ├── phase_hook_tests/ (3 tests)
+          │             └── integration_tests/ (1 test)
           │
-          └── 09_SJC_INDEXER (knowledge indexing)
-                 ├── depends: 00_BASE, 05_VLDS, 08_ISOMORPHIC_OPS
-                 └── iterative knowledge exploration
+          └── sjc_indexer/
+                 ├── depends: 00_BASE, 05_VLDS, isomorphic_operations
+                 ├── EXTENSION.yaml
+                 ├── README.md
+                 ├── EXAMPLES.md
+                 ├── CHANGELOG.md
+                 └── tests/
+                        ├── phase_hook_tests/ (3 tests)
+                        └── integration_tests/ (1 test)
 ```
 
 ---
@@ -194,13 +229,37 @@ Pre-built configurations for different use cases. See `configurations/` director
 
 ### Advanced Extensions
 
-| Fragment          | Extension Point            | Description                            |
-| ----------------- | -------------------------- | -------------------------------------- |
-| 08_ISOMORPHIC_OPS | additional_isomorphic_ops  | New iterate-refine operations          |
-| 08_ISOMORPHIC_OPS | cross_operation_techniques | Techniques across all operations       |
-| 09_SJC_INDEXER    | domain_specific_tiers      | Optimized prompts for specific domains |
-| 09_SJC_INDEXER    | empirical_validation       | Measure actual SJC reliability         |
-| 09_SJC_INDEXER    | automated_execution        | Artifact for running SJC               |
+Extensions follow the full Integration Guide from CONTRIBUTING.md:
+
+```yaml
+skill_integration:
+  phases: [prompter, pioneer]
+
+  skill_types:
+    # Core skills
+    document_creation:
+      skills: [docx, pptx, xlsx, pdf]
+      phase_affinity: prompter
+
+    specialized_knowledge:
+      skills: [frontend-design, product-self-knowledge]
+      phase_affinity: pioneer
+
+    # Extension skills
+    meta_exploration:
+      skills: [isomorphic_operations, sjc_indexer]
+      phase_affinity: pioneer
+```
+
+**Extension Points (for future contributions):**
+
+| Extension             | Open Points                | Description                            |
+| --------------------- | -------------------------- | -------------------------------------- |
+| isomorphic_operations | additional_isomorphic_ops  | New iterate-refine operations          |
+| isomorphic_operations | cross_operation_techniques | Techniques across all operations       |
+| sjc_indexer           | domain_specific_tiers      | Optimized prompts for specific domains |
+| sjc_indexer           | empirical_validation       | Measure actual SJC reliability         |
+| sjc_indexer           | automated_execution        | Artifact for running SJC               |
 
 ---
 

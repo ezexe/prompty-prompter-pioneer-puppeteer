@@ -1,0 +1,62 @@
+# Phase Hook Test: index_domain_knowledge
+# Phase: pioneer
+
+test:
+  hook: index_domain_knowledge
+  phase: pioneer
+
+  description: |
+    Tests that domain knowledge is properly indexed and stored
+    in the output schema format.
+
+cases:
+  - name: complete_index_output
+    input:
+      domain: "React"
+      sjc_output:
+        mechanisms: [diffing, hooks, state]
+        assumptions: [{ mechanism: diffing, assumes: "render purity" }]
+        dependencies: [{ from: diffing, to: hooks, type: ordering }]
+        boundaries: [{ mechanism: hooks, unknown_beyond: "concurrent mode" }]
+    expected:
+      indexed_model:
+        domain: "React"
+        mechanisms_count: 3
+        has_assumptions: true
+        has_dependencies: true
+        has_boundaries: true
+        metadata:
+          aggregate_confidence: ">= 0.0"
+          termination_reason: "string"
+
+  - name: sparse_index
+    input:
+      domain: "obscure_library"
+      sjc_output:
+        mechanisms: [core_api]
+        assumptions: []
+        dependencies: []
+        boundaries: [{ mechanism: core_api, unknown_beyond: "everything" }]
+    expected:
+      indexed_model:
+        domain: "obscure_library"
+        mechanisms_count: 1
+        has_assumptions: false
+        has_dependencies: false
+        has_boundaries: true
+        metadata:
+          aggregate_confidence: "< 0.5"
+          termination_reason: "saturation"
+
+  - name: vlds_tracking_included
+    input:
+      domain: "any"
+    expected:
+      vlds_sjc_tracking:
+        activation_functions:
+          fired: [sjc_indexer]
+        epistemic_audit:
+          source_type: inference
+          decision_authority: QUALIFIED
+        provenance:
+          method: sjc_indexer

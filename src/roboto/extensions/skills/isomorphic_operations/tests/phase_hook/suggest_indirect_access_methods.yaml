@@ -1,0 +1,52 @@
+# Phase Hook Test: suggest_indirect_access_methods
+# Phase: pioneer
+
+test:
+  hook: suggest_indirect_access_methods
+  phase: pioneer
+  
+  description: |
+    Tests that appropriate indirect access methods are suggested
+    based on the type of access being requested.
+
+cases:
+  - name: external_knowledge_request
+    input:
+      request_type: "current information"
+      domain: "external facts"
+    expected:
+      suggested_method: web_search
+      rationale: "External knowledge best accessed via web_search"
+      
+  - name: internal_knowledge_exploration
+    input:
+      request_type: "what do you know about X"
+      domain: "training knowledge"
+    expected:
+      suggested_method: prompt_generation
+      rationale: "Internal knowledge explored via iterative self-prompting"
+      
+  - name: extended_reasoning
+    input:
+      request_type: "deep analysis requiring multiple steps"
+      domain: "complex reasoning"
+    expected:
+      suggested_method: artifact_api_calls
+      rationale: "Extended reasoning via chained API calls"
+      
+  - name: verification_of_training_claim
+    input:
+      request_type: "is this fact correct"
+      domain: "verifiable claim from training"
+    expected:
+      suggested_method: web_search
+      rationale: "Training claims should be verified externally"
+      
+  - name: enumerate_knowledge
+    input:
+      request_type: "list everything about X"
+      domain: "internal enumeration"
+    expected:
+      suggested_method: prompt_generation
+      rationale: "Enumeration via iterative probing with refinement"
+      iterations_suggested: "until saturation"
