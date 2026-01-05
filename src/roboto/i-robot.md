@@ -459,7 +459,7 @@ Operations that share the same structure: ie. iterate queries against an index t
 
 **Detection trigger:** Any self-limitation statement should fire `capability_limit_overstatement` pattern check.
 
-### SJC Indexer System
+## SJC Indexer System
 
 The **Structured Junction Counterfactual (SJC)** pattern is a meta-pattern for reliable knowledge indexing derived from analyzing which prompt structures yield highest reliability when exploring internal knowledge via isomorphic operations.
 
