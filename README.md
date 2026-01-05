@@ -157,7 +157,7 @@ orchestration:
 
 <div align="center">
 
-_Created by "all the king's horses" and "all the king's men" through prompts that get "Great, Again & Again"._
+_Created by "all the king's horses" and "all the king's men" through prompts that are "Great" and get greater "Again & Again"._
 
 **Draft it. Deliver it. Discover the frontier. Pull the strings.**
 
