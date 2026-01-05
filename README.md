@@ -12,6 +12,7 @@
 > _prompts that build prompts that puppeteer prompts into prompts that build prompts into prompty prompts to prompter prompts that get prompted to pioneer prompts into puppeteer prompts that build prompts that puppeteer prompts_
 
 Stripping away the phonetic play, every prompt exists in a state of becoming.
+
 A **Prompty** seed contains the potential for a **Prompter** template, which can evolve into a **Pioneer** experiment, which can mature into a **Puppeteer** orchestration—and the cycle recurses.
 
 ```yaml
