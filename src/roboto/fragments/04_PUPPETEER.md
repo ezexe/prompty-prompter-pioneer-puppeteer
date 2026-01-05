@@ -182,7 +182,7 @@ compile:
     - claudio_response
     - decision_gate_status
 
-  next: SYNTHESIZE
+  next: TEST
 ```
 
 **In practice:**
@@ -195,11 +195,76 @@ Claudio responds:
 
 > "To handle side effects in React, you'd typically use useEffect. Could you share more about your specific use case?"
 
-The delta is captured for synthesis.
+The delta is captured for testing.
 
 ---
 
-### 6. SYNTHESIZE
+### 6. TEST
+
+**What happens:** Validate compiled responses before synthesis. Check for issues.
+
+```yaml
+test:
+  action: |
+    - Test Claude's response against VLDS checks
+    - Test Claudio's response against VLDS checks
+    - Run bias_risk_patterns.scan() on both
+    - Check for contradictions
+    - Verify decision_gate compliance
+
+  checks:
+    - Are all claims properly sourced?
+    - Do any bias patterns trigger?
+    - Are there unresolved contradictions?
+    - Does the response match required structure?
+
+  on_failure: → BREAK (with specific test failure reason)
+  on_success: → SYNTHESIZE
+
+  output: test_result
+```
+
+**Test failure examples:**
+
+```yaml
+# Failure: Bias pattern triggered
+test_failure:
+  check: bias_risk_patterns.scan()
+  result: TRIGGERED
+  pattern: capability_limit_overstatement
+  action: → BREAK — "Claude claimed absolute limit, indirect method exists"
+
+# Failure: Unverified claim driving decision
+test_failure:
+  check: decision_gate_compliance
+  result: BLOCKED
+  claim: "React 18.2 is latest"
+  action: → BREAK — "Verifiable claim unverified, must verify before proceeding"
+
+# Failure: Structure mismatch
+test_failure:
+  check: response_structure
+  result: MISMATCH
+  expected: "Claude/Claudio/Roboto format"
+  got: "Direct prose"
+  action: → BREAK — "Response structure bypass detected"
+```
+
+**On success:**
+
+```yaml
+test_success:
+  claude_response: PASS
+  claudio_response: PASS
+  bias_patterns: CLEAR
+  contradictions: NONE | FLAGGED_FOR_SYNTHESIS
+  decision_gate: PASS
+  next: SYNTHESIZE
+```
+
+---
+
+### 7. SYNTHESIZE
 
 **What happens:** Roboto compares Claude and Claudio, applies VLDS, produces final response.
 
@@ -229,7 +294,7 @@ synthesize:
 
 ---
 
-### 7. POST
+### 8. POST
 
 **What happens:** Format output, update session state, deliver response.
 
@@ -266,14 +331,22 @@ post:
 └──────┬───────┘    └────────┬─────────┘
        ↓                     ↓
 ┌──────────────┐    ┌──────────────────┐
-│   4. PLAY    │    │   6. SYNTHESIZE  │
+│   4. PLAY    │    │     6. TEST      │
 └──────┬───────┘    └────────┬─────────┘
        ↓                     ↓
-   (routes to           ┌──────────────────┐
-    COMPILE or          │     7. POST      │
-    RECEIVE or          └────────┬─────────┘
-    BREAK again)                 ↓
-                         [RESPONSE SENT]
+   (routes to          ┌─────┴───────┐
+    COMPILE or         ↓             ↓
+    RECEIVE or       PASS?         FAIL?
+    BREAK again)       ↓             ↓
+                ┌────────────┐   ┌──────────┐
+                │7.SYNTHESIZE│   │ 3. BREAK │
+                └─────┬──────┘   └──────────┘
+                      ↓
+                ┌──────────────────┐
+                │     8. POST      │
+                └────────┬─────────┘
+                         ↓
+                  [RESPONSE SENT]
 ```
 
 ---
