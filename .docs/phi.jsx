@@ -885,19 +885,136 @@ function TreeTab() {
   const [n, setN] = useState(6);
   const [highlight, setHighlight] = useState(null); // which subtree root to highlight
 
+  // ─── Pan & Zoom state ───
+  const [zoom, setZoom] = useState(1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [dragging, setDragging] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const [panStart, setPanStart] = useState({ x: 0, y: 0 });
+  const containerRef = useRef(null);
+
   const tree = useMemo(() => buildTree(n), [n]);
   const nodes = useMemo(() => layoutTree(tree), [tree]);
 
-  // Find max x/y for scaling
+  // Find max x/y for scaling the SVG coordinate space
   const maxX = Math.max(...nodes.map(n => n.x), 1);
   const maxY = Math.max(...nodes.map(n => n.y), 1);
 
   const padding = 40;
   const nodeR = 18;
-  const svgW = Math.max(400, (maxX + 1) * 50 + padding * 2);
+  const svgW = Math.max(500, (maxX + 1) * 50 + padding * 2);
   const svgH = (maxY + 1) * 60 + padding * 2;
   const scaleX = x => padding + (x / Math.max(maxX, 1)) * (svgW - padding * 2);
   const scaleY = y => padding + y * 55;
+
+  // Reset pan/zoom when n changes
+  useEffect(() => {
+    setZoom(1);
+    setPan({ x: 0, y: 0 });
+  }, [n]);
+
+  // ─── Mouse wheel → zoom (centered on cursor) ───
+  const handleWheel = useCallback(
+    e => {
+      e.preventDefault();
+      const delta = e.deltaY > 0 ? 0.9 : 1.1; // scroll down = zoom out, up = zoom in
+      const newZoom = Math.max(0.2, Math.min(5, zoom * delta));
+
+      // Zoom toward cursor position within the container
+      if (containerRef.current) {
+        const rect = containerRef.current.getBoundingClientRect();
+        const cx = e.clientX - rect.left;
+        const cy = e.clientY - rect.top;
+        // Adjust pan so the point under the cursor stays fixed
+        const scale = newZoom / zoom;
+        setPan(p => ({
+          x: cx - scale * (cx - p.x),
+          y: cy - scale * (cy - p.y)
+        }));
+      }
+      setZoom(newZoom);
+    },
+    [zoom]
+  );
+
+  // ─── Mouse drag → pan ───
+  const handleMouseDown = useCallback(
+    e => {
+      // Only start drag on left button, and not if clicking a node
+      if (e.button !== 0) return;
+      setDragging(true);
+      setDragStart({ x: e.clientX, y: e.clientY });
+      setPanStart({ ...pan });
+    },
+    [pan]
+  );
+
+  const handleMouseMove = useCallback(
+    e => {
+      if (!dragging) return;
+      setPan({
+        x: panStart.x + (e.clientX - dragStart.x),
+        y: panStart.y + (e.clientY - dragStart.y)
+      });
+    },
+    [dragging, dragStart, panStart]
+  );
+
+  const handleMouseUp = useCallback(() => {
+    setDragging(false);
+  }, []);
+
+  // ─── Touch support for mobile ───
+  const lastTouchRef = useRef(null);
+  const lastPinchRef = useRef(null);
+
+  const handleTouchStart = useCallback(
+    e => {
+      if (e.touches.length === 1) {
+        // Single touch = pan
+        lastTouchRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+        setPanStart({ ...pan });
+      } else if (e.touches.length === 2) {
+        // Pinch = zoom
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        lastPinchRef.current = Math.sqrt(dx * dx + dy * dy);
+      }
+    },
+    [pan]
+  );
+
+  const handleTouchMove = useCallback(
+    e => {
+      e.preventDefault();
+      if (e.touches.length === 1 && lastTouchRef.current) {
+        const dx = e.touches[0].clientX - lastTouchRef.current.x;
+        const dy = e.touches[0].clientY - lastTouchRef.current.y;
+        setPan({ x: panStart.x + dx, y: panStart.y + dy });
+      } else if (e.touches.length === 2 && lastPinchRef.current) {
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        const scale = dist / lastPinchRef.current;
+        setZoom(z => Math.max(0.2, Math.min(5, z * scale)));
+        lastPinchRef.current = dist;
+      }
+    },
+    [panStart]
+  );
+
+  const handleTouchEnd = useCallback(() => {
+    lastTouchRef.current = null;
+    lastPinchRef.current = null;
+  }, []);
+
+  // Attach non-passive wheel listener (React onWheel is passive by default)
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    el.addEventListener("wheel", handleWheel, { passive: false });
+    return () => el.removeEventListener("wheel", handleWheel);
+  }, [handleWheel]);
 
   // Collect all node IDs in a subtree for highlighting
   const collectIds = useCallback(node => {
@@ -911,7 +1028,6 @@ function TreeTab() {
   // Find the subtree to highlight
   const highlightIds = useMemo(() => {
     if (highlight === null) return null;
-    // Find the node in the tree by n value
     const findNode = (node, targetN) => {
       if (!node) return null;
       if (node.n === targetN) return node;
@@ -920,6 +1036,22 @@ function TreeTab() {
     const subtreeRoot = findNode(tree, highlight);
     return subtreeRoot ? collectIds(subtreeRoot) : null;
   }, [highlight, tree, collectIds]);
+
+  const resetView = () => {
+    setZoom(1);
+    setPan({ x: 0, y: 0 });
+  };
+  const zoomIn = () => setZoom(z => Math.min(5, z * 1.3));
+  const zoomOut = () => setZoom(z => Math.max(0.2, z / 1.3));
+  const fitToView = () => {
+    // Scale so the full SVG fits in the 400px-high viewport
+    if (!containerRef.current) return;
+    const cw = containerRef.current.clientWidth;
+    const ch = 400;
+    const fitZoom = Math.min(cw / svgW, ch / svgH, 2);
+    setZoom(fitZoom);
+    setPan({ x: (cw - svgW * fitZoom) / 2, y: (ch - svgH * fitZoom) / 2 });
+  };
 
   const btnBase = {
     padding: "5px 12px",
@@ -932,6 +1064,7 @@ function TreeTab() {
     fontSize: 11,
     transition: "all 0.2s ease"
   };
+  const zoomBtn = { ...btnBase, padding: "4px 10px", fontSize: 14, lineHeight: 1, minWidth: 32 };
 
   return (
     <div>
@@ -966,7 +1099,7 @@ function TreeTab() {
       </div>
 
       {/* Self-similar highlight buttons */}
-      <div style={{ display: "flex", gap: 6, justifyContent: "center", marginBottom: 14, flexWrap: "wrap" }}>
+      <div style={{ display: "flex", gap: 6, justifyContent: "center", marginBottom: 10, flexWrap: "wrap" }}>
         <button
           onClick={() => setHighlight(null)}
           style={{ ...btnBase, background: highlight === null ? "rgba(212,160,23,0.2)" : "transparent" }}
@@ -999,20 +1132,83 @@ function TreeTab() {
         )}
       </div>
 
-      {/* SVG tree */}
+      {/* Zoom controls bar */}
+      <div style={{ display: "flex", gap: 4, justifyContent: "center", alignItems: "center", marginBottom: 8 }}>
+        <button
+          onClick={zoomOut}
+          style={zoomBtn}
+        >
+          −
+        </button>
+        <div style={{ fontFamily: MONO, fontSize: 10, color: "rgba(255,255,255,0.3)", minWidth: 48, textAlign: "center" }}>
+          {(zoom * 100).toFixed(0)}%
+        </div>
+        <button
+          onClick={zoomIn}
+          style={zoomBtn}
+        >
+          +
+        </button>
+        <button
+          onClick={fitToView}
+          style={{ ...btnBase, padding: "4px 10px", fontSize: 10 }}
+        >
+          FIT
+        </button>
+        <button
+          onClick={resetView}
+          style={{ ...btnBase, padding: "4px 10px", fontSize: 10 }}
+        >
+          RESET
+        </button>
+      </div>
+
+      {/* SVG tree — scrollable & zoomable viewport */}
       <div
+        ref={containerRef}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseUp}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
         style={{
-          overflowX: "auto",
+          overflow: "hidden",
           background: "rgba(0,0,0,0.2)",
           borderRadius: 10,
           border: "1px solid rgba(255,255,255,0.05)",
-          padding: 8
+          height: 400,
+          cursor: dragging ? "grabbing" : "grab",
+          position: "relative",
+          touchAction: "none" // prevent browser scroll on touch
         }}
       >
+        {/* Hint overlay — fades after interaction */}
+        <div
+          style={{
+            position: "absolute",
+            bottom: 8,
+            right: 10,
+            fontFamily: MONO,
+            fontSize: 9,
+            color: "rgba(255,255,255,0.15)",
+            pointerEvents: "none",
+            zIndex: 1
+          }}
+        >
+          scroll to zoom · drag to pan
+        </div>
+
         <svg
           width={svgW}
           height={svgH}
-          style={{ display: "block", margin: "0 auto" }}
+          style={{
+            display: "block",
+            transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+            transformOrigin: "0 0",
+            transition: dragging ? "none" : "transform 0.1s ease-out"
+          }}
         >
           {/* Edges */}
           {nodes.map(nd => {
@@ -1073,7 +1269,10 @@ function TreeTab() {
               <g
                 key={`n-${nd.id}`}
                 style={{ cursor: nd.n >= 2 ? "pointer" : "default" }}
-                onClick={() => nd.n >= 2 && setHighlight(highlight === nd.n ? null : nd.n)}
+                onClick={e => {
+                  // Don't trigger node click if we just finished a drag
+                  if (nd.n >= 2) setHighlight(highlight === nd.n ? null : nd.n);
+                }}
               >
                 <circle
                   cx={cx}
@@ -1125,7 +1324,7 @@ function TreeTab() {
           which {nodes.filter(nd => nd.n === 1).length} are 1-leaves — and fib({n}) = {FIB[n - 1] || n}.
         </div>
         <div>
-          <span style={{ color: GOLD }}>Click any node</span> to highlight its subtree and see the self-similarity.
+          <span style={{ color: GOLD }}>Click any node</span> to highlight its subtree. Scroll to zoom, drag to pan.
         </div>
       </div>
     </div>
