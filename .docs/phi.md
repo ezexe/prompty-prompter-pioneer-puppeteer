@@ -1,3 +1,80 @@
+# bin-register
+
+```python
+def to_bin(n):
+    if n == 0: return 0
+    elif n == 1: return 1
+    # Quotient (left side) + Remainder (right side)
+    else: return to_bin(n // 2) * 10 + to_bin(n % 2)
+```
+
+Standard Binary (2^n):
+The decimal number 3 in binary is 0011.
+
+- This represents (1 _ 2^1) + (1 _ 2^0) = 2 + 1 = 3
+
+In a hardware sense, a Binary Adder is a masterpiece of efficiency because it uses the absolute minimum number of logic gates to process a carry.
+
+1. The Binary Full Adder (Minimalist)
+   A standard binary full adder adds three bits (A, B, and a Carry-in) and outputs a Sum and a Carry-out. It only requires 5 logic gates.
+
+- Logic Gates Used: 2 XOR, 2 AND, 1 OR.
+- The "Trick": It only cares about the current column and the one to its immediate left. The carry "ripples" in one direction.
+
+## Equation:
+
+- $Sum = (A \oplus B) \oplus C_{in}$
+  In digital electronics and Boolean algebra, the equation $Sum = (A \oplus B) \oplus C_{in}$ translates to:
+  "The sum is equal to A exclusive-OR B, exclusive-OR carry-in."
+  Key Components
+
+* Sum: The result of the addition operation.
+* $\oplus$ (Exclusive-OR / XOR): A logical operation that outputs true (1) only if the number of true inputs is odd.
+* $A$ and $B$: The two primary input bits being added.
+* $C_{in}$ (Carry-in): The carry bit received from a previous, less significant bit addition.
+
+Context: The Full Adder
+This specific formula defines the Sum output of a Full Adder circuit. In this context, the operation can also be described as:
+
+- Parity Check: The sum bit is 1 if an odd number of inputs ($A$, $B$, and $C_{in}$) are 1.
+- Modulo-2 Addition: Adding the three bits together and keeping only the remainder after dividing by 2 ($A + B + C_{in} \pmod 2$).
+
+## Carry-out ($C_{out}$) of a full adder is typically expressed in one of two ways:
+
+1. Standard Logic Form
+   $C_{out} = (A \cdot B) + (C_{in} \cdot (A \oplus B))$
+   In plain English, this translates to:
+   "Carry-out is equal to (A AND B) OR (Carry-in AND (A XOR B))."
+   This version is most common because it reuses the $A \oplus B$ result already calculated for the Sum, making it efficient to build with physical gates.
+2. Simplified (Sum-of-Products) Form
+   $C_{out} = AB + BC_{in} + AC_{in}$
+   In plain English:
+   "Carry-out is equal to (A AND B) OR (B AND Carry-in) OR (A AND Carry-in)."
+   What this formula means
+   The Carry-out bit is "1" if at least two of the three inputs are "1". [8, 10, 11]
+
+- Generate ($A \cdot B$): If both A and B are 1, they "generate" a carry regardless of what the previous stage sent.
+- Propagate ($C_{in} \cdot (A \oplus B)$): If only one of A or B is 1, they "propagate" the incoming carry to the next stage.
+
+The truth table for a full adder shows every possible combination of the three inputs ($A$, $B$, and $C_{in}$) and the resulting Sum and Carry-out ($C_{out}$).
+
+| $A$ | $B$ | $C_{in}$ | Sum ($S$) | Carry-out ($C_{out}$) |
+| --- | --- | -------- | --------- | --------------------- |
+| 0   | 0   | 0        | 0         | 0                     |
+| 0   | 0   | 1        | 1         | 0                     |
+| 0   | 1   | 0        | 1         | 0                     |
+| 0   | 1   | 1        | 0         | 1                     |
+| 1   | 0   | 0        | 1         | 0                     |
+| 1   | 0   | 1        | 0         | 1                     |
+| 1   | 1   | 0        | 0         | 1                     |
+| 1   | 1   | 1        | 1         | 1                     |
+
+How to read this table:
+
+- Sum is 1 whenever there is an odd number of input 1s (1 or 3 total).
+- Carry-out is 1 whenever there are two or more input 1s.
+- Row 8 (All 1s): When $A$, $B$, and $C_{in}$ are all 1, the total is 3. In binary, 3 is represented as 11, meaning both the Sum and Carry-out bits are 1.
+
 # φ-Register
 
 ```python
@@ -10,12 +87,15 @@ def fib(n):
     elif n == 1: return 1
     else: return fib(n-1) + fib(n-2)
 ```
+
 Every time you go up one number (e.g., from 5 to 6), you aren't just adding one branch—you are re-growing the entire tree from two steps ago as a side branch.
-* (6) contains a full (5) tree on the left.
-* (6) contains a full (4) tree on the right.
+
+- (6) contains a full (5) tree on the left.
+- (6) contains a full (4) tree on the right.
 
 Exactly how many **(1)**s and **(0)**s (the base cases) it takes to build the final number?
 Here is the full, un-cached expansion for each step:
+
 ```md
 * fib(0) --> 0 -> 0
 * fib(1) --> 1 -> 1
@@ -65,6 +145,7 @@ Here is the full, un-cached expansion for each step:
   / \
  1 + 0
 ```
+
 | Decimal | Binary Weights (8,4,2,1) | Binary Code | Fibonacci Weights (13,8,5,3,2,1) | Zeckendorf Code |
 | ------- | ------------------------ | ----------- | -------------------------------- | --------------- |
 | 1       | 1                        | 0001        | 1                                | 000001          |
@@ -83,7 +164,11 @@ Here is the full, un-cached expansion for each step:
 | 14      | 8+4+2                    | 1110        | 13+1                             | 100001          |
 | 15      | 8+4+2+1                  | 1111        | 13+2                             | 100010          |
 | 16      | 16                       | 10000       | 13+3                             | 100100          |
-
+| 17      | 16+1                     | 10001       | 13+3+1                           | 100101          |
+| 18      | 16+2                     | 10010       | 13+5                             | 101000          |
+| 19      | 16+2+1                   | 10011       | 13+5+1                           | 101001          |
+| 20      | 16+4                     | 10100       | 13+5+2                           | 101010          |
+| 21      | 16+4+1                   | 10101       | 21                               | 1000000         |
 
 ## The Axiom
 
@@ -95,9 +180,9 @@ This isn't a formula you derive — it's the law of the machine. The carry rule,
 
 ## The Register
 
-A register is an ordered sequence of cells. Each cell holds 0 or 1. Cell *k* has weight F(k). A register is **valid** when no two adjacent cells both hold 1.
+A register is an ordered sequence of cells. Each cell holds 0 or 1. Cell _k_ has weight F(k). A register is **valid** when no two adjacent cells both hold 1.
 
-Here's the first self-referential property: the number of valid states in an *n*-cell register is F(n+2). The machine counts its own capacity in its own number system. Nothing external is needed to describe it.
+Here's the first self-referential property: the number of valid states in an _n_-cell register is F(n+2). The machine counts its own capacity in its own number system. Nothing external is needed to describe it.
 
 ## Arithmetic from the Single Identity
 
@@ -123,7 +208,7 @@ In any positional system with unconstrained digits, every bit pattern is valid a
 
 ## Multiplication
 
-Left-shift by one position scales a value by approximately φ. Not exactly — the result may need normalization — but the *structure* is that shifting is φ-scaling, and the normalization cleanup is bounded.
+Left-shift by one position scales a value by approximately φ. Not exactly — the result may need normalization — but the _structure_ is that shifting is φ-scaling, and the normalization cleanup is bounded.
 
 Multiplying by F(k) specifically: decompose via the recurrence. F(k) = F(k-1) + F(k-2), so `x · F(k) = x · F(k-1) + x · F(k-2)`. This recurses down to `x · F(1) = x` and `x · F(2) = x` (shift-by-one). Multiplication is a tree of additions shaped exactly like the Fibonacci call tree from your original observation. **The algorithm's structure mirrors the number system's structure.** General multiplication between two arbitrary values decomposes the multiplier into its Zeckendorf digits and sums the shifted copies — analogous to long multiplication, but with φ-spaced shifts instead of uniform ones.
 
@@ -133,7 +218,7 @@ Multiplying by F(k) specifically: decompose via the recurrence. F(k) = F(k-1) + 
 
 **Division** is repeated subtraction with φ-scaled shifting. Long division, but each trial subtraction shifts by Fibonacci positions. The quotient accumulates in Zeckendorf form naturally.
 
-**The native gate** that doesn't exist elsewhere: **NORMALIZE.** Every other logic operation (AND, OR, NOT on raw cells) can produce invalid states. NORMALIZE sweeps the register back to validity. It's the primitive. It *is* the computation.
+**The native gate** that doesn't exist elsewhere: **NORMALIZE.** Every other logic operation (AND, OR, NOT on raw cells) can produce invalid states. NORMALIZE sweeps the register back to validity. It's the primitive. It _is_ the computation.
 
 ## What This Machine is Good At
 
