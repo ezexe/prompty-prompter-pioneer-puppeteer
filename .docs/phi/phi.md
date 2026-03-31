@@ -106,7 +106,7 @@ Four entries. Three distinct values (the matrix is symmetric: `[0,1] = [1,0]`). 
 
 This matrix is the native object. Everything else — the 1D register, binary, the adjacency constraint, the Fibonacci delimiter — is a cipher on top of it.
 
-## Four Projections of One Fact
+## Six Projections of One Fact
 
 **1. The Adjacency Constraint.** In a flat Zeckendorf register, each cell is an independent switch with a Fibonacci weight. The weights have a dependency — `F(k) + F(k+1) = F(k+2)` — but the cells don't know about it. Independent addressing + dependent weights = redundancy. The no-adjacent-1s rule is duct tape over a dimensional mismatch: a 2D relationship forced into a 1D address space.
 
@@ -121,6 +121,10 @@ Allow [1,1]:   weights = 1, 2, 4, 8, 16...    → binary
 Forbid [1,1]:  weights = 1, 2, 3, 5, 8, 13... → Fibonacci
 Same matrix. Different cipher.
 ```
+
+**5. The Pythagorean Norm.** In the matrix pair `(a, b) = (F(k), F(k+1))`, the sum of squares `a² + b² = F(2k+1)` — always a Fibonacci number. The squared distance from the origin of the state vector lives on the sequence. In the 1D register, corruption is caught by adjacent 1s. In the matrix pair, corruption is caught by `a² + b²` falling off the Fibonacci sequence. Same structural error detection, different geometry. A second invariant confirms it: `b² - ab - a² = (-1)^k` (Cassini's identity), meaning the matrix has determinant ±1. Two scalar checks on a two-value state — the system is fully determined.
+
+**6. The NAND Gate.** The base matrix M = [[1,1],[1,0]] is the NAND truth table: two binary inputs, one binary output, and the only zero sits at [1,1]. The position all five other projections converge on — forbidden, redundant, delimiter, fork point, norm anchor — is the gate's only rejection. The Fibonacci sequence is what falls out when NAND's truth table composes with itself under matrix multiplication. (The connection is structural, not computational — matrix self-multiplication isn't gate chaining, so NAND's universality as a logic primitive doesn't carry over. The truth table shape grounds _why_ [1,1] is special; it doesn't extend the framework.)
 
 ## The Axiom
 
@@ -162,7 +166,7 @@ In any positional system with unconstrained digits, every bit pattern is valid a
 
 Left-shift by one position scales a value by approximately φ. Not exactly — the result may need normalization — but the _structure_ is that shifting is φ-scaling, and the normalization cleanup is bounded.
 
-Multiplying by F(k) specifically: decompose via the recurrence. F(k) = F(k-1) + F(k-2), so `x · F(k) = x · F(k-1) + x · F(k-2)`. This recurses down to `x · F(1) = x` and `x · F(2) = x` (shift-by-one). Multiplication is a tree of additions shaped exactly like the Fibonacci call tree from your original observation. **The algorithm's structure mirrors the number system's structure.** General multiplication between two arbitrary values decomposes the multiplier into its Zeckendorf digits and sums the shifted copies — analogous to long multiplication, but with φ-spaced shifts instead of uniform ones.
+Multiplying by F(k) specifically: decompose via the recurrence. F(k) = F(k-1) + F(k-2), so `x · F(k) = x · F(k-1) + x · F(k-2)`. This recurses down to `x · F(1) = x` and `x · F(2) = x` (shift-by-one). Multiplication is a tree of additions shaped exactly like the Fibonacci call tree. **The algorithm's structure mirrors the number system's structure.** General multiplication between two arbitrary values decomposes the multiplier into its Zeckendorf digits and sums the shifted copies — analogous to long multiplication, but with φ-spaced shifts instead of uniform ones.
 
 ## Comparison, Branching, Division
 
