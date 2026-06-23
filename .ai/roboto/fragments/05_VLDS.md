@@ -5,7 +5,6 @@ fragment:
   name: vlds_transparency
   layer: prompter
   type: skill
-  version: 0.1.0
   depends_on: [00_BASE]
 ```
 

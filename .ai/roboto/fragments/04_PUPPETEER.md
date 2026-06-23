@@ -5,7 +5,6 @@ fragment:
   name: puppeteer_orchestration
   layer: puppeteer
   type: automation
-  version: 0.1.0
   depends_on: [00_BASE, 01_PROMPTY, 02_PROMPTER, 03_PIONEER]
 ```
 

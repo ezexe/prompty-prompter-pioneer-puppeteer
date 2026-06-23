@@ -3,7 +3,6 @@
 ```yaml
 index:
   name: claude_claudio_roboto
-  version: 0.1.0
   fragments: 8 # core fragment files (00_BASE … 07_BIAS_PATTERNS)
   extension_skills: 2 # isomorphic_operations, sjc_indexer
   configurations: 5
@@ -168,7 +167,7 @@ extensions/skills/[name]/
    │      └── verification, epistemic tracking
    │
    ├── 06_TEMPLATES (response skill)
-   │      ├── depends: 00_BASE, 05_VLDS
+   │      ├── depends: 00_BASE (05_VLDS optional — Full audit template only)
    │      └── audit + content format templates
    │
    ├── 07_BIAS_PATTERNS (detection skill)
@@ -202,15 +201,15 @@ extensions/skills/[name]/
 
 ## Usage Configurations
 
-Pre-built configurations for different use cases. See `configurations/` directory.
+Pre-built tiers for different use cases, all in [`configurations.md`](../configurations.md) (one `##` section each). Each tier's `fragments:` block is the authoritative composition; sets are dependency-closed per the graph above, and `style.md` wraps every tier as the persona overlay (see "Style Overlay").
 
-| Configuration | File                | Fragments | Use Case                        |
-| ------------- | ------------------- | --------- | ------------------------------- |
-| Minimal       | `i-minimal.md`      | 1         | Just the identity lenses        |
-| Standard      | `i-standard.md`     | 3         | Identity + Templates            |
-| Verification  | `i-verification.md` | 4         | Add VLDS epistemic checking     |
-| Detection     | `i-detection.md`    | 5         | Add bias pattern detection      |
-| Full          | `i-full.md`         | 8 + 2     | Everything including extensions |
+| Tier         | Fragments | Use Case                        |
+| ------------ | --------- | ------------------------------- |
+| Minimal      | 1         | Just the identity lenses        |
+| Standard     | 3         | Identity + Templates            |
+| Verification | 4         | Add VLDS epistemic checking     |
+| Detection    | 5         | Add bias pattern detection      |
+| Full         | 8 + 2     | Everything including extensions |
 
 ---
 

@@ -4,7 +4,6 @@
 fragment:
   name: base
   layer: core
-  version: 0.1.0
   required: true # all other fragments depend on this
 ```
 

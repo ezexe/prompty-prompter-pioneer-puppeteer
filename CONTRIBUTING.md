@@ -33,7 +33,7 @@ script:
     {user_requirements}
 
     **Available Configurations:**
-    - minimal: Just identity triad (Claude, Claudio, Roboto)
+    - minimal: Just the base identity fragment
     - standard: Identity + response templates
     - verification: Add VLDS epistemic checking
     - detection: Add bias pattern detection
@@ -70,12 +70,10 @@ script:
 
     **Fragment Dependency Map:**
     ```
-    minimal:      [00_BASE]
-    standard:     [00_BASE, 01_PROMPTY, 06_TEMPLATES]
-    verification: [00_BASE, 01_PROMPTY, 05_VLDS, 06_TEMPLATES]
-    detection:    [00_BASE, 01_PROMPTY, 02_PROMPTER, 03_PIONEER, 07_BIAS_PATTERNS]
-    full:         [00_BASE, 01_PROMPTY, 02_PROMPTER, 03_PIONEER, 04_PUPPETEER,
-                   05_VLDS, 06_TEMPLATES, 07_BIAS_PATTERNS, isomorphic_operations, sjc_indexer]
+    # The concrete level → fragment map is INSTANCE data, not part of this
+    # identity-agnostic guide. General form:  [level]: [fragment_id, ...]
+    # Filled example (Roboto instance):
+    #   .ai/roboto/fragments/INDEX.md → "Configuration Composition"
     ```
 
     **Custom Requirements:** {custom_requirements}
@@ -105,16 +103,13 @@ script:
     **Selected Fragments:** {fragment_list}
 
     **Validation Checks:**
-    1. All dependencies included?
-       - 01_PROMPTY depends on 00_BASE
-       - 02_PROMPTER depends on 01_PROMPTY
-       - 03_PIONEER depends on 01_PROMPTY, 02_PROMPTER
-       - 04_PUPPETEER depends on all core
-       - 05_VLDS depends on 00_BASE
-       - 06_TEMPLATES depends on 00_BASE, 05_VLDS
-       - 07_BIAS_PATTERNS depends on 00_BASE, 02_PROMPTER
-       - isomorphic_operations depends on 00_BASE, 05_VLDS
-       - sjc_indexer depends on 00_BASE, 05_VLDS, isomorphic_operations
+    1. All dependencies included? Every selected fragment's `depends_on` (declared in
+       its own frontmatter and rendered in the instance's `fragments/INDEX.md`
+       dependency graph) must be satisfied by the selection — include the full
+       transitive closure. Fragments may also declare `optional_depends_on`: these
+       enhance a fragment but are NOT required for closure (omitting one just disables
+       the feature it powers). Concrete edges are instance data; e.g. see
+       `.ai/roboto/fragments/INDEX.md`.
 
     2. No conflicting fragments?
     3. Appropriate for use case?
@@ -139,50 +134,45 @@ script:
   type: automation
 
   prompt: |
-    Generate a configuration file from the validated fragment selection.
+    Add a configuration tier (a `##` section in `configurations.md`) from the validated fragment selection.
 
     **Validated Fragments:** {fragment_list}
     **Configuration Name:** {config_name}
     **Use Case:** {use_case}
 
     **Generation Steps:**
-    1. Create configuration header with metadata
+    1. Create the tier section header (`## {Tier}`) with a YAML metadata block
     2. List what the configuration provides
     3. List what it does NOT provide
     4. Define when to use it
-    5. Reference embedded fragments
-    6. Define response format for this configuration
-    7. Define upgrade/downgrade paths
+    5. List the bundled fragments in the YAML block (and extensions, if any)
+    6. Define response format for this tier
+    7. Define upgrade/downgrade paths (links to other tier sections)
 
-    **Output Format:**
+    **Output Format (a `##` section appended to configurations.md):**
     ```markdown
-    # {config_name} Configuration
+    ## {Tier}
 
     ```yaml
-    configuration:
-      name: {config_name}
-      version: {version}
-      fragments: {fragment_list}
-      use_case: "{use_case}"
+    name: {config_name}
+    fragments: {fragment_list}
+    use_case: "{use_case}"
     ```
 
-    ## What This Provides
+    ### What This Provides
     [generated from fragments]
 
-    ## What This Does NOT Provide
+    ### What This Does NOT Provide
     [generated from missing fragments]
 
-    ## When To Use
+    ### When To Use
     [generated from use case]
 
-    ## Embedded Fragments
-    [references to fragments]
-
-    ## Response Format
+    ### Response Format
     [appropriate template for this level]
 
-    ## Upgrade/Downgrade Path
-    [generated from configuration hierarchy]
+    ### Upgrade/Downgrade Path
+    [generated from configuration hierarchy — links to other tier sections]
     ```
 
   output: configuration_file
@@ -216,10 +206,11 @@ script:
 ```
 You are building a P4 configuration.
 
-Read fragments/INDEX.md to understand the fragment structure.
-Read fragments/00_BASE.md for the minimal configuration.
+Read templations/fragments/INDEX.md and templations/fragments/_TEMPLATE.md to understand the fragment
+structure. For filled examples, read an instance such as .ai/roboto/fragments/
+(its 00_BASE.md is the minimal set).
 
-Generate configurations/i-minimal.md following the i-minimal template pattern.
+Add a tier section to your instance's configurations.md following templations/configurations.md.
 ```
 
 #### Build Custom Configuration
@@ -229,10 +220,10 @@ You are building a custom P4 configuration.
 
 User needs: {requirements}
 
-1. Read fragments/INDEX.md for the dependency graph
+1. Read templations/fragments/INDEX.md for the dependency graph
 2. Identify which fragments satisfy the requirements
 3. Validate all dependencies are included
-4. Generate a configuration file in configurations/
+4. Add a tier section to your instance's configurations.md
 
 Use the P4 lifecycle:
 - Prompty: What does the user need?
@@ -267,7 +258,7 @@ The new configuration should:
 
 When contributing a new configuration:
 
-- [ ] Configuration metadata complete (name, version, fragments, use_case)
+- [ ] Configuration metadata complete (name, fragments, use_case)
 - [ ] "What This Provides" section accurate
 - [ ] "What This Does NOT Provide" section accurate
 - [ ] "When To Use" section helpful
@@ -301,16 +292,14 @@ Capabilities    Knowledge           Bridges
 ### Extension Schema
 
 ```yaml
-# extensions/[type]/[name]/EXTENSION.yaml
+# templations/extensions/[type]/[name]/EXTENSION.yaml
 
 extension:
   name: string
   type: tool | skill | connector
-  version: semver
 
   compatibility:
     p4_phases: [prompty, prompter, pioneer, puppeteer]
-    min_version: string
 
   interface:
     # Tools: execution interface
@@ -343,12 +332,11 @@ extension:
 #### Tool Extension
 
 ```yaml
-# extensions/tools/code_analyzer/EXTENSION.yaml
+# templations/extensions/tools/code_analyzer/EXTENSION.yaml
 
 extension:
   name: code_analyzer
   type: tool
-  version: 1.0.0
 
   interface:
     tool:
@@ -371,12 +359,11 @@ extension:
 #### Skill Extension
 
 ```yaml
-# extensions/skills/api_design/EXTENSION.yaml
+# templations/extensions/skills/api_design/EXTENSION.yaml
 
 extension:
   name: api_design
   type: skill
-  version: 1.0.0
 
   interface:
     skill:
@@ -397,12 +384,11 @@ extension:
 #### Connector Extension
 
 ```yaml
-# extensions/connectors/openai_bridge/EXTENSION.yaml
+# templations/extensions/connectors/openai_bridge/EXTENSION.yaml
 
 extension:
   name: openai_bridge
   type: connector
-  version: 1.0.0
 
   interface:
     connector:
@@ -439,10 +425,6 @@ guidelines:
   naming:
     pattern: lowercase_with_underscores
     prefix_by_type: false # Let type field distinguish
-
-  versioning:
-    scheme: semver
-    breaking_changes: major_bump_required
 
   documentation:
     required: [README.md, EXTENSION.yaml]

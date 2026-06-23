@@ -5,7 +5,6 @@ fragment:
   name: prompter_templates
   layer: prompter
   type: refinement
-  version: 0.1.0
   depends_on: [00_BASE, 01_PROMPTY]
 ```
 

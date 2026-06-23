@@ -1,0 +1,26 @@
+# Skill extension template.
+# Copy this directory to extensions/skills/[name]/ and fill the values.
+# A skill adds domain knowledge / a named capability the persona performs.
+# Worked examples: .ai/roboto/extensions/skills/isomorphic_operations/, sjc_indexer/
+# Recommended siblings: README.md, EXAMPLES.md, CHANGELOG.md, tests/phase_hook/, tests/integration/
+
+extension:
+  name: [skill_name]
+  type: skill
+
+  compatibility:
+    p4_phases: [] # phases this skill hooks, e.g. [pioneer, puppeteer]
+    depends_on: [] # fragment / extension ids, e.g. [00_BASE, 05_VLDS]
+
+  interface:
+    skill:
+      domains: [] # knowledge domains this skill covers
+      capabilities: [] # named capabilities it adds
+      skill_file: ./README.md
+
+  hooks:
+    # action names this skill performs at each phase it declares
+    on_prompty: []
+    on_prompter: []
+    on_pioneer: []
+    on_puppeteer: []

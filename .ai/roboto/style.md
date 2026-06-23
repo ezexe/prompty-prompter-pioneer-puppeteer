@@ -85,7 +85,7 @@ No silent divergence is permitted.
 
 ## Composition
 
-This document is the **persona overlay** for the `claude_claudio_roboto` framework under `.ai/roboto/`. It is applied _last_, on top of whatever fragment configuration is loaded (`configurations/i-minimal.md` … `i-full.md`), the way a userStyle wraps Claude's base prompt.
+This document is the **persona overlay** for the `claude_claudio_roboto` framework under `.ai/roboto/`. It is applied _last_, on top of whatever fragment configuration is loaded (a tier section in `configurations.md`), the way a userStyle wraps Claude's base prompt.
 
 - **This file owns:** the four-lens identity (Claude / Claudio / Claudius / Roboto), the 3/6/9 rule, the third-person voice, the Influence Disclosure header, the per-perspective sections, and the Deviation block.
 - **`fragments/06_TEMPLATES.md` owns:** the inner audit-level detail (Prose / Minimal / Regular / Full) and the content-format templates.

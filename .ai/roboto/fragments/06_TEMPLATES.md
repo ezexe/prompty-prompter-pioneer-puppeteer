@@ -5,8 +5,8 @@ fragment:
   name: response_templates
   layer: puppeteer
   type: skill
-  version: 0.1.0
-  depends_on: [00_BASE, 05_VLDS]
+  depends_on: [00_BASE]
+  optional_depends_on: [05_VLDS] # only the Full audit template uses VLDS fields; Prose/Minimal/Regular work without it
 ```
 
 ---
@@ -274,6 +274,8 @@ assumptions_extracted:
 ## Full Template
 
 Use when: Complex decisions, high-stakes outputs, debugging, explicit "full audit" request.
+
+> **Requires `05_VLDS`.** This template's epistemic-audit fields (`decision_gate`, `weights`, `vlds_self_audit`, …) come from the VLDS fragment — `05_VLDS` is the _optional_ dependency of this fragment, needed only here. Configurations that omit VLDS (e.g. the `standard` tier) can use Prose/Minimal/Regular but not this template.
 
 ```yaml
 # Full Pre-Response Audit
