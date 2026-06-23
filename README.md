@@ -1,19 +1,16 @@
-# Prompty Prompter Pioneer Puppeteer
-
 <div align="center">
 
-[![Lifecycle](https://img.shields.io/badge/lifecycle-prompty→prompter→pioneer→puppeteer-blue)](#-lifecycle-a-cycle-recycler)
-[![Concepts](https://img.shields.io/badge/concepts-technical--concepts-purple)](#-technical-concepts)
+# 🎭 Prompty Prompter Pioneer Puppeteer
+
+[![pattern](https://img.shields.io/badge/pattern-recursive_prompt_engineering-6E56CF?style=flat-square)](#-architecture)
+[![lifecycle](https://img.shields.io/badge/lifecycle-prompty→prompter→pioneer→puppeteer-4C9AFF?style=flat-square)](#-lifecycle)
+[![concepts](https://img.shields.io/badge/concepts-chaining_·_meta_·_orchestration-1FAD66?style=flat-square)](#-concepts)
+
+_prompts that build prompts to prompter prompts into pioneer prompts that puppeteer prompts — that will fork into branches of more forks and branches that prompt prompts as prompt puppets to pioneer prompts into prompt puppets that prompter prompt puppets into prompty prompt prompter pioneer prompt puppeteers — that puppeteer more prompts like this endlessly, until each branch puppeteer pioneers its prompt puppet to prompt a response that prompters a reply for the branch puppeteer prompt it got forked from_
 
 </div>
 
----
-
-> _prompts that build prompts that puppeteer prompts into prompts that build prompts into prompty prompts to prompter prompts that get prompted to pioneer prompts into puppeteer prompts that build prompts that puppeteer prompts that build prompts_
-
-Stripping away the phonetic play, every prompt exists in a state of becoming.
-
-A **Prompty** seed contains the potential for a **Prompter** template, which can evolve into a **Pioneer** experiment, which can mature into a **Puppeteer** orchestration—and the cycle recurses.
+## 🏗️ Architecture
 
 ```yaml
 architecture:
@@ -42,7 +39,7 @@ architecture:
     enables: continuous_evolution
 ```
 
-## 🔄 Lifecycle: A Cycle Recycler
+## 🔄 Lifecycle
 
 ### Linear Progression
 
@@ -58,17 +55,18 @@ The output of orchestration feeds new seeds.
 
 ```
 puppeteer → prompty → prompter → pioneer → puppeteer
-       ↑___________________________________|
+    ↑                                          │
+    └──────────────────────────────────────────┘
 ```
 
 ### Parallel Exploration
 
-Multiple pioneer experiments from single prompter, best results orchestrated.
+Multiple pioneer experiments from a single prompter; the best results get orchestrated.
 
 ```
-              ┌─ pioneer_a ─┐
-prompty ─ prompter ─┼─ pioneer_b ─┼─ puppeteer
-              └─ pioneer_c ─┘
+                    ┌─ pioneer_a ─┐
+prompty → prompter ─┼─ pioneer_b ─┼─ puppeteer
+                    └─ pioneer_c ─┘
 ```
 
 ### Meta-Prompting
@@ -83,7 +81,7 @@ puppeteer_c ──┘
 
 ---
 
-## 🧩 Technical Concepts
+## 🧩 Concepts
 
 ### Prompt-Chaining
 
@@ -128,7 +126,7 @@ meta_prompt:
 
 ### Agentic Orchestration
 
-The Puppeteer role—central logic managing multiple prompt sub-tasks.
+The Puppeteer role — central logic managing multiple prompt sub-tasks.
 
 ```yaml
 orchestration:
@@ -153,15 +151,3 @@ orchestration:
     - writer.draft → critic.evaluate
     - critic.evaluate → writer.refine | complete
 ```
-
----
-
-<div align="center">
-
-_Created by "all the king's horses" and "all the king's men" through prompts that are "Great" and get greater "Again & Again"._
-
-**Draft it. Deliver it. Discover the frontier. Pull the strings.**
-
-</div>
-
----
