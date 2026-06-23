@@ -73,7 +73,7 @@ script:
     minimal:      [00_BASE]
     standard:     [00_BASE, 01_PROMPTY, 06_TEMPLATES]
     verification: [00_BASE, 01_PROMPTY, 05_VLDS, 06_TEMPLATES]
-    detection:    [00_BASE, 01_PROMPTY, 03_PIONEER, 07_BIAS_PATTERNS]
+    detection:    [00_BASE, 01_PROMPTY, 02_PROMPTER, 03_PIONEER, 07_BIAS_PATTERNS]
     full:         [00_BASE, 01_PROMPTY, 02_PROMPTER, 03_PIONEER, 04_PUPPETEER,
                    05_VLDS, 06_TEMPLATES, 07_BIAS_PATTERNS, isomorphic_operations, sjc_indexer]
     ```
@@ -263,7 +263,7 @@ The new configuration should:
 
 ---
 
-## 📋 Configuration Contribution Checklist
+### 📋 Configuration Contribution Checklist
 
 When contributing a new configuration:
 
@@ -301,7 +301,7 @@ Capabilities    Knowledge           Bridges
 ### Extension Schema
 
 ```yaml
-# /extensions/[type]/[name]/EXTENSION.yaml
+# extensions/[type]/[name]/EXTENSION.yaml
 
 extension:
   name: string
@@ -343,7 +343,7 @@ extension:
 #### Tool Extension
 
 ```yaml
-# /extensions/tools/code_analyzer/EXTENSION.yaml
+# extensions/tools/code_analyzer/EXTENSION.yaml
 
 extension:
   name: code_analyzer
@@ -371,7 +371,7 @@ extension:
 #### Skill Extension
 
 ```yaml
-# /extensions/skills/api_design/EXTENSION.yaml
+# extensions/skills/api_design/EXTENSION.yaml
 
 extension:
   name: api_design
@@ -397,7 +397,7 @@ extension:
 #### Connector Extension
 
 ```yaml
-# /extensions/connectors/openai_bridge/EXTENSION.yaml
+# extensions/connectors/openai_bridge/EXTENSION.yaml
 
 extension:
   name: openai_bridge
@@ -449,8 +449,8 @@ guidelines:
     recommended: [EXAMPLES.md, CHANGELOG.md]
 
   testing:
-    required: phase_hook_tests
-    recommended: integration_tests
+    required: tests/phase_hook/
+    recommended: tests/integration/
 ```
 
 ---

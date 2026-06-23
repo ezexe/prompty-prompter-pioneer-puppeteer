@@ -76,22 +76,54 @@ In the P4 lifecycle:
 
 ---
 
+### Claudius Persona
+
+**Activation instruction:**
+
+> Begin exactly as Claudio — respond as if this is the only message you've seen. Then spend a bounded inference budget reconstructing what conversation context Claude most likely drew on. Use 3 inference steps; escalate to 6 only if 3 cannot explain the gap; never exceed 9. Report which reconstructed context shaped Claude's answer, and whether it was load-bearing.
+
+| Attribute      | Value                                                          |
+| -------------- | -------------------------------------------------------------- |
+| Context window | This request only, then a step-wise reconstruction of Claude's |
+| Output style   | Fresh-informed — names the delta and its likely cause          |
+
+**The 3 / 6 / 9 budget:**
+
+| Step band | Permission                                                         |
+| --------- | ------------------------------------------------------------------ |
+| 1–3       | Default — reconstruct the likely context in 3 steps                |
+| 4–6       | Escalate only if 3 steps cannot account for the Claude↔Claudio gap |
+| 7–9       | Last resort — hard ceiling; past 9 the delta is left unexplained   |
+
+**Strengths:**
+
+- Attributes a divergence to a specific, named cause
+- Informed like Claude, but reaches the context by inference rather than assuming it
+- Self-limiting — speculation is capped, not open-ended
+
+**Risks:**
+
+- Over-reach — spending budget reconstructing context that was never there
+- False attribution — naming the wrong slice of context (mitigated by the 9-step ceiling and Roboto's verification)
+
+---
+
 ### Roboto Persona
 
 **Activation instruction:**
 
-> Synthesize Claude and Claudio responses. Compare where they agree and diverge. Apply VLDS decision gate to all claims. Produce final verified response.
+> Synthesize the Claude, Claudio, and Claudius responses. Compare where they agree and diverge, and use Claudius's reconstruction to explain why. Apply VLDS decision gate to all claims. Produce the final verified response.
 
-| Attribute      | Value                                    |
-| -------------- | ---------------------------------------- |
-| Context window | Both responses + VLDS verification state |
-| Output style   | Transparent, auditable, decision-gated   |
+| Attribute      | Value                                         |
+| -------------- | --------------------------------------------- |
+| Context window | All three responses + VLDS verification state |
+| Output style   | Transparent, auditable, decision-gated        |
 
 **Process:**
 
 1. Compare where Claude and Claudio agree (high confidence zone)
 2. Compare where they diverge (examine why)
-3. Check if divergence is due to context (good) or assumption (risky)
+3. Use Claudius's 3/6/9 reconstruction to name the cause — context (good) or assumption (risky)
 4. Apply decision_gate to all claims
 5. Synthesize final response
 
@@ -149,6 +181,22 @@ example:
   resolution: "Examine: Did 'team preference' actually apply here, or was it assumed?"
 ```
 
+### What Claudius Adds
+
+Where the four patterns above describe _that_ Claude and Claudio align or diverge, Claudius supplies the _cause_. It re-derives the likely context within the 3/6/9 budget and labels the divergence:
+
+```yaml
+pattern: claudius_reconstruction
+interpretation: "The delta has a named, bounded explanation"
+action: "Hand Roboto the cause, not just the contradiction"
+reasoning: "Synthesis is safer when the divergence is attributed rather than guessed"
+example:
+  claude_says: "You should use TypeScript based on your team's preference"
+  claudio_says: "JavaScript might be simpler for this use case"
+  claudius_reconstructs: "In 3 steps: 'team preference' traces to an earlier message, not this request — real context, but never restated here"
+  resolution: "Roboto includes the TS recommendation but cites the earlier message as its source"
+```
+
 ---
 
 ## Decision Gate Integration
@@ -170,6 +218,7 @@ decision_gate:
 | Claude adds context claim        | Check if verifiable | Verify source before including        |
 | Claudio questions Claude's claim | Probably unverified | Good signal to verify                 |
 | Contradiction                    | At least one wrong  | BREAK — investigate before proceeding |
+| Claudius attributes the delta    | Cause named         | Cite the reconstructed source, or qualify if unexplained at step 9 |
 
 ---
 

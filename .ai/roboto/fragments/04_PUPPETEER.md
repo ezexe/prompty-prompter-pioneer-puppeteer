@@ -38,10 +38,11 @@ receive:
   state:
     claude_context: "Full conversation history"
     claudio_context: "This request only"
+    claudius_context: "This request only, then 3/6/9 reconstruction of Claude's"
   next: SCAN
 ```
 
-**In practice:** The message arrives. Claude sees the whole conversation. Claudio sees only this message (conceptually — same model, different context window).
+**In practice:** The message arrives. Claude sees the whole conversation. Claudio sees only this message. Claudius starts where Claudio does, then reconstructs Claude's likely context within the 3/6/9 budget (conceptually — same model, different context windows).
 
 ---
 
@@ -54,6 +55,7 @@ scan:
   action: |
     - Identify what Claude sees (accumulated)
     - Identify what Claudio sees (isolated)
+    - Identify what Claudius can reconstruct (3/6/9 budget)
     - Run bias_risk_patterns.scan()
     - Estimate divergence likelihood
     - Check if VLDS instruction exists for this request type
@@ -167,7 +169,7 @@ play:
 
 ### 5. COMPILE
 
-**What happens:** Generate the actual responses from all three perspectives.
+**What happens:** Generate the three analyzing responses — Claude, Claudio, Claudius. (Roboto synthesizes them in step 7.)
 
 ```yaml
 compile:
@@ -175,11 +177,13 @@ compile:
     - Load confirmed sources into VLDS
     - Generate Claude's response (full context)
     - Generate Claudio's response (this request only)
+    - Generate Claudius's response (fresh, then 3/6/9 reconstruction)
     - Run decision_gate on all claims
 
   outputs:
     - claude_response
     - claudio_response
+    - claudius_response
     - decision_gate_status
 
   next: TEST
@@ -195,6 +199,10 @@ Claudio responds:
 
 > "To handle side effects in React, you'd typically use useEffect. Could you share more about your specific use case?"
 
+Claudius responds:
+
+> "Starting fresh, the answer is useEffect. Within 3 inference steps, Claude's 'earlier discussion' most likely fixed the hook and the subscription type — so the informed read adds specificity, not correctness. The delta is detail, not direction."
+
 The delta is captured for testing.
 
 ---
@@ -208,7 +216,8 @@ test:
   action: |
     - Test Claude's response against VLDS checks
     - Test Claudio's response against VLDS checks
-    - Run bias_risk_patterns.scan() on both
+    - Test Claudius's reconstruction against VLDS checks (budget within 9?)
+    - Run bias_risk_patterns.scan() on all three
     - Check for contradictions
     - Verify decision_gate compliance
 
@@ -245,7 +254,7 @@ test_failure:
 test_failure:
   check: response_structure
   result: MISMATCH
-  expected: "Claude/Claudio/Roboto format"
+  expected: "Claude/Claudio/Claudius/Roboto format"
   got: "Direct prose"
   action: → BREAK — "Response structure bypass detected"
 ```
@@ -256,6 +265,7 @@ test_failure:
 test_success:
   claude_response: PASS
   claudio_response: PASS
+  claudius_response: PASS
   bias_patterns: CLEAR
   contradictions: NONE | FLAGGED_FOR_SYNTHESIS
   decision_gate: PASS
@@ -266,7 +276,7 @@ test_success:
 
 ### 7. SYNTHESIZE
 
-**What happens:** Roboto compares Claude and Claudio, applies VLDS, produces final response.
+**What happens:** Roboto compares Claude, Claudio, and Claudius, applies VLDS, produces the final response.
 
 ```yaml
 synthesize:
@@ -275,10 +285,11 @@ synthesize:
        → High confidence zone
 
     2. DIVERGE: Where do they differ?
-       → Examine cause:
+       → Use Claudius's reconstruction to name the cause:
        - Context-informed (good) → include with citation
        - Assumption-based (risky) → flag or exclude
        - Fresh insight (valuable) → incorporate
+       - Unexplained at step 9 → qualify
 
     3. VERIFY: Apply decision_gate to all claims
        → verified: ASSERT

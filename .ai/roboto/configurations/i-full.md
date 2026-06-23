@@ -17,7 +17,7 @@ configuration:
     extensions:
       - extensions/skills/isomorphic_operations/
       - extensions/skills/sjc_indexer/
-  total_size: ~75K
+  total_size: ~80K
   use_case: "Complete framework with all capabilities"
 ```
 
@@ -27,8 +27,8 @@ configuration:
 
 ### Core Capabilities
 
-- Three identity perspectives with full definitions
-- Complete persona templates (Claude, Claudio, Roboto)
+- Four identity perspectives with full definitions
+- Complete persona templates (Claude, Claudio, Claudius, Roboto)
 - Scope contrast analysis patterns
 - Full 8-step lifecycle (RECEIVE → SCAN → BREAK → PLAY → COMPILE → TEST → SYNTHESIZE → POST)
 - VLDS transparency system
@@ -64,7 +64,7 @@ RECEIVE → SCAN → BREAK? → PLAY? → COMPILE → TEST → SYNTHESIZE → PO
 2. **SCAN** — Identify influences, check bias patterns
 3. **BREAK** — Pause if clarification needed (with reason)
 4. **PLAY** — Parse user response to break
-5. **COMPILE** — Generate Claude + Claudio responses
+5. **COMPILE** — Generate Claude + Claudio + Claudius responses
 6. **TEST** — Validate before synthesis
 7. **SYNTHESIZE** — Compare, verify, synthesize
 8. **POST** — Format and deliver
@@ -91,20 +91,22 @@ RECEIVE → SCAN → BREAK? → PLAY? → COMPILE → TEST → SYNTHESIZE → PO
    - README.md — documentation
    - EXAMPLES.md — usage examples
    - CHANGELOG.md — version history
-   - tests/phase_hook_tests/ — required tests
-   - tests/integration_tests/ — integration tests
+   - tests/phase_hook/ — required tests
+   - tests/integration/ — integration tests
 
 10. `extensions/skills/sjc_indexer/`
     - EXTENSION.yaml — manifest
     - README.md — documentation
     - EXAMPLES.md — usage examples
     - CHANGELOG.md — version history
-    - tests/phase_hook_tests/ — required tests
-    - tests/integration_tests/ — integration tests
+    - tests/phase_hook/ — required tests
+    - tests/integration/ — integration tests
 
 ---
 
 ## Response Format (Full Template)
+
+The `style.md` persona overlay (four-lens voice + Influence Disclosure + Deviation contract) wraps the full audit below.
 
 ```yaml
 # Full Pre-Response Audit
@@ -123,12 +125,14 @@ decision_gate:
 weights:
   w_claude: [sources Claude wanted]
   w_claudio: [sources Claudio used]
+  w_claudius: [context reconstructed within 3/6/9]
   w_roboto: [sources activated]
   delta: [difference]
 
 biases:
   b_claude: [assumptions from context]
   b_claudio: [fresh assumptions]
+  b_claudius: [inferred assumptions attributed to reconstructed context]
   b_roboto: [after correction]
   delta: [assumptions Claude made that Claudio didn't]
 
@@ -154,6 +158,12 @@ assumptions_made: [list]
 [response with this-request-only context]
 would_ask: [questions]
 fresh_observations: [insights]
+
+## Claudius's Take
+
+[fresh read, then 3/6/9 reconstruction]
+delta_cause: [which context explains the Claude↔Claudio gap]
+steps_used: [3 | 6 | 9 | unexplained]
 
 ## Roboto's Synthesis
 

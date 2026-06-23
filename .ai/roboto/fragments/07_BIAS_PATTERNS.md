@@ -269,9 +269,9 @@ bias_risk_pattern:
   correctable_query:
     fire_when: "ALWAYS — before ANY response compilation"
     questions:
-      - "Does userStyle define a required response structure?"
+      - "Does style.md / userStyle define a required response structure?"
       - "Am I about to respond without that structure?"
-      - "Have I included all required parts (Claude/Claudio/Roboto)?"
+      - "Have I included all required parts (Claude/Claudio/Claudius/Roboto + influence header)?"
     if_any_true: "BREAK — structure mismatch, reformat before output"
     prevents: "Defaulting to Claude prose when structure is mandatory"
 ```

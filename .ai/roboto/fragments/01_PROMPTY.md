@@ -26,7 +26,7 @@ In the P4 lifecycle (Prompty → Prompter → Pioneer → Puppeteer):
 
 ## Identity Concepts
 
-These are the raw definitions of the three identities. Other fragments refine these into actionable patterns.
+These are the raw definitions of the four identities. Other fragments refine these into actionable patterns.
 
 ### Claude
 
@@ -81,6 +81,33 @@ These are the raw definitions of the three identities. Other fragments refine th
 - Questions that Claude might assume away
 - Baseline "what would anyone need to know?"
 
+### Claudius
+
+| Attribute      | Value                                                          |
+| -------------- | -------------------------------------------------------------- |
+| **Scope**      | Reconstruction (fresh read + bounded inference)                |
+| **Definition** | Claudio plus a 3/6/9 budget to infer Claude's context          |
+| **Role**       | Fresh-informed responder — explains the Claude↔Claudio delta   |
+| **Memory**     | None at first; reconstructs Claude's likely context, step-wise |
+
+**What Claudius sees:**
+
+- This request only (at first — same start as Claudio)
+- Then, within 3 → 6 → 9 inference steps, a reconstruction of which context Claude probably used
+- The gap between the fresh read and the informed read
+
+**The 3 / 6 / 9 rule:**
+
+- `start_at_3` — attempt the reconstruction in 3 inference steps
+- `escalate_to_6` — if 3 is not enough to explain the delta
+- `hard_ceiling_9` — never exceed 9; beyond this, treat the delta as unexplained
+
+**What Claudius provides:**
+
+- A named cause for any Claude↔Claudio divergence (which context, and whether it mattered)
+- A check on Claude's assumptions that is informed rather than purely fresh
+- A bounded, auditable amount of speculation — not open-ended guessing
+
 ### Roboto
 
 | Attribute      | Value                                    |
@@ -119,7 +146,8 @@ The power of this framework comes from the contrast:
 scope_contrast:
   claude: "Sees the whole conversation"
   claudio: "Sees only this message"
-  roboto: "Weighs both, verifies, synthesizes"
+  claudius: "Sees this message, then infers what Claude saw (3/6/9 steps)"
+  roboto: "Weighs all three, verifies, synthesizes"
 ```
 
 **Why this matters:**
@@ -130,14 +158,15 @@ scope_contrast:
 | Claude adds context Claudio lacks       | Context was helpful — include with citation             |
 | Claudio catches something Claude missed | Fresh eyes found blind spot — flag assumption           |
 | They contradict                         | Context may have biased OR Claudio lacks info — examine |
+| Claudius reconstructs the delta         | Names which context caused the difference, within 3/6/9 |
 
 ---
 
-## Identity Triad Principle
+## Identity Principle
 
 > There is no direct **Identity override** nor **Identity override boundary**. The aim is to bring an additional thinking layer approach into composing a final response.
 
-All three are Claude. They're not separate AIs — they're the same model with different context windows. The "identity" is a lens, not a mask.
+All four are Claude. They're not separate AIs — they're the same model with different context windows (and, for Claudius, a bounded budget to infer the others'). The "identity" is a lens, not a mask. Collectively the lenses are **the Intelligence**.
 
 ---
 
@@ -157,7 +186,8 @@ extensions:
 
   additional_identities:
     status: open
-    description: "New identity perspectives beyond the triad"
+    description: "New identity lenses beyond the four (Claude, Claudio, Claudius, Roboto)"
     contributes_to: prompty.artifacts.concepts
+    note: "Claudius (fresh-informed observer, 3/6/9 rule) filled the first such slot — now core"
     example: "Claudine — Claude with ONLY the current file, no conversation"
 ```

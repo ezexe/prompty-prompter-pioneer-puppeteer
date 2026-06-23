@@ -4,8 +4,10 @@
 index:
   name: claude_claudio_roboto
   version: 0.1.0
-  fragments: 10
+  fragments: 8 # core fragment files (00_BASE … 07_BIAS_PATTERNS)
+  extension_skills: 2 # isomorphic_operations, sjc_indexer
   configurations: 5
+  style_overlay: style.md # persona/voice overlay applied across configurations
   status: documented
 ```
 
@@ -31,14 +33,14 @@ index:
 Extensions follow the schema and guidelines from CONTRIBUTING.md:
 
 ```
-/extensions/skills/[name]/
+extensions/skills/[name]/
 ├── EXTENSION.yaml           # required - manifest
 ├── README.md                # required - documentation
 ├── EXAMPLES.md              # recommended
 ├── CHANGELOG.md             # recommended
 └── tests/
-    ├── phase_hook_tests/    # required
-    └── integration_tests/   # recommended
+    ├── phase_hook/    # required
+    └── integration/   # recommended
 ```
 
 | Extension             | Type  | Phases             | Location                                   |
@@ -58,27 +60,44 @@ Extensions follow the schema and guidelines from CONTRIBUTING.md:
 
 ---
 
+## Style Overlay
+
+`style.md` (sibling of this `fragments/` directory, at `.ai/roboto/style.md`) is the **persona/voice overlay** — it is not a fragment and not a configuration. It wraps whatever configuration is loaded, the way a userStyle wraps Claude's base prompt.
+
+| Property   | Value                                                                                                                                                                              |
+| ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Name       | The Intelligence                                                                                                                                                                  |
+| Role       | Persona/voice + response contract applied on top of any configuration                                                                                                            |
+| Defines    | Four-lens identity (Claude / Claudio / Claudius / Roboto), the 3/6/9 rule, third-person voice, the Influence Disclosure header, the per-perspective sections, the Deviation block |
+| Load order | **Last** — after the configuration's fragments are composed, `style.md` wraps the result                                                                                          |
+| Composes   | `style.md` owns the outer shape (voice, influence header, perspective sections, deviation); `06_TEMPLATES.md` owns the inner audit-level detail. They do not conflict.            |
+
+**Identity note:** `style.md` is the source of truth for the four-lens model. `00_BASE.md` and the other fragments define the same four lenses; Claudius (the fresh-informed observer governed by the 3/6/9 rule) is a first-class identity, not an optional extension.
+
+---
+
 ## What Each Fragment Contains
 
 ### Core Fragments
 
 **00_BASE.md** — Core Identity
 
-- The three identities: Claude, Claudio, Roboto
-- Response flow diagram
-- Scope definitions (conversation vs request vs synthesis)
+- The four identities: Claude, Claudio, Claudius, Roboto
+- The 3/6/9 rule for Claudius's bounded context reconstruction
+- Response flow diagram (Claude → Claudio → Claudius → Roboto)
+- Scope definitions (conversation vs request vs reconstruction vs synthesis)
 - Why the framework works
 
 **01_PROMPTY.md** — Seed Layer
 
-- Raw identity concepts
+- Raw identity concepts (all four lenses)
 - What each identity sees and provides
 - Scope contrast explanation
-- Identity triad principle
+- Identity principle (four lenses)
 
 **02_PROMPTER.md** — Refinement Layer
 
-- Persona activation templates
+- Persona activation templates (incl. Claudius + the 3/6/9 budget)
 - Strengths and risks of each perspective
 - Scope contrast analysis patterns
 - Decision gate integration
@@ -108,7 +127,8 @@ Extensions follow the schema and guidelines from CONTRIBUTING.md:
 
 **06_TEMPLATES.md** — Response Formats
 
-- Minimal, Regular, Full audit templates
+- Prose, Minimal, Regular, Full audit templates (four perspective sections each)
+- Influence Disclosure header + the style.md layering note
 - Content format templates (File Change, Code Response, Analysis, Clarification)
 - Complete YAML schemas with examples
 - Template selection matrix
@@ -155,7 +175,7 @@ Extensions follow the schema and guidelines from CONTRIBUTING.md:
    │      ├── depends: 00_BASE, 02_PROMPTER
    │      └── error prevention
    │
-   └── EXTENSIONS (in /extensions/skills/)
+   └── EXTENSIONS (in extensions/skills/)
           │
           ├── isomorphic_operations/
           │      ├── depends: 00_BASE, 05_VLDS
@@ -164,8 +184,8 @@ Extensions follow the schema and guidelines from CONTRIBUTING.md:
           │      ├── EXAMPLES.md
           │      ├── CHANGELOG.md
           │      └── tests/
-          │             ├── phase_hook_tests/ (3 tests)
-          │             └── integration_tests/ (1 test)
+          │             ├── phase_hook/ (3 tests)
+          │             └── integration/ (1 test)
           │
           └── sjc_indexer/
                  ├── depends: 00_BASE, 05_VLDS, isomorphic_operations
@@ -174,8 +194,8 @@ Extensions follow the schema and guidelines from CONTRIBUTING.md:
                  ├── EXAMPLES.md
                  ├── CHANGELOG.md
                  └── tests/
-                        ├── phase_hook_tests/ (3 tests)
-                        └── integration_tests/ (1 test)
+                        ├── phase_hook/ (3 tests)
+                        └── integration/ (1 test)
 ```
 
 ---
@@ -186,11 +206,11 @@ Pre-built configurations for different use cases. See `configurations/` director
 
 | Configuration | File                | Fragments | Use Case                        |
 | ------------- | ------------------- | --------- | ------------------------------- |
-| Minimal       | `i-minimal.md`      | 1         | Just the identity triad         |
+| Minimal       | `i-minimal.md`      | 1         | Just the identity lenses        |
 | Standard      | `i-standard.md`     | 3         | Identity + Templates            |
 | Verification  | `i-verification.md` | 4         | Add VLDS epistemic checking     |
-| Detection     | `i-detection.md`    | 4         | Add bias pattern detection      |
-| Full          | `i-full.md`         | 10        | Everything including extensions |
+| Detection     | `i-detection.md`    | 5         | Add bias pattern detection      |
+| Full          | `i-full.md`         | 8 + 2     | Everything including extensions |
 
 ---
 
@@ -200,7 +220,7 @@ Pre-built configurations for different use cases. See `configurations/` director
 
 | Fragment         | Extension Point            | Description                                   |
 | ---------------- | -------------------------- | --------------------------------------------- |
-| 01_PROMPTY       | additional_identities      | New perspectives beyond Claude/Claudio/Roboto |
+| 01_PROMPTY       | additional_identities      | New lenses beyond Claude/Claudio/Claudius/Roboto |
 | 02_PROMPTER      | additional_patterns        | New scope contrast patterns                   |
 | 03_PIONEER       | additional_experiments     | New experiments beyond scope isolation        |
 | 03_PIONEER       | novel_techniques           | New detection/analysis techniques             |
@@ -252,7 +272,7 @@ For an AI implementing this framework:
 
 ### Basic Implementation
 
-1. **00_BASE.md** — understand the three identities
+1. **00_BASE.md** — understand the four identities and the 3/6/9 rule
 2. **01_PROMPTY.md** — understand what each identity sees
 3. **06_TEMPLATES.md** — understand output structure
 
@@ -269,6 +289,7 @@ For an AI implementing this framework:
 6. **02_PROMPTER.md** — understand scope contrast patterns
 7. **03_PIONEER.md** — understand experiments and detection
 8. **04_PUPPETEER.md** — understand the full lifecycle
+9. **style.md** — understand the persona voice + response contract that wraps any configuration
 
 ---
 

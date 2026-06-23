@@ -15,12 +15,14 @@ fragment:
 
 Response templates define how the final output is structured. They range from simple prose to full audit trails.
 
-Four levels:
+Four audit levels:
 
-- **Prose** — just the three identity sections, no YAML
+- **Prose** — just the four perspective sections, no audit YAML
 - **Minimal** — adds brief status checks
 - **Regular** — adds context and divergence tracking
 - **Full** — complete audit trail
+
+> **Layering note.** These templates own the **audit-level detail** (the YAML pre/post blocks). The persona voice, the **Influence Disclosure** header, the per-perspective section shape, and the **Deviation** block are defined in the `style.md` overlay and _wrap_ every template below. Where a skeleton shows the four perspective sections (Claude / Claudio / Claudius / Roboto), `style.md` is the authoritative definition of their internal shape. The two compose — `style.md` outside, audit level inside.
 
 ---
 
@@ -28,7 +30,7 @@ Four levels:
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│  PROSE         Just the triad, pure markdown            │
+│  PROSE         Just the four lenses, pure markdown      │
 ├─────────────────────────────────────────────────────────┤
 │  MINIMAL       + brief YAML status                      │
 ├─────────────────────────────────────────────────────────┤
@@ -44,9 +46,13 @@ Four levels:
 
 Use when: Conversational responses, simple questions, when audit overhead isn't needed.
 
-**This is the default.** No YAML, no pre/post sections — just the three perspectives.
+**This is the default.** No audit YAML — just the influence header (from `style.md`) and the four perspectives.
 
 ```markdown
+> **Memory:** [entries, or "none"]
+> **System:** [sections by name, or "none"]
+> **Other:** [named influences, or "none"]
+
 ## Claude's Take
 
 [response with full conversation context]
@@ -55,12 +61,20 @@ Use when: Conversational responses, simple questions, when audit overhead isn't 
 
 [response with this-request-only context]
 
+## Claudius's Take
+
+[fresh read, then the 3/6/9 reconstruction of Claude's context — names the delta]
+
 ## Roboto's Synthesis
 
 [final answer]
 ```
 
 **Example:**
+
+> **Memory:** none
+> **System:** none
+> **Other:** none
 
 ## Claude's Take
 
@@ -70,9 +84,13 @@ Based on our earlier discussion about React, you'd want to use `useEffect` with 
 
 For managing subscriptions in React, `useEffect` with a cleanup return is the standard pattern. What specific subscription are you working with?
 
+## Claudius's Take
+
+Both reads land on `useEffect` + cleanup. In 3 steps, the "earlier discussion" Claude cites most likely pinned the specific subscription — so context adds specificity, not a different answer. Delta is detail, not direction.
+
 ## Roboto's Synthesis
 
-Use `useEffect` with cleanup. Both perspectives agree — Claude has the context of your specific case, Claudio confirms this is the standard approach regardless of context.
+Use `useEffect` with cleanup. All three perspectives agree — Claude has the context of your specific case, Claudio confirms it's the standard approach regardless of context, and Claudius confirms the context only sharpened the detail.
 
 ---
 
@@ -95,6 +113,10 @@ decision_gate: PASS | BLOCKED
 
 [response with this-request-only context]
 
+## Claudius's Take
+
+[fresh read + 3/6/9 reconstruction — names the delta]
+
 ## Roboto's Synthesis
 
 [final answer]
@@ -103,9 +125,10 @@ decision_gate: PASS | BLOCKED
 ```yaml
 # Post-Process
 epistemic_summary:
-  agreed: [count] # claims both perspectives agreed on
+  agreed: [count] # claims the perspectives agreed on
   diverged: [count] # claims where they differed
   assumptions_detected: [count] # things Claude assumed that Claudio didn't
+  delta_attributed: [count] # divergences Claudius explained within 3/6/9
 ```
 
 **Example:**
@@ -124,9 +147,13 @@ Based on our earlier discussion, you'd use `useEffect` for that side effect.
 
 For side effects in React, `useEffect` is the standard hook. What specific behavior are you trying to achieve?
 
+## Claudius's Take
+
+In 3 steps, the "earlier discussion" maps to the same side effect Claudio assumes — context and fresh read converge.
+
 ## Roboto's Synthesis
 
-Use `useEffect`. Claude's context (earlier discussion) and Claudio's fresh take both point to the same answer.
+Use `useEffect`. Claude's context (earlier discussion), Claudio's fresh take, and Claudius's reconstruction all point to the same answer.
 
 ```yaml
 # Post-Process
@@ -134,6 +161,7 @@ epistemic_summary:
   agreed: 1
   diverged: 0
   assumptions_detected: 1 # Claude assumed "earlier discussion" was relevant
+  delta_attributed: 0 # no divergence to attribute
 ```
 
 ---
@@ -162,10 +190,16 @@ context_used: [what prior info Claude drew on]
 [response with this-request-only context]
 would_ask: [clarifying questions Claudio would need]
 
+## Claudius's Take
+
+[fresh read, then 3/6/9 reconstruction]
+delta_cause: [which reconstructed context explains the Claude↔Claudio gap]
+steps_used: [3 | 6 | 9 | unexplained]
+
 ## Roboto's Synthesis
 
 alignment: [where they agreed]
-divergence: [where they differed and why]
+divergence: [where they differed and why — per Claudius's attribution]
 final_answer: [synthesized response]
 ```
 
@@ -207,6 +241,11 @@ would_ask:
 - What does the function currently do?
 - What parts feel most complex?
 
+## Claudius's Take
+
+delta_cause: "`handleSubmit` and 'yesterday' trace to a prior session, not this request — real context, but unstated here"
+steps_used: 3
+
 ## Roboto's Synthesis
 
 alignment:
@@ -215,6 +254,7 @@ alignment:
   divergence:
 - Claude assumed knowledge of `handleSubmit` from yesterday
 - Claudio would need to see the code
+  resolution: Claudius attributes the gap to an unstated prior session
   final_answer: Extract validation logic from `handleSubmit`. If the function has changed since yesterday, share the current version for specific guidance.
 ```
 
@@ -259,6 +299,7 @@ full_extended_vlds_self_audit:
     SHOULD_HAVE:
       claude: "[what Claude should contribute]"
       claudio: "[what Claudio should contribute]"
+      claudius: "[what Claudius should reconstruct — the delta cause]"
       roboto: "[what Roboto should synthesize]"
 
 decision_gate:
@@ -273,12 +314,14 @@ divergence_estimate: LOW | MEDIUM | HIGH
 weights:
   w_claude: [sources Claude wanted to use]
   w_claudio: [sources Claudio used — should be minimal, request-only]
+  w_claudius: [context Claudius reconstructed within 3/6/9]
   w_roboto: [sources actually activated in synthesis]
   delta: [difference between Claude and Claudio]
 
 biases:
   b_claude: [assumptions Claude made from accumulated context]
   b_claudio: [fresh assumptions from request only]
+  b_claudius: [inferred assumptions attributed to Claude's reconstructed context]
   b_roboto: [assumptions after correction]
   delta: [assumptions Claude made that Claudio didn't]
 
@@ -296,6 +339,7 @@ vlds_layers:
   conversation:
     messages_influencing_claude: [count or 'all']
     messages_influencing_claudio: 1 # always 1 — this request only
+    messages_influencing_claudius: [reconstructed within the 3/6/9 budget]
     intent_detected: [type]
   context:
     claude_context_size: [accumulated]
@@ -325,6 +369,14 @@ would_ask:
 - '[clarifying question Claudio would need answered]'
   fresh_observations:
 - '[insight from fresh perspective]'
+
+## Claudius's Take
+
+[fresh read, then 3/6/9 reconstruction]
+delta_cause:
+
+- '[which reconstructed context explains the Claude↔Claudio gap]'
+  steps_used: '[3 | 6 | 9 | unexplained]'
 
 ## Roboto's Synthesis
 
@@ -366,7 +418,7 @@ post_process:
     claims:
       - claim: '[statement]'
         source_type: training | retrieval | inference | unknown
-        contributor: claude | claudio | both
+        contributor: claude | claudio | claudius | both
         verifiable: true | false
         verification:
           method: [tool] | none_available
@@ -385,6 +437,7 @@ post_process:
       unknown_count: [N]
       claude_only_claims: [N]
       claudio_only_claims: [N]
+      claudius_only_claims: [N]
       agreed_claims: [N]
 
     decision_summary:

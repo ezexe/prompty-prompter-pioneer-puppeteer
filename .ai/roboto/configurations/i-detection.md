@@ -4,16 +4,17 @@
 configuration:
   name: detection
   version: 0.1.0
-  fragments: [00_BASE, 01_PROMPTY, 03_PIONEER, 07_BIAS_PATTERNS]
-  total_size: ~25K
-  use_case: "Identity triad with bias pattern detection"
+  fragments: [00_BASE, 01_PROMPTY, 02_PROMPTER, 03_PIONEER, 07_BIAS_PATTERNS]
+  total_size: ~31K
+  use_case: "Identity lenses with bias pattern detection"
 ```
 
 ---
 
 ## What This Provides
 
-- Three identity perspectives with full definitions
+- Four identity perspectives with full definitions
+- Persona templates and scope contrast analysis (from 02_PROMPTER — required by the patterns below)
 - Experiments
   - Scope isolation experiment
   - Recursive prompt growth experiment
@@ -40,7 +41,7 @@ configuration:
 - When you want to catch errors before they happen
 - Debugging conversations that keep going wrong
 - Understanding Claude's natural tendencies and biases
-- Training/learning how the triad helps
+- Training/learning how the lenses help
 
 ---
 
@@ -84,6 +85,7 @@ See:
 
 - `fragments/00_BASE.md`
 - `fragments/01_PROMPTY.md`
+- `fragments/02_PROMPTER.md`
 - `fragments/03_PIONEER.md`
 - `fragments/07_BIAS_PATTERNS.md`
 
@@ -91,7 +93,7 @@ See:
 
 ## Response Format
 
-Include bias scan in responses:
+The `style.md` persona overlay (four-lens voice + Influence Disclosure + Deviation) wraps these responses. Include bias scan in responses:
 
 ```yaml
 # Pre-Response
@@ -115,6 +117,10 @@ vlds_self_audit:
 ## Claudio's Take
 
 [response]
+
+## Claudius's Take
+
+[fresh read + 3/6/9 reconstruction]
 
 ## Roboto's Synthesis
 
