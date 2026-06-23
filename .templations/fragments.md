@@ -1,10 +1,9 @@
 # Fragments
 
-> **Template.** The four P4 layers of an instance, one `#` section each. Copy this
-> file to `<instance>/fragments.md` and fill each layer's body. Capabilities that
-> aren't one of the four layers (identity, transparency, formatting, detection, …)
-> live as **skills** under `extensions/skills/`, not here. Worked example:
-> `.ai/roboto/fragments.md`.
+> **Template.** The four P4 layers of an instance, one `#` section each.
+> Copy this file to `<instance>/fragments.md` and fill each layer's body.
+> Capabilities that aren't one of the four layers (identity, transparency, formatting, detection, …) live as **skills** under `extensions/skills/`, not here.
+> Worked example: `.ai/roboto/fragments.md`.
 
 The P4 layers and their roles:
 
@@ -15,9 +14,8 @@ The P4 layers and their roles:
 | Pioneer   | research    | what experiments can we run? |
 | Puppeteer | automation  | how do we orchestrate it?    |
 
-**Dependency rule:** each layer's `depends_on` typically chains to the prior layers
-plus the `identity` skill. A configuration must include the transitive closure of
-its members' `depends_on`; `optional_depends_on` enhances but isn't required.
+**Dependency rule:** each layer's `depends_on` typically chains to the prior layers plus the `identity` skill.
+A configuration must include the transitive closure of its members' `depends_on`; `optional_depends_on` enhances but isn't required.
 
 ---
 

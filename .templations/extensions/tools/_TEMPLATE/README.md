@@ -1,9 +1,8 @@
 # [Tool Name] Tool
 
-> **Template.** Copy this directory to `extensions/tools/[name]/` and fill the
-> manifest block below. A tool adds an execution capability (commands in, structured
-> results out). No instance example ships yet — see `../../../../CONTRIBUTING.md`
-> "Tool Extension".
+> **Template.** Copy this directory to `extensions/tools/[name]/` and fill the manifest block below.
+> A tool adds an execution capability (commands in, structured results out).
+> No instance example ships yet — see `../../../../CONTRIBUTING.md` "Tool Extension".
 
 ```yaml
 extension:

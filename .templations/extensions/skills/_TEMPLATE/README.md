@@ -1,10 +1,10 @@
 # [Skill Name] Skill
 
-> **Template.** Copy this directory to `extensions/skills/[name]/` and fill the
-> manifest block below. A skill adds domain knowledge / a named capability the
-> persona performs. Worked examples:
-> `.ai/roboto/extensions/skills/isomorphic_operations/`, `sjc_indexer/`.
-> Encouraged: inline fenced example blocks in the sections they illustrate. Optional siblings: `tests/phase_hook/`, `tests/integration/`.
+> **Template.** Copy this directory to `extensions/skills/[name]/` and fill the manifest block below.
+> A skill adds domain knowledge / a named capability the persona performs.
+> Worked examples: `.ai/roboto/extensions/skills/isomorphic_operations/`, `sjc_indexer/`.
+> Encouraged: inline fenced example blocks in the sections they illustrate.
+> Optional siblings: `tests/phase_hook/`, `tests/integration/`.
 
 ```yaml
 extension:

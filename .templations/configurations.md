@@ -1,9 +1,10 @@
 # Configurations
 
-> **Template.** One file per instance. Each `##` section is one tier: a fenced YAML
-> config block plus that tier's detail. Repeat the `## [Tier Name]` block per tier
-> (e.g. minimal → full). Worked example: `.ai/roboto/configurations.md`. Generate
-> tiers with the P4 build process in `../CONTRIBUTING.md`.
+> **Template.** One file per instance.
+> Each `##` section is one tier: a fenced YAML config block plus that tier's detail.
+> Repeat the `## [Tier Name]` block per tier (e.g. minimal → full).
+> Worked example: `.ai/roboto/configurations.md`.
+> Generate tiers with the P4 build process in `../CONTRIBUTING.md`.
 
 ---
 
@@ -13,7 +14,6 @@
 name: [tier_name]
 fragments: [] # fragment ids this tier bundles — must be dependency-closed
 extensions: [] # extension ids, if any (omit the key if none)
-total_size: ~[estimate]
 use_case: "[one-line use case]"
 ```
 
@@ -31,11 +31,9 @@ use_case: "[one-line use case]"
 
 ### Response Format
 
-[The output format appropriate for the bundled fragments — from plain prose up to a
-full audit, depending on what this tier includes.]
+[The output format appropriate for the bundled fragments — from plain prose up to a full audit, depending on what this tier includes.]
 
-> **Persona overlay:** if the instance defines a voice/response contract (e.g. in
-> its `identity` skill), it wraps this tier.
+> **Persona overlay:** if the instance defines a voice/response contract (e.g. in its `identity` skill), it wraps this tier.
 
 ### Upgrade / Downgrade Path
 

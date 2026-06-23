@@ -1,5 +1,17 @@
 # 🤝 Contributing
 
+## ✍️ Markdown Authoring Format
+
+These files use **semantic line breaks** so a one-word edit shows up as a one-line diff.
+
+- **Prose:** one sentence per line; end the line at a sentence boundary, never hard-wrap mid-sentence at a fixed column.
+- **Lists:** one line per item, kept whole — do not wrap or split a bullet across lines, even a long one.
+- **Tables:** one line per row (Markdown requires it anyway).
+- **Code / YAML fences:** never reflowed — their line breaks are content.
+
+Let the editor soft-wrap long lines; Markdown renderers ignore single newlines, so the rendered output is identical either way.
+The instance (`.ai/roboto/`) and the templates (`.templations/`) are kept in this style — match it when editing.
+
 ## 🤖 AI-Driven Configuration Building
 
 Use the P4 lifecycle itself to build configurations from fragments.
@@ -11,7 +23,8 @@ prompty → prompter → pioneer → puppeteer
    ↑__________________________________|
 ```
 
-The output of orchestration (puppeteer) feeds new seeds (prompty). This recursion applies to building configurations too.
+The output of orchestration (puppeteer) feeds new seeds (prompty).
+This recursion applies to building configurations too.
 
 ### Build Scripts
 
@@ -205,11 +218,11 @@ script:
 ```
 You are building a P4 configuration.
 
-Read templations/fragments.md to understand the fragment
+Read .templations/fragments.md to understand the fragment
 structure. For filled examples, read an instance such as .ai/roboto/ (its fragments.md
 holds the four P4 layers; the identity skill is the minimal set).
 
-Add a tier section to your instance's configurations.md following templations/configurations.md.
+Add a tier section to your instance's configurations.md following .templations/configurations.md.
 ```
 
 #### Build Custom Configuration
@@ -219,7 +232,7 @@ You are building a custom P4 configuration.
 
 User needs: {requirements}
 
-1. Read templations/fragments.md for the dependency rule
+1. Read .templations/fragments.md for the dependency rule
 2. Identify which fragments satisfy the requirements
 3. Validate all dependencies are included
 4. Add a tier section to your instance's configurations.md
@@ -270,7 +283,8 @@ When contributing a new configuration:
 
 ## 🔌 Extensibility
 
-P4 is designed as an open framework. Extensions plug into any lifecycle phase.
+P4 is designed as an open framework.
+Extensions plug into any lifecycle phase.
 
 ### Extension Model
 
@@ -291,7 +305,7 @@ Capabilities    Knowledge           Bridges
 ### Extension Schema
 
 ```yaml
-# Manifest — a fenced yaml block at the top of templations/extensions/[type]/[name]/README.md
+# Manifest — a fenced yaml block at the top of .templations/extensions/[type]/[name]/README.md
 
 extension:
   name: string
@@ -332,7 +346,7 @@ extension:
 #### Tool Extension
 
 ```yaml
-# in templations/extensions/tools/code_analyzer/README.md
+# in .templations/extensions/tools/code_analyzer/README.md
 
 extension:
   name: code_analyzer
@@ -359,7 +373,7 @@ extension:
 #### Skill Extension
 
 ```yaml
-# in templations/extensions/skills/api_design/README.md
+# in .templations/extensions/skills/api_design/README.md
 
 extension:
   name: api_design
@@ -383,7 +397,7 @@ extension:
 #### Connector Extension
 
 ```yaml
-# in templations/extensions/connectors/openai_bridge/README.md
+# in .templations/extensions/connectors/openai_bridge/README.md
 
 extension:
   name: openai_bridge
@@ -438,7 +452,9 @@ guidelines:
 
 ### With Style Instructions
 
-P4 integrates with style systems (like userStyle configurations) at the Prompter phase. The concrete mapping is **instance data** — an instance maps its persona/voice/transparency concerns to its own skills (e.g. the Roboto instance uses its `identity` and `vlds` skills). Generic shape:
+P4 integrates with style systems (like userStyle configurations) at the Prompter phase.
+The concrete mapping is **instance data** — an instance maps its persona/voice/transparency concerns to its own skills (e.g. the Roboto instance uses its `identity` and `vlds` skills).
+Generic shape:
 
 ```yaml
 style_integration:

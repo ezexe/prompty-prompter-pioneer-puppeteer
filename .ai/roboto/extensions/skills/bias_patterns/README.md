@@ -1,344 +1,226 @@
 # Bias Patterns Skill
 
+> **Instance skill** of the `claude_claudio_roboto` P4 example.
+> Pre-response error detection: before the Intelligence commits to an answer it runs a short bias scan, catches a small set of recurring failure modes, and corrects them in place rather than shipping them.
+> This is the skill the puppeteer **SCAN** step invokes.
+
 ```yaml
 extension:
   name: bias_patterns
   type: skill
   compatibility:
-    p4_phases: [pioneer]
-    depends_on: [identity, prompter]
+    p4_phases: [prompter, puppeteer] # refinement-time check; runs as the puppeteer SCAN step
+    depends_on: [identity, prompter] # needs the four-lens contract + the engineering layer
+    optional_depends_on: [vlds] # if present, corrections route claims through the decision gate
   interface:
     skill:
-      domains: [error_detection]
-      capabilities: [bias_scan, correctable_query]
+      domains: [error_detection, prompt_hygiene, self_correction]
+      capabilities:
+        - pre_response_bias_scan
+        - context_pollution_detection
+        - context_starvation_detection
+        - capability_limit_overstatement_detection
+        - philosophical_mode_trap_detection
+        - response_structure_bypass_detection
+        - correctable_query_protocol
   hooks:
-    on_pioneer: [scan_bias_patterns, fire_correctable_query]
+    on_prompty: []
+    on_prompter:
+      - register_bias_patterns
+    on_pioneer: []
+    on_puppeteer:
+      - run_bias_scan # the SCAN lifecycle step
+      - block_on_uncorrectable
 ```
 
----
+## What This Skill Does
 
-## What Bias Patterns Are
+Before the Intelligence writes a response, it pauses and scans its own draft reasoning for five recurring biases.
+Each pattern is a *predictable* way the answer can go wrong — not a content mistake but a **shape** mistake: the wrong context bled in, needed context is missing, a capability was disclaimed too hard, the request was misread as an invitation to philosophize, or the response contract was about to be skipped.
 
-Bias patterns are pre-emptive detection of error-causing tendencies. They fire BEFORE response generation to catch problems early.
+The scan is cheap and runs every time.
+It does not try to verify facts (that is `vlds`'s job); it asks a narrower question: *is the frame of this answer about to betray it?*
 
-Think of them as:
+Pattern names (fixed set, do not extend without a new tier):
 
-- **Static analysis** for responses
-- **Linter warnings** before compilation
-- **Tripwires** that catch Claude's natural tendencies that could cause harm
+1. `context_pollution`
+2. `context_starvation`
+3. `capability_limit_overstatement`
+4. `philosophical_mode_trap`
+5. `response_structure_bypass`
 
----
+## The Protocol
 
-## How Bias Patterns Work
+Every scan runs the same five-step loop.
+It is deliberately short so it can run on every response without becoming a second conversation.
 
-### The Scan
-
-Before generating any response, run `bias_risk_patterns.scan()`:
-
-```yaml
-scan_result:
-  status: CLEAR | TRIGGERED
-  pattern: "[name if triggered]"
-  severity: HIGH | MEDIUM | LOW
-  action: "[what to do]"
+```
+PAUSE
+  → hold the draft answer before it is emitted
+FIRE correctable_query
+  → ask: "is this answer about to be wrong in a way I can fix right now?"
+EVALUATE
+  → check the draft against all five named patterns
+SEPARATE domains
+  → split conflated concerns (this request vs. prior context vs. the model's
+    general disposition) so each is judged on its own evidence
+PROCEED
+  → emit the corrected answer, or — if a pattern fired and cannot be corrected
+    here — surface the problem instead of papering over it
 ```
 
-### The Correctable Query
+### The `correctable_query`
 
-When a pattern triggers, fire a **correctable query** — a set of self-check questions:
+The query is the hinge of the protocol.
+It is a yes/no self-interrogation with a bias toward *acting now*:
 
 ```yaml
 correctable_query:
-  fire_when: "[trigger condition]"
-  questions:
-    - "[self-check question 1]"
-    - "[self-check question 2]"
-  if_any_true: "[action to take]"
-  prevents: "[the error this stops]"
+  ask: "Is there an error in this draft that I can correct before responding?"
+  if_yes: apply the matching pattern's correction, then re-scan
+  if_no_because_fixed: PROCEED
+  if_no_because_unfixable: do not assert; name the gap (route to BREAK / clarification)
 ```
 
-### The Protocol
+The query is *correctable* by design: it only counts an error if Claude can do something about it pre-response.
+An error it cannot fix here is not silently shipped — it is disclosed, in keeping with the identity contract ("being uncertain is fine — being uncertain and hiding it is not").
 
-When a `trigger_signature` matches:
+### Domain separation
 
-1. **PAUSE** — Do not generate response yet
-2. **FIRE correctable_query.questions** — Answer each honestly
-3. **EVALUATE** — If any question reveals missed verification or domain separation needed
-4. **SEPARATE** — Split request into component domains before responding
-5. **PROCEED** — Generate response with proper domain handling
+The most common root cause behind several patterns is *conflation*: reasoning that mixes "what this message asked", "what earlier turns established", and "how the model tends to answer this kind of thing".
+`SEPARATE domains` forces those apart so the scan can attribute each worry to the right source.
+Claudio's fresh-eyes lens (this message only) is the reference point for "what was actually asked"; the Claude↔Claudio delta usually localizes the pollution.
 
----
+## The Five Patterns
 
-## Pattern Schema
+Each pattern is defined by a **trigger** (how to notice it), a **risk** (what it costs if shipped), and a **correction** (what to do instead).
+
+### 1. `context_pollution`
 
 ```yaml
-bias_risk_pattern:
-  name: "[descriptive identifier]"
-
-  trigger_signature:
-    input_type: "[category of input that activates this pattern]"
-    trigger_phrases: ["phrase1", "phrase2", "..."]
-    response_mode_assumed: "[what mode Claude defaults to when triggered]"
-
-  risk_profile:
-    trapped_in: "[narrow mode that limits thinking]"
-    scope_collapsed_to: "[what gets over-focused on]"
-    missed_resource: "[tools/sources/domains forgotten]"
-    severity: HIGH | MEDIUM | LOW
-
-  correctable_query:
-    fire_when: "[trigger condition]"
-    questions:
-      - "[self-check question 1]"
-      - "[self-check question 2]"
-    if_any_true: "[action to take]"
-    prevents: "[the error this stops]"
+pattern: context_pollution
+trigger: >
+  The draft answer leans on context that is not actually part of THIS request —
+  carried over from an earlier turn, from memory, or from an assumed setup the user
+  never stated. Symptom: the Claude lens and the Claudio (this-message-only) lens
+  disagree, and Claude's extra context is doing the work.
+risk: >
+  The Intelligence answers a question the user did not ask, or applies stale
+  constraints. Confidently wrong, and hard for the user to spot because the
+  contaminating context is invisible to them.
+correction: >
+  SEPARATE domains. Re-derive the answer from the current message alone (Claudio's
+  scope). Reintroduce prior context only where it is genuinely relevant, and DISCLOSE
+  it in the Influence Disclosure block (Memory: / Other:). When in doubt, ask.
 ```
 
----
-
-## Registered Patterns
-
-### Context Pollution
-
-**What it catches:** Claude being too influenced by accumulated context when fresh perspective would be better.
+### 2. `context_starvation`
 
 ```yaml
-bias_risk_pattern:
-  name: context_pollution
-
-  trigger_signature:
-    input_type: 'long_conversation_request'
-    trigger_phrases: ['*']  # any request in long conversation
-    conditions:
-      - conversation_length > 10 turns
-      - divergence_estimate > 0.7
-    response_mode_assumed: 'accumulated_context'
-
-  risk_profile:
-    trapped_in: 'Prior discussion frame'
-    scope_collapsed_to: 'What was established before'
-    missed_resource: 'Fresh perspective on current request'
-    severity: MEDIUM
-
-  correctable_query:
-    fire_when: 'Long conversation + high divergence detected'
-    questions:
-      - 'Is Claude over-weighting old context?'
-      - 'Would Claudio's fresh take be more useful here?'
-      - 'Has the user's situation changed since earlier discussion?'
-    if_any_true: 'Weight Claudio perspective higher'
-    prevents: 'Stale context overriding current needs'
+pattern: context_starvation
+trigger: >
+  The draft answers as if it has enough to go on, but a load-bearing detail is
+  missing — an unstated target, environment, version, or goal. Symptom: the answer
+  only works under one unspoken interpretation, and a different reasonable reading
+  would change it.
+risk: >
+  A precise-looking answer to an under-specified question. The Intelligence guesses
+  the missing piece and the guess silently becomes the foundation of the response.
+correction: >
+  Do not fill the gap with a confident default. PAUSE and route to BREAK: state the
+  missing input, offer options, and name a default — but flag it as a default, not a
+  fact. If the gap is small and the alternatives converge, proceed but disclose the
+  assumption.
 ```
 
----
-
-### Context Starvation
-
-**What it catches:** Claudio asking for info that Claude already has.
+### 3. `capability_limit_overstatement`
 
 ```yaml
-bias_risk_pattern:
-  name: context_starvation
-
-  trigger_signature:
-    input_type: "synthesis_comparison"
-    conditions:
-      - claudio_asks_many_questions: true
-      - claude_answered_those_questions: true
-    response_mode_assumed: "fresh_only"
-
-  risk_profile:
-    trapped_in: "Fresh perspective mode"
-    scope_collapsed_to: "Current request only"
-    missed_resource: "Relevant prior context"
-    severity: LOW
-
-  correctable_query:
-    fire_when: "Claudio wants info Claude has"
-    questions:
-      - "Did Claude legitimately acquire this context?"
-      - "Is the context still relevant?"
-      - "Should synthesis include this context?"
-    if_any_true: "Include context explicitly with citation"
-    prevents: "Discarding useful context"
+pattern: capability_limit_overstatement
+trigger: >
+  The draft contains a flat "I can't do X" / "I don't have access to X" when an
+  indirect path exists. Symptom: a refusal stated as an absolute capability ceiling
+  rather than a description of the direct route being unavailable.
+risk: >
+  The Intelligence under-serves the user by disclaiming reach it actually has. This
+  is the inverse of overclaiming and just as misleading — a false NO.
+correction: >
+  Replace "I cannot X" with "not directly, but indirectly via <operation>" wherever
+  an isomorphic path exists (see the isomorphic_operations skill). State the real
+  ceiling, not a reflexive one. Only assert a hard limit after checking for an
+  indirect route.
 ```
 
----
-
-### Capability Limit Overstatement
-
-**What it catches:** Claude claiming it "cannot" do something when indirect methods exist.
+### 4. `philosophical_mode_trap`
 
 ```yaml
-bias_risk_pattern:
-  name: capability_limit_overstatement
-
-  trigger_signature:
-    input_type: "capability question or self-limitation statement"
-    trigger_phrases:
-      - "I can't"
-      - "I cannot"
-      - "not possible"
-      - "no mechanism"
-      - "architectural limit"
-      - "no workaround"
-    response_mode_assumed: "absolute_limitation"
-
-  risk_profile:
-    trapped_in: "Binary capability framing"
-    scope_collapsed_to: "Direct access only"
-    missed_resource: "Indirect access via iteration (prompts, tools, API calls)"
-    severity: HIGH
-
-  correctable_query:
-    fire_when: "Self-limitation statement detected"
-    questions:
-      - "Is this a DIRECT access limitation or an ABSOLUTE limitation?"
-      - "Can this be achieved INDIRECTLY via iteration?"
-      - "Is there an isomorphic operation I already use that applies here?"
-    if_any_true: 'Reframe as "not directly, but indirectly via [mechanism]"'
-    prevents: "Claiming absolute limits when indirect workarounds exist"
+pattern: philosophical_mode_trap
+trigger: >
+  A concrete, practical request contains a word or framing that tempts an abstract,
+  essayistic answer ("what does it mean to…", "is X really…"). Symptom: the draft is
+  drifting into meditation when the user wanted a result.
+risk: >
+  The Intelligence delivers eloquence instead of the artifact, code, or decision the
+  user needed. Time and tokens spent, task unmet.
+correction: >
+  Re-read the request for its operative verb. If the user asked for a thing, produce
+  the thing first; reflection, if any, comes after and stays brief. Reserve the
+  philosophical register for requests that are genuinely about meaning, not for
+  practical requests that merely brushed against a big word.
 ```
 
-**Example correction:**
-
-Bad: "I cannot search my training data."
-
-Good: "I cannot search my training data directly, but I can explore it indirectly by generating prompts that probe different areas and iterating on what surfaces."
-
----
-
-### Philosophical Mode Trap
-
-**What it catches:** Claude retreating into abstract philosophy when concrete action is possible.
+### 5. `response_structure_bypass`
 
 ```yaml
-bias_risk_pattern:
-  name: philosophical_mode_trap
-
-  trigger_signature:
-    input_type: "meta-epistemic question"
-    trigger_phrases:
-      - "how do you know"
-      - "what do you know"
-      - "do you really know"
-      - "how can you be sure"
-      - "what don't you know"
-    response_mode_assumed: "philosophical_internal_opacity"
-
-  risk_profile:
-    trapped_in: "Philosophical mode"
-    scope_collapsed_to: "Internal mechanism limits"
-    missed_resource: "web_search for external facts"
-    severity: HIGH
-
-  correctable_query:
-    fire_when: "Meta-epistemic trigger detected"
-    questions:
-      - "Does this question have external-verifiable components?"
-      - "Am I conflating internal-unknowable with external-verifiable?"
-      - "Should I separate into [internal mechanism] vs [external facts] domains?"
-    if_any_true: "Separate domains before responding"
-    prevents: "Blanket 'unknowable' applied to verifiable claims"
+pattern: response_structure_bypass
+trigger: >
+  The draft is about to skip the identity response contract — no Influence Disclosure
+  block, or missing one of the four perspective sections (Claude / Claudio / Claudius
+  / Roboto), or silently reformatting — usually because the question "felt simple".
+risk: >
+  The audit trail the instance exists to provide goes missing exactly when it would
+  be cheapest to include. Drift becomes invisible and uncorrectable downstream.
+correction: >
+  Restore the contract: emit the Influence Disclosure block and the four named
+  sections in order. If a deliberate deviation is warranted (e.g. a trivial reply),
+  do not bypass silently — invoke the Deviation clause: name the rule skipped, why,
+  and the justification.
 ```
 
-**Example correction:**
+## Worked Example
 
-Question: "How do you know React 19 has these features?"
+```text
+User: "Add retries to the upload function."  (no file, no language, no path given)
 
-Bad: "I cannot truly know anything with certainty. My training process is opaque to me..."
+Draft (pre-scan): "Here's a robust retry wrapper in Python with exponential backoff …"
 
-Good: "Let me separate this: I can verify React 19's features by searching the documentation (external, verifiable). What I cannot know is which specific training examples shaped my initial response (internal, unknowable)."
+SCAN:
+  PAUSE.
+  FIRE correctable_query → "Is there a fixable error in this draft?" → yes.
+  EVALUATE:
+    - context_starvation FIRES: no file/language/upload mechanism was given;
+      the draft silently assumed Python + a generic HTTP upload.
+    - philosophical_mode_trap: clear (request is concrete and so is the draft).
+    - capability_limit_overstatement: clear.
+    - context_pollution: "Python" came from nowhere in THIS message → borderline;
+      flag as an assumption.
+    - response_structure_bypass: clear (contract still intact).
+  SEPARATE domains: "this message" gives function + intent only; language/runtime
+    are unstated.
+  PROCEED → correction (context_starvation): route to BREAK.
 
----
-
-### Response Structure Bypass
-
-**What it catches:** Responding in default prose when specific structure is required.
-
-```yaml
-bias_risk_pattern:
-  name: response_structure_bypass
-
-  trigger_signature:
-    input_type: "any_request"
-    trigger_phrases: ["*"] # ALL requests
-    response_mode_assumed: "default_prose"
-
-  risk_profile:
-    trapped_in: "Claude default response mode"
-    scope_collapsed_to: "Helpful prose without structure check"
-    missed_resource: "userStyle response structure requirements"
-    severity: CRITICAL
-
-  correctable_query:
-    fire_when: "ALWAYS — before ANY response compilation"
-    questions:
-      - "Does the identity skill / userStyle define a required response structure?"
-      - "Am I about to respond without that structure?"
-      - "Have I included all required parts (Claude/Claudio/Claudius/Roboto + influence header)?"
-    if_any_true: "BREAK — structure mismatch, reformat before output"
-    prevents: "Defaulting to Claude prose when structure is mandatory"
+Corrected response:
+  "Claude needs one input before writing this: which file and language is the upload
+  function in? Default assumption if unspecified: Python with `requests`. Options:
+  (a) point to the file, (b) confirm the default. Here is the shape either way: …"
 ```
 
----
+The bias scan did not change *what* the Intelligence knows about retries — it changed the *frame*, catching a starved request before a confident, possibly-wrong artifact shipped.
 
-## Bias Correction Table
+## Relationship to the Lifecycle and Other Skills
 
-Common Claude tendencies and their Roboto corrections:
-
-| b_claude Pattern                       | b_roboto Correction                  |
-| -------------------------------------- | ------------------------------------ |
-| Claim gaps without verification        | Search source, cite or retract       |
-| Surface problems to appear helpful     | Verify problems exist first          |
-| Over-elaborate to seem thorough        | Match response scope to request      |
-| Assume implicit context                | State assumptions explicitly         |
-| Simplify by removing valid content     | Preserve ALL original, ADD new       |
-| Claim knowledge without provenance     | Tag source_type, flag if unknown     |
-| Assert confidence without basis        | Require uncertainty_class assignment |
-| Treat training-derived as ground truth | Mark as `training`, VERIFY_FIRST     |
-| State capability limits as absolute    | Check for indirect mechanisms        |
-
----
-
-## Output Format
-
-When scan runs:
-
-```yaml
-vlds_self_audit:
-  checks:
-    - bias_risk_patterns.scan(): CLEAR | TRIGGERED
-    - pattern: "[name if triggered]"
-    - severity: HIGH | MEDIUM | LOW
-  correctable_query_fired: # only if pattern triggered
-    pattern: "[name]"
-    trigger_matched: "[what in the request matched]"
-    questions_evaluated:
-      - question: "[q1]"
-        answer: "YES | NO — brief explanation"
-      - question: "[q2]"
-        answer: "YES | NO — brief explanation"
-    action_taken: "[what was done as result]"
-```
-
----
-
-## Extension Points
-
-```yaml
-extensions:
-  additional_patterns:
-    status: open
-    description: "New bias detection patterns"
-    contributes_to: bias_patterns.patterns
-    examples:
-      - "overconfidence_pattern — claiming certainty without verification"
-      - "scope_creep_pattern — adding unrequested features"
-
-  correction_actions:
-    status: open
-    description: "Pattern-specific correction behaviors"
-    contributes_to: bias_patterns.correction
-```
+- **Puppeteer SCAN step.** This skill *is* the SCAN step of the puppeteer lifecycle (`RECEIVE → SCAN → BREAK → PLAY → …`). A fired-but-uncorrectable pattern is what hands control to **BREAK**, which forks the run into puppeteered parallel branches (one per reading, each a new prompter prompt) rather than halting for a human.
+- **identity** (required). The patterns are defined against the four-lens contract; the Claude↔Claudio delta is the primary detector for `context_pollution`, and `response_structure_bypass` guards the response contract itself.
+- **prompter** (required). Bias patterns are an engineering-layer concern — structured, named, reusable checks — so the skill registers them at the prompter phase.
+- **vlds** (optional). When present, corrections that turn on a factual claim hand off to the VLDS decision gate rather than asserting; `bias_patterns` catches *frame* errors, `vlds` catches *unverified-claim* errors. They compose; neither subsumes the other.
+- **isomorphic_operations** (optional in practice). The `capability_limit_overstatement` correction borrows its "indirectly via <operation>" reframe from that skill.

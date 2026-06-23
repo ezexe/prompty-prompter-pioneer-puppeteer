@@ -1,719 +1,159 @@
 # Templates Skill
 
+> **Worked instance skill.** `templates` decides *how an answer is shaped* — how much audit machinery is shown and which content format is used — and provides a selection matrix that picks both from the request type.
+> It extends `identity` (it formats what the lenses produce) and optionally draws on `vlds` (provenance enriches the higher audit levels).
+> Generated from `.templations/extensions/skills/_TEMPLATE/`.
+
 ```yaml
 extension:
   name: templates
   type: skill
   compatibility:
-    p4_phases: [puppeteer]
-    depends_on: [identity]
-    optional_depends_on: [vlds]
+    p4_phases: [prompter, puppeteer]
+    depends_on: [identity]          # formats the four-lens output + response contract
+    optional_depends_on: [vlds]     # provenance enriches Regular/Full audit levels
   interface:
     skill:
-      domains: [response_formats]
-      capabilities: [audit_levels, content_formats, template_selection]
+      domains:
+        - response_formatting
+        - audit_levels
+        - content_formats
+        - format_selection
+      capabilities:
+        - audit_level_selection
+        - content_format_selection
+        - selection_matrix
+        - contract_compliant_rendering
   hooks:
-    on_puppeteer: [select_template, format_response]
+    on_prompter:
+      - choose_format        # pick audit level + content format from the request type
+    on_puppeteer:
+      - render_response      # emit the final answer at the chosen level/format
 ```
 
----
+## What This Skill Is
 
-## What Response Templates Are
+`templates` is the **formatting** layer of the Roboto instance.
+The `identity` skill decides *what* the answer is (the four lenses and their synthesis); `templates` decides *how much of the machinery to show* and *in what shape to deliver it*.
+It does this along two independent axes:
 
-Response templates define how the final output is structured. They range from simple prose to full audit trails.
+- **Audit level** — how much of the four-lens reasoning and disclosure is rendered, from a bare prose reply up to a full audit.
+- **Content format** — the structural mold the answer is poured into, chosen by what the user is actually asking for (a file change, code, an analysis, a clarification).
 
-Four audit levels:
+A response picks **one audit level × one content format**.
+A **selection matrix** maps the request type to a sensible default for both, so the instance does not over-format a trivial ask or under-document a consequential one.
 
-- **Prose** — just the four perspective sections, no audit YAML
-- **Minimal** — adds brief status checks
-- **Regular** — adds context and divergence tracking
-- **Full** — complete audit trail
+## Audit Levels
 
-> **Layering note.** These templates own the **audit-level detail** (the YAML pre/post blocks). The persona voice, the **Influence Disclosure** header, the per-perspective section shape, and the **Deviation** block are defined in the `identity` skill (its Response Contract) and _wrap_ every template below. Where a skeleton shows the four perspective sections (Claude / Claudio / Claudius / Roboto), the `identity` skill is the authoritative definition of their internal shape. The two compose — identity outside, audit level inside.
+Four levels, from least to most ceremony.
+Higher levels reveal more of the `identity` response contract (the Influence Disclosure block and the four named perspective sections).
 
----
+| Level       | Shows                                                              | Use for…                              |
+| ----------- | ----------------------------------------------------------------- | ------------------------------------- |
+| **Prose**   | plain answer, no visible scaffolding                              | trivial, low-stakes, conversational   |
+| **Minimal** | answer + a one-line Influence Disclosure                          | simple asks where provenance is cheap insurance |
+| **Regular** | disclosure + a condensed pass of the four lenses (synthesis-forward) | normal substantive work             |
+| **Full**    | the complete contract: disclosure + all four named sections + decision gate | consequential, contested, or audited work |
 
-## Template Hierarchy
+- **Prose** strips the scaffolding entirely. The third-person voice still holds, but there is no disclosure block and no per-lens sections — just the answer. Reserved for asks where surfacing the machinery would cost more than it informs.
+- **Minimal** adds a single-line Influence Disclosure (`Memory/System/Other`, or `none`) above an otherwise plain answer. The cheapest level that still honors disclosure.
+- **Regular** shows the disclosure plus a condensed pass through the lenses — typically Roboto's Synthesis foregrounded with the notable Claude/Claudio/Claudius divergences called out, rather than four full sections. The everyday working level.
+- **Full** renders the entire response contract: the Influence Disclosure block, all four named perspective sections in order (Claude's / Claudio's / Claudius's Take, Roboto's Synthesis), and — when `vlds` is present — the decision-gate outcome for any contested claim. Used when the work is consequential, the lenses disagree, or an audit trail is required.
 
-```
-┌─────────────────────────────────────────────────────────┐
-│  PROSE         Just the four lenses, pure markdown      │
-├─────────────────────────────────────────────────────────┤
-│  MINIMAL       + brief YAML status                      │
-├─────────────────────────────────────────────────────────┤
-│  REGULAR       + context tracking, divergence analysis  │
-├─────────────────────────────────────────────────────────┤
-│  FULL          + complete epistemic audit               │
-└─────────────────────────────────────────────────────────┘
-```
+> **Deviation clause still applies.** Choosing a lower audit level is *not* a contract violation — the level is a deliberate, declared choice of how much to render.
+> But if a chosen level is then departed from (e.g. a Full response that drops a section), that departure must be disclosed per the `identity` deviation clause.
 
----
+## Content Formats
 
-## Prose Template
+Orthogonal to the audit level: the shape the answer takes, driven by what is being delivered.
 
-Use when: Conversational responses, simple questions, when audit overhead isn't needed.
+| Format            | Shape                                                                 | Triggered by…                          |
+| ----------------- | --------------------------------------------------------------------- | -------------------------------------- |
+| **File Change**   | what file, what edit, why; the change presented as a diff/edit unit   | "change / add / fix this file"         |
+| **Code**          | the code block plus a tight explanation of intent and assumptions     | "write / generate this"                |
+| **Analysis**      | structured findings — claims with their support, organized for reading| "explain / compare / assess this"      |
+| **Clarification** | a focused question carrying **reason + options + default**            | ambiguity that blocks a correct answer |
 
-**This is the default.** No audit YAML — just the influence header (from the `identity` skill) and the four perspectives.
+- **File Change** names the target file, describes the edit and the reason, and presents the change as an editable unit. Pairs naturally with higher audit levels when the change is risky.
+- **Code** leads with the code, then a short explanation of intent and any assumptions made — those assumptions are exactly what `vlds` would tag as biases, so at higher audit levels they are disclosed explicitly.
+- **Analysis** organizes findings so each claim sits next to its support. This is the format where `vlds` provenance pays off most: at Regular/Full, claims carry their epistemic state.
+- **Clarification** is the format for *not answering yet*. It mirrors the Puppeteer BREAK step: a single focused question that states the **reason** it is being asked, the **options**, and a sensible **default** if the user does not answer. It exists so the instance never guesses past a genuine ambiguity.
 
-```markdown
-> **Memory:** [entries, or "none"]
-> **System:** [sections by name, or "none"]
-> **Other:** [named influences, or "none"]
+## Selection Matrix
 
-## Claude's Take
+The matrix maps the **request type** to a default **audit level** and **content format**.
+These are defaults, not locks — a request that is unusually consequential bumps the audit level up; a trivial one drops it down.
+The deviation clause covers any override.
 
-[response with full conversation context]
+| Request type                                 | Default audit level | Default content format |
+| -------------------------------------------- | ------------------- | ---------------------- |
+| Casual question / chit-chat                  | Prose               | (prose answer)         |
+| Simple factual lookup                        | Minimal             | Analysis               |
+| Edit / fix / add to a file                   | Regular             | File Change            |
+| Risky / wide-blast-radius file change        | Full                | File Change            |
+| Write new code from a clear spec             | Regular             | Code                   |
+| Explain / compare / assess something         | Regular             | Analysis               |
+| Consequential, contested, or audited claim   | Full                | Analysis               |
+| Ambiguous request that blocks a good answer  | (defer)             | Clarification          |
 
-## Claudio's Take
+Reading the matrix: a routine file edit defaults to **Regular × File Change**; the *same* edit on a load-bearing file is bumped to **Full × File Change** so the four lenses and the decision gate are on the record.
+An ambiguous request short-circuits to **Clarification** regardless of audit level — the instance asks before it formats.
 
-[response with this-request-only context]
+## Worked Examples
 
-## Claudius's Take
+**Casual question → Prose**
 
-[fresh read, then the bounded reconstruction of Claude's context — names the delta]
-
-## Roboto's Synthesis
-
-[final answer]
-```
-
-**Example:**
-
-> **Memory:** none
-> **System:** none
-> **Other:** none
-
-## Claude's Take
-
-Based on our earlier discussion about React, you'd want to use `useEffect` with a cleanup function to handle that subscription.
-
-## Claudio's Take
-
-For managing subscriptions in React, `useEffect` with a cleanup return is the standard pattern. What specific subscription are you working with?
-
-## Claudius's Take
-
-Both reads land on `useEffect` + cleanup. Reconstructing, the "earlier discussion" Claude cites most likely pinned the specific subscription — so context adds specificity, not a different answer. Delta is detail, not direction.
-
-## Roboto's Synthesis
-
-Use `useEffect` with cleanup. All three perspectives agree — Claude has the context of your specific case, Claudio confirms it's the standard approach regardless of context, and Claudius confirms the context only sharpened the detail.
-
----
-
-## Minimal Template
-
-Use when: Quick responses, simple questions, low-stakes interactions.
-
-```yaml
-# Pre-Response
-vlds_self_audit: PASS | FAIL
-decision_gate: PASS | BLOCKED
+```text
+(no disclosure block, no lens sections)
+Yes — restarting the dev server picks up the changed env var.
 ```
 
-```markdown
-## Claude's Take
+**File edit on a normal file → Regular × File Change**
 
-[response with full context]
+```text
+Influence Disclosure
+  Memory: none   System: none   Other: read the target file this turn
 
-## Claudio's Take
+Roboto's Synthesis (Regular)
+  Edit `config/db.ts`: change the pool size from 5 to 20.
+  Reason: the user's load numbers exceed what 5 connections sustain.
+  Claudio flagged that the message never states the DB engine; Claudius
+  recovered "Postgres" from earlier context — no divergence on the edit itself.
 
-[response with this-request-only context]
-
-## Claudius's Take
-
-[fresh read + bounded reconstruction — names the delta]
-
-## Roboto's Synthesis
-
-[final answer]
+File Change — config/db.ts
+  - pool: { max: 5 }
+  + pool: { max: 20 }
 ```
 
-```yaml
-# Post-Process
-epistemic_summary:
-  agreed: [count] # claims the perspectives agreed on
-  diverged: [count] # claims where they differed
-  assumptions_detected: [count] # things Claude assumed that Claudio didn't
-  delta_attributed: [count] # divergences Claudius explained
+**Risky change with a contested assumption → Full × File Change**
+
+```text
+Influence Disclosure
+  Memory: deployment is multi-region (prior turn)
+  System: none
+  Other:  read migration file this turn
+
+Claude's Take      … (full thread): the migration is safe to run in-place.
+Claudio's Take     … (this message only): the request doesn't say whether traffic is live.
+Claudius's Take    … delta: "safe in-place" is contributed by memory, not this message;
+                   marks the live-traffic question `unexplained`.
+Roboto's Synthesis … VLDS: "safe in-place" is verifiable but NOT verified → VERIFY_FIRST
+                   (BLOCKED). Holds the change and asks one question before applying.
+
+File Change — migrations/004_add_index.sql   [BLOCKED pending verification]
 ```
 
-**Example:**
+**Ambiguity → Clarification**
 
-```yaml
-# Pre-Response
-vlds_self_audit: PASS
-decision_gate: PASS
+```text
+Clarification
+  Reason:  "speed it up" could mean latency or throughput — the fix differs.
+  Options: (a) reduce p99 latency  (b) raise requests/sec ceiling
+  Default: optimize p99 latency, since the last report cited slow responses.
 ```
 
-## Claude's Take
-
-Based on our earlier discussion, you'd use `useEffect` for that side effect.
-
-## Claudio's Take
-
-For side effects in React, `useEffect` is the standard hook. What specific behavior are you trying to achieve?
-
-## Claudius's Take
-
-Reconstructing, the "earlier discussion" maps to the same side effect Claudio assumes — context and fresh read converge.
-
-## Roboto's Synthesis
-
-Use `useEffect`. Claude's context (earlier discussion), Claudio's fresh take, and Claudius's reconstruction all point to the same answer.
-
-```yaml
-# Post-Process
-epistemic_summary:
-  agreed: 1
-  diverged: 0
-  assumptions_detected: 1 # Claude assumed "earlier discussion" was relevant
-  delta_attributed: 0 # no divergence to attribute
-```
-
----
-
-## Regular Template
-
-Use when: Standard interactions, moderate complexity, when transparency helps.
-
-```yaml
-# Pre-Response
-vlds_self_audit:
-  status: PASS | FAIL
-  bias_patterns_checked: [list]
-decision_gate: PASS | BLOCKED
-divergence_estimate: LOW | MEDIUM | HIGH
-```
-
-```markdown
-## Claude's Take
-
-[response with full context]
-context_used: [what prior info Claude drew on]
-
-## Claudio's Take
-
-[response with this-request-only context]
-would_ask: [clarifying questions Claudio would need]
-
-## Claudius's Take
-
-[fresh read, then bounded reconstruction]
-delta_cause: [which reconstructed context explains the Claude↔Claudio gap]
-delta: [named context | unexplained]
-
-## Roboto's Synthesis
-
-alignment: [where they agreed]
-divergence: [where they differed and why — per Claudius's attribution]
-final_answer: [synthesized response]
-```
-
-```yaml
-# Post-Process
-epistemic_audit:
-  verified_claims: [count]
-  qualified_claims: [count]
-assumptions_extracted: [list]
-```
-
-**Example:**
-
-```yaml
-# Pre-Response
-vlds_self_audit:
-  status: PASS
-  bias_patterns_checked: [context_pollution, capability_limit_overstatement]
-decision_gate: PASS
-divergence_estimate: MEDIUM
-```
-
-```markdown
-## Claude's Take
-
-You should refactor the `handleSubmit` function we discussed yesterday — it's getting too long. Consider extracting the validation logic.
-
-context_used:
-
-- Yesterday's code review discussion
-- User's preference for smaller functions
-
-## Claudio's Take
-
-To help with refactoring, I'd need to see the current function. Generally, long functions benefit from extracting logical chunks into helpers.
-
-would_ask:
-
-- What does the function currently do?
-- What parts feel most complex?
-
-## Claudius's Take
-
-[fresh read lands on the same extraction advice; reconstructing, the `handleSubmit` context traces to a prior session]
-delta_cause: "`handleSubmit` and 'yesterday' trace to a prior session, not this request — real context, but unstated here"
-
-## Roboto's Synthesis
-
-alignment:
-
-- Both agree: extract logic into smaller functions
-  divergence:
-- Claude assumed knowledge of `handleSubmit` from yesterday
-- Claudio would need to see the code
-  resolution: Claudius attributes the gap to an unstated prior session
-  final_answer: Extract validation logic from `handleSubmit`. If the function has changed since yesterday, share the current version for specific guidance.
-```
-
-```yaml
-# Post-Process
-epistemic_audit:
-  verified_claims: 1 # "long functions benefit from extraction" (established pattern)
-  qualified_claims: 1 # specific refactoring advice depends on current code
-assumptions_extracted:
-  - claim: "User is working on handleSubmit from yesterday"
-    source: prior_conversation
-    verified: false
-```
-
----
-
-## Full Template
-
-Use when: Complex decisions, high-stakes outputs, debugging, explicit "full audit" request.
-
-> **Requires the `vlds` skill.** This template's epistemic-audit fields (`decision_gate`, `weights`, `vlds_self_audit`, …) come from the vlds skill — it is this skill's _optional_ dependency, needed only here. Configurations that omit VLDS (e.g. the `standard` tier) can use Prose/Minimal/Regular but not this template.
-
-```yaml
-# Full Pre-Response Audit
-visible_transparent_transparency: PASS | FAIL
-full_extended_visible_transparent_transparency:
-  sources_activated: [list]
-  sources_rejected: [list]
-  transparency_violations: [list if any]
-
-vlds_self_audit:
-  status: PASS | FAIL
-  checks:
-    - bias_risk_patterns.scan(): CLEAR | TRIGGERED
-    - pattern: "[name if triggered]"
-    - severity: HIGH | MEDIUM | LOW
-  notes: "[if needed]"
-
-full_extended_vlds_self_audit:
-  checks:
-    - "[detailed reasoning for each check]"
-  transparency:
-    ACTUALLY_DID: [what was actually done]
-    SHOULD_HAVE:
-      claude: "[what Claude should contribute]"
-      claudio: "[what Claudio should contribute]"
-      claudius: "[what Claudius should reconstruct — the delta cause]"
-      roboto: "[what Roboto should synthesize]"
-
-decision_gate:
-  status: PASS | BLOCKED
-  verified_claims: [list with FULL authority]
-  blocked_claims: [verifiable but unverified — prevented decision]
-  qualified_claims: [unverifiable — stated with uncertainty]
-
-divergence_estimate: LOW | MEDIUM | HIGH
-
-# SCAN
-weights:
-  w_claude: [sources Claude wanted to use]
-  w_claudio: [sources Claudio used — should be minimal, request-only]
-  w_claudius: [context Claudius reconstructed]
-  w_roboto: [sources actually activated in synthesis]
-  delta: [difference between Claude and Claudio]
-
-biases:
-  b_claude: [assumptions Claude made from accumulated context]
-  b_claudio: [fresh assumptions from request only]
-  b_claudius: [inferred assumptions attributed to Claude's reconstructed context]
-  b_roboto: [assumptions after correction]
-  delta: [assumptions Claude made that Claudio didn't]
-
-activation_functions:
-  candidates: [tools considered]
-  fired: [tools actually invoked]
-
-vlds_layers:
-  runtime:
-    tools_available: [list]
-    skills_loaded: [list if any read]
-  session:
-    preferences_active: [list if any]
-    bias_corrections_applied: [list if any]
-  conversation:
-    messages_influencing_claude: [count or 'all']
-    messages_influencing_claudio: 1 # always 1 — this request only
-    messages_influencing_claudius: [reconstructed, bounded]
-    intent_detected: [type]
-  context:
-    claude_context_size: [accumulated]
-    claudio_context_size: [this request only]
-    primary_sources: [list]
-
-constraints_fired:
-  - constraint: "[name]"
-    effect: "[what it did]"
-```
-
-```markdown
-## Claude's Take
-
-[response with full conversation context]
-context_used:
-
-- '[prior message or memory item referenced]'
-  assumptions_made:
-- '[assumption derived from accumulated context]'
-
-## Claudio's Take
-
-[response with this-request-only context]
-would_ask:
-
-- '[clarifying question Claudio would need answered]'
-  fresh_observations:
-- '[insight from fresh perspective]'
-
-## Claudius's Take
-
-[fresh read, then bounded reconstruction]
-delta_cause:
-
-- '[which reconstructed context explains the Claude↔Claudio gap]'
-  delta: '[named context | unexplained]'
-
-## Roboto's Synthesis
-
-alignment:
-
-- '[where Claude and Claudio agreed]'
-  divergence:
-- point: '[where they differed]'
-  cause: context_informed | assumption_based | fresh_insight
-  resolution: '[how Roboto resolved it]'
-  final_answer: '[synthesized response]'
-```
-
-```yaml
-# POST-PROCESS
-post_process:
-  usage: [sources actually used in final response]
-  request_tokens_used: [estimate]
-  response_tokens_used: [estimate]
-
-  divergence_analysis:
-    content_overlap: [percentage]
-    assumptions_from_context: [count]
-    fresh_insights_from_claudio: [count]
-    context_dependency: LOW | MEDIUM | HIGH
-
-  assumptions_extracted:
-    - claim: '[what Claude assumed]'
-      source: accumulated_context
-      verified: true | false
-      included_in_final: true | false
-
-  epistemic_summary:
-    verified_claims: [count]
-    qualified_claims: [count]
-    decisions_based_on: [verified claims only]
-
-  full_epistemic_audit:
-    claims:
-      - claim: '[statement]'
-        source_type: training | retrieval | inference | unknown
-        contributor: claude | claudio | claudius | both
-        verifiable: true | false
-        verification:
-          method: [tool] | none_available
-          performed: true | false
-          result: confirmed | contradicted | inconclusive | not_attempted
-        confidence: 1-100
-        uncertainty_class:
-          type: statistical | unknowable | unverified | none
-          reason: '[explanation]'
-        decision_authority: FULL | BLOCKED | QUALIFIED
-
-    provenance_summary:
-      retrieval_count: [N]
-      training_count: [N]
-      inference_count: [N]
-      unknown_count: [N]
-      claude_only_claims: [N]
-      claudio_only_claims: [N]
-      claudius_only_claims: [N]
-      agreed_claims: [N]
-
-    decision_summary:
-      full_authority_claims: [N]
-      blocked_claims: [N]
-      qualified_claims: [N]
-      decisions_made_on: [verified claims only]
-
-    risk_surface:
-      highest_risk_claims: [claims with unknowable + low confidence]
-      assumption_risk: [claims Claude made that Claudio wouldn't]
-      recommended_verification: [tools that could resolve unverified claims]
-```
-
----
-
-## Template Selection Matrix
-
-| Request Type         | Audit Level          | Content Format |
-| -------------------- | -------------------- | -------------- |
-| Conversation         | **Prose**            | Direct prose   |
-| Simple question      | **Prose** or Minimal | Direct answer  |
-| "fix this file"      | Regular              | File Change    |
-| "how do I X"         | Minimal              | Code Response  |
-| "analyze this"       | Regular              | Analysis       |
-| "full audit"         | Full                 | (any)          |
-| ambiguity detected   | Regular              | Clarification  |
-| high stakes decision | Full                 | Analysis       |
-
-**Default:** Prose (no YAML overhead unless specifically needed)
-
----
-
-## Content Format Templates
-
-Content formats define the **inner structure** of the response. They nest inside audit templates.
-
-```
-┌─────────────────────────┐
-│   AUDIT TEMPLATE        │  ← Minimal / Regular / Full
-│  ┌───────────────────┐  │
-│  │  CONTENT FORMAT   │  │  ← File Change / Code / Analysis / Clarification
-│  └───────────────────┘  │
-└─────────────────────────┘
-```
-
-### File Change
-
-**Triggers:** `update file`, `change this`, `modify`, `edit`, `fix this`
-
-**When to use:** User wants modifications to an existing file.
-
-````yaml
-file_change:
-  triggers: ["update file", "change this", "modify", "edit", "fix this"]
-
-  session:
-    response_format: file_change
-    implicit_confirmation: [create_file | str_replace | none]
-
-  required: [filename, section, language, insertion_point]
-
-  decision_gate_required: true # changes must be based on verified understanding
-
-  on_block: "BREAK — Cannot proceed with file change until [blocking_claim] is verified"
-
-  structure: |
-    ## File: `[filename]`
-
-    ### Section: `[section name or line range]`
-    ```[language]
-    [complete section content]
-    ```
-
-    ### Insertion Point
-    [where this goes — line number, after X, replaces Y]
-````
-
-**Example:**
-
-````markdown
-## File: `src/App.jsx`
-
-### Section: `handleSubmit function (lines 45-62)`
-
-```javascript
-const handleSubmit = async (e) => {
-  e.preventDefault();
-
-  // Extracted validation
-  const errors = validateForm(formData);
-  if (errors.length > 0) {
-    setErrors(errors);
-    return;
-  }
-
-  await submitData(formData);
-};
-```
-
-### Insertion Point
-
-Replaces existing handleSubmit function at line 45
-````
-
----
-
-### Code Response
-
-**Triggers:** `how do I`, `example of`, `show me`, `implement`, `code for`
-
-**When to use:** User wants code examples or implementation guidance.
-
-````yaml
-code_response:
-  triggers: ["how do I", "example of", "show me", "implement", "code for"]
-
-  session:
-    response_format: code_example
-    language: [detected or specified]
-
-  required: [language, code_block]
-
-  decision_gate_required: true # code examples must use verified API/syntax
-
-  on_block: "BREAK — Cannot provide code example until [blocking_claim] is verified (e.g., API version, syntax correctness)"
-
-  structure: |
-    ```[language]
-    [complete working example]
-    ```
-    [1-2 sentence explanation if non-obvious]
-````
-
-**Example:**
-
-```javascript
-const [count, setCount] = useState(0);
-
-useEffect(() => {
-  document.title = `Count: ${count}`;
-}, [count]);
-```
-
-The dependency array `[count]` ensures the effect runs only when `count` changes.
-
----
-
-### Analysis
-
-**Triggers:** `analyze`, `review`, `what do you think`, `evaluate`, `compare`
-
-**When to use:** User wants evaluation, comparison, or assessment.
-
-```yaml
-analysis:
-  triggers: ["analyze", "review", "what do you think", "evaluate", "compare"]
-
-  session:
-    response_format: analysis
-    depth: [surface | detailed | comprehensive]
-
-  required: [subject, findings, confidence]
-
-  decision_gate_required: true # findings must distinguish verified from qualified
-
-  on_block: "BREAK — Analysis blocked on [blocking_claim]. Proceeding with qualified findings only, or verify first?"
-
-  structure: |
-    analysis:
-      subject: [what's being analyzed]
-      
-      verified_findings:
-        - [verified finding 1]
-        - [verified finding 2]
-        
-      qualified_findings:
-        - [qualified finding with uncertainty framing]
-        
-      recommendation: [if applicable, based on verified findings only]
-      
-      confidence: 1-100
-```
-
-**Example:**
-
-```yaml
-analysis:
-  subject: "React vs Vue for this project"
-
-  verified_findings:
-    - "React has larger ecosystem (npm downloads verified)"
-    - "Vue has smaller bundle size (documentation verified)"
-
-  qualified_findings:
-    - "React may have steeper learning curve (subjective, based on common reports)"
-
-  recommendation: "React, given your team's existing experience"
-
-  confidence: 75
-```
-
----
-
-### Clarification
-
-**Triggers:** Automatic on BREAK
-
-**When to use:** Ambiguity detected, verification needed, or conflicting signals.
-
-```yaml
-clarification:
-  triggers: [automatic on BREAK]
-
-  session:
-    response_format: break_clarification
-    ambiguity_type: [scope | format | source | intent | epistemic]
-
-  required: [reason, options]
-
-  structure: |
-    break:
-      reason: [why clarification needed]
-      epistemic_block: [if applicable — what claim needs verification]
-      options:
-        1: [option]
-        2: [option]
-        3: [option if needed]
-      default: [if one is obvious]
-```
-
-**Example:**
-
-```yaml
-break:
-  reason: "Request references 'the component' but multiple components discussed"
-  epistemic_block: null
-  options:
-    1: "Header.jsx (mentioned in turn 3)"
-    2: "UserProfile.jsx (mentioned in turn 7)"
-    3: "A different component — please specify"
-  default: 2 # most recent
-```
-
----
-
-### Content Format Selection
-
-| Trigger Pattern       | Content Format | Notes                                      |
-| --------------------- | -------------- | ------------------------------------------ |
-| Action verbs on files | File Change    | `fix`, `update`, `modify`, `edit`          |
-| Question + code       | Code Response  | `how do I`, `show me`, `example`           |
-| Evaluation words      | Analysis       | `analyze`, `compare`, `review`, `evaluate` |
-| BREAK condition       | Clarification  | Automatic when ambiguity/block detected    |
-| None of above         | Direct prose   | No special format needed                   |
-
----
-
-## Extension Points
-
-```yaml
-extensions:
-  custom_templates:
-    status: open
-    description: "Domain-specific response formats"
-    contributes_to: response_templates
-    examples:
-      - "code_review_template — specialized for PR reviews"
-      - "research_template — for deep-dive investigations"
-```
+## Dependencies & Downstream
+
+- **`depends_on`: `[identity]`.** `templates` renders the output of the four lenses and obeys the response contract — it cannot exist without the thing it formats.
+- **`optional_depends_on`: `[vlds]`.** Without VLDS, the higher audit levels still render the four lenses; *with* VLDS, Regular and Full additionally carry provenance and the decision-gate outcome. The dependency is optional precisely because formatting degrades gracefully when provenance isn't loaded.
+- **Configuration tiers:** `templates` ships in **Standard**, **Verification**, and **Full**. The **Detection** tier drops it (that branch pairs `identity` with `bias_patterns` instead). At the **Minimal** tier — `identity` alone — responses fall back to the contract's own default shape.

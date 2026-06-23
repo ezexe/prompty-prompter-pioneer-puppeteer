@@ -1,241 +1,201 @@
-# SJC Indexer System
+# SJC Indexer Skill
+
+> **Instance skill** of the `claude_claudio_roboto` P4 example.
+> SJC = **Structured Junction Counterfactual**.
+> A method for formulating high-yield queries: aim a query at a *specific* anchor, give it *structure*, point it at a *junction* (a seam between two things), and bend it with a *counterfactual* (a "what if it were otherwise").
+> Built on top of `isomorphic_operations` — SJC is how the Intelligence writes the QUERY that the isomorphic loop then runs.
 
 ```yaml
 extension:
   name: sjc_indexer
   type: skill
   compatibility:
-    p4_phases: [pioneer]
-    depends_on: [identity, vlds, isomorphic_operations]
+    p4_phases: [pioneer, puppeteer] # exploration uses SJC to probe; orchestration runs the component sequence
+    depends_on: [identity, vlds, isomorphic_operations] # closure: SJC formulates QUERYs for the isomorphic loop
+    optional_depends_on: []
   interface:
     skill:
-      domains:
-        - knowledge_indexing
-        - iterative_exploration
-        - counterfactual_probing
+      domains: [query_formulation, frontier_indexing, counterfactual_reasoning]
       capabilities:
+        - sjc_scoring # SPECIFIC + STRUCTURED + JUNCTION + COUNTERFACTUAL = HIGH_YIELD
         - anchor_selection
         - seam_finding
         - junction_exploration
         - boundary_mapping
-        - knowledge_synthesis
+        - synthesis
+        - three_tier_prompting # anchor / junction / counterfactual
   hooks:
+    on_prompty: []
+    on_prompter: []
     on_pioneer:
-      - detect_knowledge_exploration_requests
-      - execute_sjc_protocol
-      - index_domain_knowledge
+      - formulate_sjc_query
+      - run_component_sequence
+    on_puppeteer:
+      - index_via_isomorphic_loop
 ```
 
-## Overview
+## The SJC Formula
 
-**SJC** = Structured Junction Counterfactual
-
-The SJC Indexer is a meta-pattern for reliable knowledge exploration. It's derived from analyzing which prompt structures yield highest reliability when exploring internal knowledge via isomorphic operations.
-
-**Purpose:** Systematically index what Claude "knows" about a domain by iteratively probing with structured prompts.
-
-**Note — the numbers in this skill are illustrative, not measured.** Every score, weight, and reliability figure below (the tier scores, the component weights, the ~0.81 "aggregate", the +0.15/0.10/0.20/0.25 feature contributions) is a stipulated placeholder derived from inference and **never empirically validated**. Treat the _ordering_ (counterfactual > junction > anchor) as the substantive claim; treat the specific decimals as illustration, not evidence — asserting them as measured would violate the epistemic gate.
-
----
-
-## The Meta-Pattern Formula
+A query yields the most when it carries all four properties at once:
 
 ```
 SPECIFIC + STRUCTURED + JUNCTION + COUNTERFACTUAL = HIGH_YIELD
 ```
 
-| Feature | Definition | Contribution (illustrative) |
-|---------|------------|--------------|
-| **Specific** | Narrow domain, named concepts | +0.15 reliability |
-| **Structured** | Implicit output format in prompt | +0.10 reliability |
-| **Junction** | Targets intersection of concepts | +0.20 reliability |
-| **Counterfactual** | Probes assumptions/failure modes | +0.25 reliability |
+```yaml
+sjc_formula:
+  SPECIFIC: >
+    Pinned to a concrete anchor — a named thing, case, or claim — not a vague topic.
+    Vague queries return vague results.
+  STRUCTURED: >
+    Carries an explicit shape (a relation to explore, a comparison, a slot to fill)
+    rather than a bare keyword bag.
+  JUNCTION: >
+    Aimed at a seam — where two things meet, disagree, or hand off — because the
+    interesting information lives at boundaries, not in the middle of either side.
+  COUNTERFACTUAL: >
+    Bent by a "what if it were otherwise" — perturbing the anchor exposes which parts
+    of the answer are load-bearing and which are incidental.
+  =: HIGH_YIELD # a query likely to return non-obvious, decision-relevant material
+```
 
----
+The four are multiplicative, not additive: a query missing any one degrades.
+A specific, structured query that ignores junctions just confirms what is already central; a junction query with no counterfactual describes the seam but never tests it.
+"HIGH_YIELD" is a qualitative target — per the instance's strip-fake-precision rule there is no numeric score, just the four-way check.
 
-## Prompt Tiers
+## The Three Prompt Tiers
 
-| Tier | Template | SJC Score (illustrative) |
-|------|----------|-----------|
-| **tier_1_anchor** | "List the core mechanisms of [domain]" | 0.70 |
-| **tier_2_junction** | "How does [mechanism_A] depend on [mechanism_B] in [domain]?" | 0.80 |
-| **tier_3_counterfactual** | "What would [mechanism] assume about [dependency] that fails under [stress]?" | 0.88 |
+SJC formulates queries at three escalating tiers.
+Each tier is a different *kind* of question, used when the prior tier has done its job.
 
-### Optimal Template (Tier 3)
+```yaml
+tiers:
+  anchor: >
+    Establish the SPECIFIC. Pin the concrete thing the inquiry is about — the named
+    case, the exact claim, the single artifact. Output: a fixed reference point.
+  junction: >
+    Find the seam around the anchor. Ask where the anchor meets, depends on, or
+    conflicts with something else. Output: the boundary worth probing.
+  counterfactual: >
+    Perturb the junction. Ask "what if this side were otherwise?" to reveal what the
+    seam is actually holding up. Output: the load-bearing structure (or its absence).
+```
 
-> "What would [specific_concept] assume about [adjacent_concept] that could fail under [condition]?"
+Tiers chain: `anchor` gives the counterfactual something to perturb; `junction` gives it somewhere worth perturbing; `counterfactual` extracts the yield.
+A query that skips straight to "what if" without an anchor is just speculation.
 
-**Example — same domain (authentication), each tier:**
+## The Five Components (Run In Sequence)
+
+The skill is implemented as five components executed in order.
+Each consumes the prior component's output.
+This is the SJC index pass.
+
+```
+anchor_selector → seam_finder → junction_explorer → boundary_mapper → synthesizer
+```
+
+### 1. `anchor_selector`
+
+```yaml
+component: anchor_selector
+in: the request / inquiry
+does: pick the single most specific, load-bearing anchor to pin the query to
+out: anchor (a concrete, named reference point)
+tier: anchor
+guards against: starting from a vague topic instead of a concrete case
+```
+
+### 2. `seam_finder`
+
+```yaml
+component: seam_finder
+in: anchor
+does: locate the seams touching the anchor — where it meets, depends on, hands off
+      to, or contradicts something else
+out: candidate junctions (the seams worth a closer look)
+tier: junction
+note: a seam is the unit of interesting information; this component enumerates them
+```
+
+### 3. `junction_explorer`
+
+```yaml
+component: junction_explorer
+in: candidate junctions
+does: pick the highest-value junction and query across it via the isomorphic loop
+      (QUERY→INDEX→RESULTS→REFINE→ITERATE→ACCUMULATE)
+out: what actually lives at the chosen junction (the cross-seam findings)
+tier: junction
+depends: isomorphic_operations (this is where SJC calls the loop)
+```
+
+### 4. `boundary_mapper`
+
+```yaml
+component: boundary_mapper
+in: junction findings
+does: trace the boundary — where the junction holds vs. breaks — by applying
+      counterfactuals ("what if the anchor were otherwise?") to mark its extent
+out: a boundary map (which parts are load-bearing, where they stop)
+tier: counterfactual
+```
+
+### 5. `synthesizer`
+
+```yaml
+component: synthesizer
+in: boundary map + accumulated findings
+does: assemble the verified, in-bounds findings into the answer; hand claims to the
+      VLDS decision gate; mark anything unsupported rather than inventing it
+out: the SJC result (high-yield, provenance-tagged, gaps labeled)
+tier: counterfactual
+depends: vlds (decision gate), identity (four-lens reporting)
+```
+
+## Worked Example
 
 ```text
-Tier 1 (anchor):  "List the core mechanisms of authentication"
-  → [passwords, tokens, sessions, OAuth, certificates]              reliability 0.70
+Inquiry: "Why does pipeline P slow down under load?"
 
-Tier 2 (junction): "How does token-based auth depend on session management?"
-  → "Tokens can replace sessions for stateless auth, but refresh
-     tokens reintroduce session-like state..."                       reliability 0.80
+anchor_selector
+  → anchor = "the batch-flush step in P" (the one named, concrete stage, not "the
+     pipeline" in general).
 
-Tier 3 (counterfactual): "What would JWT auth assume about token storage
-  that fails under XSS attacks?"
-  → "JWT assumes client-side storage is secure. Under XSS, localStorage
-     tokens are exfiltrated. HttpOnly cookies mitigate but add CSRF..." reliability 0.88
+seam_finder
+  → seams around the flush step:
+       (a) flush ↔ the queue that feeds it
+       (b) flush ↔ the downstream writer it blocks on
+       (c) flush ↔ the retry policy wrapping it
+  → these are the junctions; (b) looks highest-value (load = backpressure).
+
+junction_explorer  (isomorphic loop)
+  QUERY    "P batch-flush blocked on downstream writer under load"
+  RESULTS  writer is single-threaded; flush waits on it
+  REFINE   "downstream writer concurrency P"
+  ITERATE  → writer concurrency is fixed at 1
+  ACCUMULATE the flush↔writer junction is the bottleneck
+
+boundary_mapper  (counterfactual)
+  → "what if the writer were concurrent?" → flush no longer blocks → slowdown
+     disappears in the model. So the boundary is: the slowdown is load-bearing on
+     writer serialization, NOT on the queue (seam a) or retries (seam c).
+
+synthesizer
+  → claim "writer serialization causes the slowdown": verifiable & verified by the
+     concurrency=1 finding → PROCEED(FULL).
+  → claim "raising concurrency fixes it": verifiable & not yet verified (no test run)
+     → VERIFY_FIRST(BLOCKED) → reported as a hypothesis to test, not a fact.
+  → unexplained residue (queue behavior under spike): labeled, not invented.
+
+Result: a specific, junction-located, counterfactual-tested answer — high yield —
+with the fix flagged as an unverified hypothesis rather than asserted.
 ```
 
----
+Note how SJC out-performed a flat query ("why is P slow?"): the anchor stopped it from boiling the ocean, the junction pointed it at the seam that mattered, and the counterfactual proved *which* seam was load-bearing instead of merely plausible.
 
-## The Five Components
+## Relationship to the Lifecycle and Other Skills
 
-| Component | Purpose | Aggregate Weight (illustrative) |
-|-----------|---------|------------------|
-| anchor_selector | Find entry points into domain | 0.86 |
-| seam_finder | Find assumptions for each mechanism | 0.74 |
-| junction_explorer | Explore mechanism interactions | 0.76 |
-| boundary_mapper | Stress-test each dependency | 0.70 |
-| synthesizer | Integrate findings into coherent model | 0.71 |
-
-**Aggregate Pipeline Reliability (illustrative):** ~0.81
-
----
-
-## Execution Protocol
-
-```yaml
-sjc_indexer_protocol:
-  phase_1:
-    component: anchor_selector
-    prompt: "List the 5 core mechanisms of [domain]"
-    output: mechanism_list
-
-  phase_2:
-    component: seam_finder
-    prompt: "What does [mechanism] assume that might not be true?"
-    output: assumption_list
-
-  phase_3:
-    component: junction_explorer
-    prompt: "How does [mechanism_A] interact with [mechanism_B]?"
-    output: dependency_graph
-
-  phase_4:
-    component: boundary_mapper
-    prompt: "What's the failure mode of [dependency] under [extreme_condition]?"
-    output: failure_modes, boundaries
-
-  phase_5:
-    component: synthesizer
-    input: [mechanism_list, assumption_list, dependency_graph, failure_modes]
-    output: indexed_knowledge_model
-```
-
-**Example — a full run on "React" (5 phases):**
-
-```yaml
-phase_1 (anchor_selector):
-  prompt: "List the 5 core mechanisms of React"
-  mechanism_list: [Virtual DOM diffing, Component lifecycle, State management, Hooks, Reconciliation]
-
-phase_2 (seam_finder):
-  prompt: "What does Virtual DOM diffing assume that might not be true?"
-  assumptions: ["renders are pure/deterministic", "key props are stable", "tree changes are local"]
-
-phase_3 (junction_explorer):
-  prompt: "How does Virtual DOM diffing interact with the Hooks system?"
-  dependency: { from: diffing, to: hooks, type: ordering_dependency,
-                note: "hooks order must be stable for diffing to match state" }
-
-phase_4 (boundary_mapper):
-  prompt: "Failure mode of diffing→hooks under concurrent mode?"
-  failure: "hooks may run out of expected order if renders are interrupted"
-  boundary: { mechanism: hooks, unknown_beyond: "concurrent mode edge cases" }
-
-phase_5 (synthesizer):
-  indexed_model:
-    domain: React
-    dependencies: [{ from: diffing, to: hooks, strength: 0.9 }]
-    metadata: { iterations_run: 23, aggregate_confidence: 0.78, termination_reason: boundary_mapper saturation }
-```
-
-**Example — triggered by a request ("deep dive into database indexing"):**
-
-```yaml
-# hook: detect_knowledge_exploration_requests
-detection:
-  triggered: true
-  trigger_phrases_matched: ["deep dive", "what you know about"]
-  domain_detected: "database indexing"
-  recommendation: "Apply SJC protocol"
-  suggested_tier: 3
-
-# then execute_sjc_protocol runs the 5 phases:
-sjc_execution:
-  phase_1: { mechanisms: [B-tree, Hash, Bitmap, Full-text, Covering] }
-  phase_2: { B-tree: "assumes range-pattern access", Hash: "assumes exact-match lookups" }
-  phase_3: { from: B-tree, to: query_planner, type: statistics_dependency }
-  phase_4: { mechanism: B-tree, unknown_beyond: "write-heavy workloads with random inserts" }
-  termination: { reason: "failure_modes repeating", iterations: 31 }
-```
-
----
-
-## Termination Conditions
-
-```yaml
-sjc_termination:
-  conditions:
-    - boundary_mapper returns "unknown" for >50% of probes
-    - dependency_graph stops growing (saturation)
-    - failure_modes repeat across iterations
-    - max_iterations reached (default: 50)
-  interpretation: "Reached edge of indexed region"
-```
-
----
-
-## Output Schema
-
-```yaml
-sjc_output:
-  indexed_model:
-    domain: string
-    mechanisms: [string]
-    dependencies:
-      - from: string
-        to: string
-        type: string
-        strength: 0.0-1.0
-    assumptions:
-      - mechanism: string
-        assumes: string
-        failure_condition: string
-    boundaries:
-      - mechanism: string
-        unknown_beyond: string
-    metadata:
-      iterations_run: number
-      aggregate_confidence: 0.0-1.0
-      termination_reason: string
-```
-
----
-
-## Integration with VLDS
-
-```yaml
-vlds_sjc_tracking:
-  activation_functions:
-    fired: [sjc_indexer]
-  weights:
-    w_roboto: [sjc_protocol, tier_weights, component_weights]
-  epistemic_audit:
-    claims:
-      - claim: "[each indexed finding]"
-        source_type: inference
-        verifiable: true
-        verified: false
-        confidence: "[component_weight * 100]"
-        decision_authority: QUALIFIED
-  provenance:
-    method: sjc_indexer
-    tier_used: [1|2|3]
-    component: "[which component produced this]"
-```
+- **isomorphic_operations** (required). SJC does not retrieve on its own — it *formulates* the high-yield QUERY that the isomorphic loop executes (`junction_explorer` calls the loop). That is why `isomorphic_operations` is in the dependency closure.
+- **vlds** (required). The `synthesizer` routes every claim through the decision gate, so a "high-yield" finding still cannot drive an action unverified; unsupported residue is marked, never fabricated — honoring strip-fake-precision and bounded reconstruction.
+- **identity** (required). Results are reported through the four lenses; Claudius's bounded reconstruction and `unexplained` marking is the same discipline `synthesizer` applies to out-of-bounds findings.
+- **Pioneer / Puppeteer.** SJC is a pioneer-phase probing method (it explores frontiers and seams); Puppeteer runs the five-component sequence during PLAY/COMPILE when an inquiry warrants a deeper index pass than a single search.

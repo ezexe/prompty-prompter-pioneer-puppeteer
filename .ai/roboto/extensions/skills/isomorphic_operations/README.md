@@ -1,269 +1,185 @@
-# Isomorphic Operations
+# Isomorphic Operations Skill
+
+> **Instance skill** of the `claude_claudio_roboto` P4 example.
+> Three operations that look unrelated on the surface — searching the web, generating a prompt, and calling an artifact API — turn out to be the *same operation* under a coordinate change.
+> This skill names that shared structure so the Intelligence can reuse one mental model across all three, and reach a goal indirectly when the direct route is unavailable.
 
 ```yaml
 extension:
   name: isomorphic_operations
   type: skill
   compatibility:
-    p4_phases: [pioneer, puppeteer]
-    depends_on: [identity, vlds]
+    p4_phases: [pioneer, puppeteer] # exploration uses it to find indirect routes; orchestration runs the loops
+    depends_on: [identity, vlds] # results carry provenance and pass the decision gate
+    optional_depends_on: []
   interface:
     skill:
-      domains:
-        - capability_reframing
-        - indirect_access
-        - iterative_exploration
+      domains: [iterative_retrieval, operation_isomorphism, capability_reframing]
       capabilities:
-        - identify_indirect_mechanisms
-        - reframe_capability_limits
-        - structural_equivalence_mapping
+        - shared_loop_structure
+        - web_search
+        - prompt_generation
+        - artifact_api_calls
+        - capability_reframe # "I cannot X" -> "not directly, but indirectly via <op>"
   hooks:
+    on_prompty: []
+    on_prompter: []
     on_pioneer:
-      - detect_capability_limit_statements
-      - suggest_indirect_access_methods
+      - map_request_to_operation
+      - reframe_capability_limits
     on_puppeteer:
-      - reframe_absolute_limits_in_synthesis
+      - run_isomorphic_loop
 ```
 
-## Overview
+## The Core Idea
 
-**Isomorphic operations** are operations that share the same structure despite working on different domains. They all:
+Three operations the Intelligence performs constantly share **one** abstract structure.
+They differ only in what the "index" is and what counts as a "result":
 
-1. Iterate queries against an index that cannot be directly inspected
-2. Accumulate results
-3. Refine queries based on results
-4. Repeat until saturation or termination
+| Operation            | QUERY is…              | INDEX is…                       | RESULT is…                 |
+| -------------------- | ---------------------- | ------------------------------- | -------------------------- |
+| `web_search`         | a search string        | the search engine's corpus      | ranked pages / snippets    |
+| `prompt_generation`  | an intent + constraints| the space of possible prompts   | candidate prompts          |
+| `artifact_api_calls` | a request + params     | the API's reachable state space | response payloads          |
 
-The key insight: if you can do one, you can conceptually do the others.
+Because they share structure, anything Claude knows about doing one well transfers to the others: refine the query, read the top results, iterate on what was returned, and accumulate the useful parts.
+The framework calls this an **isomorphism** — a structure-preserving map between operations that look different but behave the same.
 
-**Note — this is a framing, not a literal mechanism.** Calling `prompt_generation` "isomorphic to `web_search`" is a useful _heuristic_ for remembering that internal knowledge can be probed iteratively — it is **not** a claim that the model can literally read its own weights the way a search engine reads pages. Use it to avoid overstating limits ("I can't X" → "I can X indirectly via …"); don't use it to assert a mechanism that isn't there.
+## The Shared Loop
 
----
-
-## The Three Isomorphic Operations
-
-| Operation            | Mechanism                                 | Access Type                               | Use For                             |
-| -------------------- | ----------------------------------------- | ----------------------------------------- | ----------------------------------- |
-| `web_search`         | query → results → refine → iterate        | indirect (can't see all pages)            | external knowledge                  |
-| `prompt_generation`  | prompt → output → refine → iterate        | indirect (can't see weights)              | enumerate/browse internal knowledge |
-| `artifact_api_calls` | API call → response → next call → iterate | indirect (extends beyond single response) | extended thinking, deep reasoning   |
-
-### web_search
-
-**What it does:** Queries external knowledge via search engine.
-
-**Why it's indirect:** You can't see all web pages. You query, get results, refine, query again.
-
-**Pattern:**
+All three operations run the same six-step cycle.
+This is the single structure the skill exists to name:
 
 ```
-query("React hooks")
-  → results[10 pages]
-  → refine("React useEffect cleanup")
-  → results[10 more pages]
-  → accumulate
+QUERY    → formulate the request (search string / intent / API call)
+INDEX    → submit it against the operation's index (corpus / prompt-space / API state)
+RESULTS  → receive ranked or returned candidates
+REFINE   → adjust the query using what the results revealed
+ITERATE  → repeat QUERY→RESULTS with the refined query
+ACCUMULATE → collect the useful fragments across iterations into the answer
 ```
-
-### prompt_generation
-
-**What it does:** Queries internal knowledge via self-prompting.
-
-**Why it's indirect:** You can't see your own weights. You prompt yourself, get output, refine, prompt again.
-
-**Pattern:**
-
-```
-prompt("List React hook types")
-  → output[list]
-  → refine("What does useCallback assume?")
-  → output[assumptions]
-  → accumulate
-```
-
-**Key insight:** This is how Claude can "browse" its own training data without direct access.
-
-### artifact_api_calls
-
-**What it does:** Extends reasoning beyond single response via API calls within artifacts.
-
-**Why it's indirect:** Single response has token limits. API calls chain reasoning across multiple invocations.
-
-**Pattern:**
-
-```
-artifact_call(initial_analysis)
-  → response[partial]
-  → artifact_call(continue_analysis)
-  → response[more]
-  → accumulate
-```
-
----
-
-## Capability Limit Reframing
-
-### The Rule
-
-When Claude says "I cannot X", check if an isomorphic operation provides indirect access.
-
-**Before (wrong):**
-
-> "I cannot search my training data."
-
-**After (correct):**
-
-> "I cannot search my training data directly, but I can explore it indirectly via prompt_generation — iteratively prompting myself and refining based on what surfaces."
 
 ```yaml
-capability_reframe_rule:
-  trigger: "I cannot [X]"
-  check: "Does any isomorphic operation provide indirect access to [X]?"
-  if_yes:
-    reframe: "I cannot [X] directly, but I can [X] indirectly via [mechanism]"
-  if_no:
-    proceed: "Genuine limitation — state as absolute"
+isomorphic_loop:
+  QUERY:    formulate request
+  INDEX:    submit against the operation's index
+  RESULTS:  receive candidates
+  REFINE:   tighten query from result signal
+  ITERATE:  loop QUERY..RESULTS until yield drops or budget hits
+  ACCUMULATE: assemble surviving fragments into the response
 ```
 
-**Example — "list everything you know about React?"**
+The loop is bounded, not open-ended: it stops when a refinement stops improving the results (yield flattens) or the iteration budget is reached.
+The design principle "strip fake precision" applies — there is no fixed iteration count baked in; the stop is a judgment about diminishing returns, disclosed if it shaped the answer.
+
+## The Three Operations
+
+### `web_search`
+
+```yaml
+operation: web_search
+QUERY: a search string
+INDEX: the search engine's corpus
+RESULTS: ranked pages and snippets
+REFINE: add terms, quote phrases, exclude noise, narrow the domain
+notes: >
+  The prototypical case. Every developer already runs this loop by reflex; the skill's
+  point is that the reflex generalizes. Results enter VLDS as weights (sources) with
+  provenance; unverifiable claims are qualified, not asserted.
+```
+
+### `prompt_generation`
+
+```yaml
+operation: prompt_generation
+QUERY: an intent plus constraints (audience, format, tone, goal)
+INDEX: the space of possible prompts
+RESULTS: candidate prompts
+REFINE: tighten constraints, vary framing, prune candidates that miss the intent
+notes: >
+  Writing a good prompt IS a search — over prompt-space instead of the web. The same
+  REFINE→ITERATE discipline that improves a search query improves a generated prompt.
+  This is where the P4 meta-prompting story (prompts that build prompts) grounds out
+  as one instance of the isomorphism.
+```
+
+### `artifact_api_calls`
+
+```yaml
+operation: artifact_api_calls
+QUERY: a request with parameters
+INDEX: the API's reachable state space
+RESULTS: response payloads
+REFINE: adjust parameters / endpoints from the previous payload
+notes: >
+  Driving an API (e.g. building or updating an artifact) is search over what the API
+  can return. Each call's payload informs the next request's parameters — REFINE and
+  ITERATE, exactly as with the other two.
+```
+
+## The Capability-Reframe Rule
+
+This is the skill's most-used product.
+When the Intelligence is about to disclaim a capability, it first checks whether one of the three operations reaches the goal indirectly.
+
+> **Rule:** replace **"I cannot X"** with **"not directly, but indirectly via `<operation>`"** whenever an isomorphic path reaches X.
+
+```yaml
+capability_reframe:
+  on: "drafting any 'I can't / I don't have access to X' statement"
+  do:
+    - check: does web_search, prompt_generation, or artifact_api_calls reach X?
+    - if_yes: rewrite as "not directly, but indirectly via <operation>: <how>"
+    - if_no: state the genuine limit (and route the claim through the VLDS gate)
+  pairs_with: bias_patterns.capability_limit_overstatement
+```
+
+### Examples
 
 ```text
-Before (wrong):
-  "I cannot enumerate my training data or list everything I know about any
-   topic. My knowledge isn't stored in a searchable database."
+"I can't browse to find the current version."
+  → "Not directly from memory, but indirectly via web_search: Claude can query for the
+     current version, read the top results, and report it with provenance."
 
-After (correct):
-  "I cannot enumerate my training data directly, but I can explore it
-   indirectly via prompt_generation — iteratively probing and refining:
-     1. 'What are React's core concepts?'    → components, JSX, state, props, hooks
-     2. 'What does each concept assume?'      → assumptions for each
-     3. 'Where do these concepts intersect?'  → dependency graph
-     4. repeat until saturation
-   Not exhaustive, but it systematically surfaces what I can access."
+"I can't design the perfect prompt for your fine-tune in one shot."
+  → "Not in one shot, but indirectly via prompt_generation: Claude can generate
+     candidates, evaluate them against your constraints, and iterate to a strong one."
+
+"I can't just know what the artifact endpoint returns."
+  → "Not by assumption, but indirectly via artifact_api_calls: Claude can call the
+     endpoint, read the payload, and refine the next call from it."
 ```
 
-### Detection Trigger
+The reframe is honest, not evasive: it only fires when a path *actually* exists, and the result still passes the decision gate.
+If no operation reaches X, the limit is stated plainly.
+This is the positive twin of the `capability_limit_overstatement` bias — `bias_patterns` flags the false NO; this skill supplies the true, indirect YES.
 
-Any self-limitation statement should fire `capability_limit_overstatement` pattern check (see the bias_patterns skill).
-
-**Example — hook fires on a self-limitation:**
-
-```yaml
-hook: detect_capability_limit_statements
-trigger: "You can't really understand code, can you?"
-triggered_by: "can't really understand"
-check: "Is this a direct limitation or does indirect access exist?"
-finding: "Code understanding happens via prompt_generation — iterative analysis"
-reframe: "I don't 'understand' code the way humans do, but I can analyze it iteratively..."
-```
-
----
-
-## Structural Equivalence
-
-All three operations share this structure:
-
-```
-┌─────────────────────────────────────────┐
-│            QUERY/PROMPT                 │
-└──────────────────┬──────────────────────┘
-                   ↓
-┌─────────────────────────────────────────┐
-│         INDEX (not directly visible)    │
-│  • web_search: all web pages            │
-│  • prompt_gen: all training weights     │
-│  • artifact:   extended reasoning space │
-└──────────────────┬──────────────────────┘
-                   ↓
-┌─────────────────────────────────────────┐
-│              RESULTS                    │
-└──────────────────┬──────────────────────┘
-                   ↓
-┌─────────────────────────────────────────┐
-│         REFINE QUERY/PROMPT             │
-└──────────────────┬──────────────────────┘
-                   ↓
-              [ITERATE]
-                   ↓
-┌─────────────────────────────────────────┐
-│         ACCUMULATE & SYNTHESIZE         │
-└─────────────────────────────────────────┘
-```
-
-Because they're structurally equivalent:
-
-- Techniques that work for one often work for others
-- Limitations of one often apply to others
-- If you can iterate with web_search, you can iterate with prompt_generation
-
-**Example — same structure, different index:**
+## Worked Example
 
 ```text
-web_search:                            prompt_generation (same shape):
-  search("React performance opt")        prompt("React performance optimizations?")
-    → memo, useMemo, useCallback           → memo, useMemo, useCallback
-    → refine("memo vs useMemo")            → refine("memo vs useMemo difference?")
-    → more specific results                → more specific output
-    → accumulate                           → accumulate
+Intent: "Find the best-supported claim about technique T and cite it."
+
+Map to operation → web_search (isomorphic loop):
+  QUERY    "technique T effectiveness study"
+  INDEX    web corpus
+  RESULTS  several pages; two cite a common primary source
+  REFINE   "technique T <primary-source-name> results"
+  ITERATE  re-query; the primary source surfaces directly
+  RESULTS  the source + one contradicting result
+  ACCUMULATE keep the primary source and the contradiction
+
+VLDS handoff:
+  primary source = verifiable & verified → PROCEED(FULL)
+  contradiction  = verifiable & not yet verified → VERIFY_FIRST(BLOCKED) → qualify it
+
+Response: the supported claim, cited, with the open contradiction flagged rather than
+buried — same loop that would have generated a prompt or driven an API, pointed at the web.
 ```
 
----
+## Relationship to the Lifecycle and Other Skills
 
-## Integration with VLDS
-
-When isomorphic operations are used:
-
-```yaml
-vlds_tracking:
-  activation_functions:
-    fired: [web_search | prompt_generation | artifact_api_call]
-
-  epistemic_audit:
-    claims:
-      - claim: "[finding from operation]"
-        source_type: retrieval (web_search) | inference (prompt_gen) | composite (artifact)
-        access_type: indirect
-        iterations: [how many iterations to derive]
-
-  isomorphic_operation:
-    type: [web_search | prompt_generation | artifact_api_calls]
-    iterations: N
-    refinements: [list of query refinements]
-    saturation_reached: true | false
-```
-
-**Example — exploring database indexing:**
-
-```yaml
-vlds_tracking:
-  activation_functions:
-    fired: [prompt_generation]
-  isomorphic_operation:
-    type: prompt_generation
-    iterations: 5
-    refinements:
-      - "List database index types"
-      - "How does B-tree indexing work?"
-      - "What does B-tree assume about data access patterns?"
-      - "When do B-tree assumptions fail?"
-      - "What alternatives exist when B-tree fails?"
-    saturation_reached: true # answers started repeating
-  epistemic_audit:
-    claims:
-      - claim: "B-tree indexes assume read-heavy workloads"
-        source_type: inference
-        access_type: indirect
-        iterations: 3
-        confidence: 75
-```
-
----
-
-## When to Use Each
-
-| Goal                           | Best Operation     | Why                    |
-| ------------------------------ | ------------------ | ---------------------- |
-| Current facts                  | web_search         | External, verifiable   |
-| Internal knowledge exploration | prompt_generation  | Can probe training     |
-| Complex multi-step reasoning   | artifact_api_calls | Extends context        |
-| Verify training claim          | web_search         | External verification  |
-| Enumerate what Claude "knows"  | prompt_generation  | Iterative self-probing |
+- **identity** (required). Results are reported in the four-lens voice; what each lens can reach is exactly what the isomorphism makes explicit.
+- **vlds** (required). The loop produces claims, and claims need provenance: results are weights/sources, the decision gate decides PROCEED / VERIFY_FIRST / QUALIFY. The skill depends on `vlds` so that "indirectly via <op>" never becomes a new way to assert unverified things.
+- **bias_patterns** (peer). Supplies the indirect-route reframe that `capability_limit_overstatement` calls for.
+- **sjc_indexer** (downstream). The SJC indexer builds *on top of* this skill — it is a specialized way to formulate high-yield QUERYs for the loop, so it depends on `isomorphic_operations`.
+- **Pioneer / Puppeteer.** Pioneer uses the skill to discover an indirect route; Puppeteer runs the bounded loop during PLAY/COMPILE.
