@@ -3,7 +3,6 @@
 > **Template.** The four P4 layers of an instance, one `#` section each.
 > Copy this file to `<instance>/fragments.md` and fill each layer's body.
 > Capabilities that aren't one of the four layers (identity, transparency, formatting, detection, …) live as **skills** under `extensions/skills/`, not here.
-> Worked example: `.ai/roboto/fragments.md`.
 
 The P4 layers and their roles:
 

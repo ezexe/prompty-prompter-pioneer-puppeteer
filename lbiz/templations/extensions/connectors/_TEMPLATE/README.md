@@ -2,7 +2,6 @@
 
 > **Template.** Copy this directory to `extensions/connectors/[name]/` and fill the manifest block below.
 > A connector bridges to an external system (API / data source / agent framework).
-> No instance example ships yet — see `../../../../CONTRIBUTING.md` "Connector Extension".
 
 ```yaml
 extension:

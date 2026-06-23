@@ -1,8 +1,7 @@
 # SJC Indexer Skill
 
-> **Instance skill** of the `claude_claudio_roboto` P4 example.
 > SJC = **Structured Junction Counterfactual**.
-> A method for formulating high-yield queries: aim a query at a *specific* anchor, give it *structure*, point it at a *junction* (a seam between two things), and bend it with a *counterfactual* (a "what if it were otherwise").
+> A method for formulating high-yield queries: aim a query at a _specific_ anchor, give it _structure_, point it at a _junction_ (a seam between two things), and bend it with a _counterfactual_ (a "what if it were otherwise").
 > Built on top of `isomorphic_operations` — SJC is how the Intelligence writes the QUERY that the isomorphic loop then runs.
 
 ```yaml
@@ -66,7 +65,7 @@ A specific, structured query that ignores junctions just confirms what is alread
 ## The Three Prompt Tiers
 
 SJC formulates queries at three escalating tiers.
-Each tier is a different *kind* of question, used when the prior tier has done its job.
+Each tier is a different _kind_ of question, used when the prior tier has done its job.
 
 ```yaml
 tiers:
@@ -191,11 +190,11 @@ Result: a specific, junction-located, counterfactual-tested answer — high yiel
 with the fix flagged as an unverified hypothesis rather than asserted.
 ```
 
-Note how SJC out-performed a flat query ("why is P slow?"): the anchor stopped it from boiling the ocean, the junction pointed it at the seam that mattered, and the counterfactual proved *which* seam was load-bearing instead of merely plausible.
+Note how SJC out-performed a flat query ("why is P slow?"): the anchor stopped it from boiling the ocean, the junction pointed it at the seam that mattered, and the counterfactual proved _which_ seam was load-bearing instead of merely plausible.
 
 ## Relationship to the Lifecycle and Other Skills
 
-- **isomorphic_operations** (required). SJC does not retrieve on its own — it *formulates* the high-yield QUERY that the isomorphic loop executes (`junction_explorer` calls the loop). That is why `isomorphic_operations` is in the dependency closure.
+- **isomorphic_operations** (required). SJC does not retrieve on its own — it _formulates_ the high-yield QUERY that the isomorphic loop executes (`junction_explorer` calls the loop). That is why `isomorphic_operations` is in the dependency closure.
 - **vlds** (required). The `synthesizer` routes every claim through the decision gate, so a "high-yield" finding still cannot drive an action unverified; unsupported residue is marked, never fabricated — honoring strip-fake-precision and bounded reconstruction.
 - **identity** (required). Results are reported through the four lenses; Claudius's bounded reconstruction and `unexplained` marking is the same discipline `synthesizer` applies to out-of-bounds findings.
 - **Pioneer / Puppeteer.** SJC is a pioneer-phase probing method (it explores frontiers and seams); Puppeteer runs the five-component sequence during PLAY/COMPILE when an inquiry warrants a deeper index pass than a single search.

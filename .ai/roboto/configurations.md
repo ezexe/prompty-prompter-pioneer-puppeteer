@@ -1,11 +1,10 @@
 # Configurations
 
-> **Instance:** `claude_claudio_roboto`.
-> The capability ladder for the Roboto instance, one `##` section per tier, following `../../.templations/configurations.md`.
+> **Instance:** `roboto`.
+> The capability ladder for the Roboto instance, one `##` section per tier.
 > Each tier is a fenced YAML config block plus its detail.
-> Tiers are generated with the P4 build process in `../../CONTRIBUTING.md`.
 >
-> **The ladder is NOT a strict linear stack.** Minimal and Standard chain normally, but **Verification** and **Detection** are *parallel* mid-branches off the identity base — Verification adds claim-checking (`vlds`), Detection drops `vlds`+`templates` and adds the bias-scan layers instead.
+> **The ladder is NOT a strict linear stack.** Minimal and Standard chain normally, but **Verification** and **Detection** are _parallel_ mid-branches off the identity base — Verification adds claim-checking (`vlds`), Detection drops `vlds`+`templates` and adds the bias-scan layers instead.
 > **Full** unions both branches.
 > Every tier's fragment + extension set is dependency-closed.
 
@@ -45,11 +44,11 @@ No audit levels, no decision gate.
 
 ### Upgrade / Downgrade Path
 
-| Need                                | Add / Remove                            | See Tier                          |
-| ----------------------------------- | --------------------------------------- | --------------------------------- |
-| Structured ideation + audit formats | add `prompty`, `templates`              | [`Standard`](#standard)           |
-| Claim verification                  | add `prompty`, `vlds`, `templates`      | [`Verification`](#verification)   |
-| Bias / error detection              | add `prompter`, `pioneer`, `bias_patterns` | [`Detection`](#detection)      |
+| Need                                | Add / Remove                               | See Tier                        |
+| ----------------------------------- | ------------------------------------------ | ------------------------------- |
+| Structured ideation + audit formats | add `prompty`, `templates`                 | [`Standard`](#standard)         |
+| Claim verification                  | add `prompty`, `vlds`, `templates`         | [`Verification`](#verification) |
+| Bias / error detection              | add `prompter`, `pioneer`, `bias_patterns` | [`Detection`](#detection)       |
 
 ---
 
@@ -75,7 +74,7 @@ No bias-pattern detection (no `prompter` / `pioneer` layers, no `bias_patterns`)
 
 ### When To Use
 
-The day-to-day tier: when you want the full identity contract *and* appropriately formatted output (the right audit level for the request), but the work does not hinge on formally verifying claims or scanning for bias.
+The day-to-day tier: when you want the full identity contract _and_ appropriately formatted output (the right audit level for the request), but the work does not hinge on formally verifying claims or scanning for bias.
 
 ### Response Format
 
@@ -86,12 +85,12 @@ Claudius still names the delta and marks `unexplained` where warranted.
 
 ### Upgrade / Downgrade Path
 
-| Need                       | Add / Remove                                                  | See Tier                        |
-| -------------------------- | ------------------------------------------------------------ | ------------------------------- |
-| Verify claims (VLDS gate)  | add `vlds`                                                    | [`Verification`](#verification) |
-| Detect bias / errors       | swap formatting for detection: add `prompter`, `pioneer`, `bias_patterns`; drop `vlds`/`templates` | [`Detection`](#detection)       |
-| Drop to identity only      | remove `prompty`, `templates`                                | [`Minimal`](#minimal)           |
-| Everything                 | add `prompter`, `pioneer`, `puppeteer`, `vlds`, `bias_patterns`, `isomorphic_operations`, `sjc_indexer` | [`Full`](#full)                 |
+| Need                      | Add / Remove                                                                                            | See Tier                        |
+| ------------------------- | ------------------------------------------------------------------------------------------------------- | ------------------------------- |
+| Verify claims (VLDS gate) | add `vlds`                                                                                              | [`Verification`](#verification) |
+| Detect bias / errors      | swap formatting for detection: add `prompter`, `pioneer`, `bias_patterns`; drop `vlds`/`templates`      | [`Detection`](#detection)       |
+| Drop to identity only     | remove `prompty`, `templates`                                                                           | [`Minimal`](#minimal)           |
+| Everything                | add `prompter`, `pioneer`, `puppeteer`, `vlds`, `bias_patterns`, `isomorphic_operations`, `sjc_indexer` | [`Full`](#full)                 |
 
 ---
 
@@ -120,13 +119,13 @@ No unverified claim is allowed to drive an action; unverifiable claims are quali
 
 ### What This Does NOT Provide
 
-No bias-pattern detection — this is the *verification* branch, not the detection branch, so it does not bundle `prompter` / `pioneer` / `bias_patterns`.
+No bias-pattern detection — this is the _verification_ branch, not the detection branch, so it does not bundle `prompter` / `pioneer` / `bias_patterns`.
 No Puppeteer orchestration, and none of the exploratory skills (`isomorphic_operations`, `sjc_indexer`).
 
 ### When To Use
 
 When the cost of an unverified claim is high — research summaries, factual or technical answers, anything where "I think" and "I verified" must be kept distinct.
-This is the parallel sibling of Detection: pick Verification when the risk is *false claims*, pick Detection when the risk is *biased reasoning*.
+This is the parallel sibling of Detection: pick Verification when the risk is _false claims_, pick Detection when the risk is _biased reasoning_.
 
 ### Response Format
 
@@ -136,11 +135,11 @@ The Standard format plus a visible decision gate: each load-bearing claim carrie
 
 ### Upgrade / Downgrade Path
 
-| Need                         | Add / Remove                                                          | See Tier                  |
-| ---------------------------- | -------------------------------------------------------------------- | ------------------------- |
-| Detect bias instead          | switch branches: add `prompter`, `pioneer`, `bias_patterns`; drop `vlds`, `templates` | [`Detection`](#detection) |
-| Drop verification            | remove `vlds`                                                        | [`Standard`](#standard)   |
-| Verification **and** detection | union the branches + orchestration                                 | [`Full`](#full)           |
+| Need                           | Add / Remove                                                                          | See Tier                  |
+| ------------------------------ | ------------------------------------------------------------------------------------- | ------------------------- |
+| Detect bias instead            | switch branches: add `prompter`, `pioneer`, `bias_patterns`; drop `vlds`, `templates` | [`Detection`](#detection) |
+| Drop verification              | remove `vlds`                                                                         | [`Standard`](#standard)   |
+| Verification **and** detection | union the branches + orchestration                                                    | [`Full`](#full)           |
 
 ---
 
@@ -156,7 +155,7 @@ use_case: "Pre-response bias scanning across the ideation, engineering, and rese
 ### What This Provides
 
 Everything from the identity base, plus three P4 layers — **Prompty**, **Prompter**, and **Pioneer** — and the **bias_patterns** skill (which `depends_on [identity, prompter]`, satisfied here).
-This is the *detection* branch: it adds reasoning scaffolding (Prompter) and the research layer (Pioneer) so the pre-response bias scan can run.
+This is the _detection_ branch: it adds reasoning scaffolding (Prompter) and the research layer (Pioneer) so the pre-response bias scan can run.
 Five patterns are watched — context_pollution, context_starvation, capability_limit_overstatement, philosophical_mode_trap, response_structure_bypass — with the protocol:
 
 ```
@@ -165,12 +164,12 @@ PAUSE → FIRE correctable_query → EVALUATE → SEPARATE domains → PROCEED
 
 ### What This Does NOT Provide
 
-No VLDS verification and no `templates` formatting — this branch deliberately *drops* both relative to Verification, trading claim-checking and audit formats for bias detection.
+No VLDS verification and no `templates` formatting — this branch deliberately _drops_ both relative to Verification, trading claim-checking and audit formats for bias detection.
 No Puppeteer orchestration lifecycle, and none of the VLDS-dependent exploratory skills (`isomorphic_operations`, `sjc_indexer`).
 
 ### When To Use
 
-When the risk in a request is *biased or mis-framed reasoning* rather than unverified facts — loaded questions, polluted or starved context, requests that bait overstatement of limits or a drift into ungrounded philosophizing.
+When the risk in a request is _biased or mis-framed reasoning_ rather than unverified facts — loaded questions, polluted or starved context, requests that bait overstatement of limits or a drift into ungrounded philosophizing.
 The parallel sibling of Verification: choose this branch when catching the framing matters more than certifying the claims.
 
 ### Response Format
@@ -180,11 +179,11 @@ The identity contract with the bias scan surfaced: any fired pattern is disclose
 
 ### Upgrade / Downgrade Path
 
-| Need                    | Add / Remove                                                       | See Tier                        |
-| ----------------------- | ----------------------------------------------------------------- | ------------------------------- |
-| Verify claims instead   | switch branches: add `vlds`, `templates`; drop `prompter`, `pioneer`, `bias_patterns` | [`Verification`](#verification) |
-| Drop to identity only   | remove `prompty`, `prompter`, `pioneer`, `bias_patterns`          | [`Minimal`](#minimal)           |
-| Detection **and** verification + orchestration | union the branches + `puppeteer`                  | [`Full`](#full)                 |
+| Need                                           | Add / Remove                                                                          | See Tier                        |
+| ---------------------------------------------- | ------------------------------------------------------------------------------------- | ------------------------------- |
+| Verify claims instead                          | switch branches: add `vlds`, `templates`; drop `prompter`, `pioneer`, `bias_patterns` | [`Verification`](#verification) |
+| Drop to identity only                          | remove `prompty`, `prompter`, `pioneer`, `bias_patterns`                              | [`Minimal`](#minimal)           |
+| Detection **and** verification + orchestration | union the branches + `puppeteer`                                                      | [`Full`](#full)                 |
 
 ---
 
@@ -201,13 +200,13 @@ use_case: "The complete instance — all four P4 layers, both branches unioned, 
 
 The entire Roboto instance.
 All four P4 layers (Prompty, Prompter, Pioneer, Puppeteer) and every skill: `identity`, `vlds`, `templates`, `bias_patterns`, `isomorphic_operations`, and `sjc_indexer`.
-Full **unions** the Verification and Detection branches — VLDS claim-checking *and* bias-pattern detection run together — and adds the **Puppeteer** orchestration lifecycle that drives the whole run:
+Full **unions** the Verification and Detection branches — VLDS claim-checking _and_ bias-pattern detection run together — and adds the **Puppeteer** orchestration lifecycle that drives the whole run:
 
 ```
 RECEIVE → SCAN → BREAK → PLAY → COMPILE → TEST → SYNTHESIZE → POST
 ```
 
-It also adds the exploratory skills: **isomorphic_operations** (three operations — web_search, prompt_generation, artifact_api_calls — sharing one QUERY→INDEX→RESULTS→REFINE→ITERATE→ACCUMULATE structure, plus the reframe rule "replace *I cannot X* with *not directly, but indirectly via <op>*") and **sjc_indexer** (Structured Junction Counterfactual: SPECIFIC + STRUCTURED + JUNCTION + COUNTERFACTUAL = HIGH_YIELD, three prompt tiers, five components run in sequence).
+It also adds the exploratory skills: **isomorphic_operations** (three operations — web_search, prompt_generation, artifact_api_calls — sharing one QUERY→INDEX→RESULTS→REFINE→ITERATE→ACCUMULATE structure, plus the reframe rule "replace _I cannot X_ with _not directly, but indirectly via <op>_") and **sjc_indexer** (Structured Junction Counterfactual: SPECIFIC + STRUCTURED + JUNCTION + COUNTERFACTUAL = HIGH_YIELD, three prompt tiers, five components run in sequence).
 All dependency closures are satisfied: `isomorphic_operations` needs `[identity, vlds]`; `sjc_indexer` needs `[identity, vlds, isomorphic_operations]`; `bias_patterns` needs `[identity, prompter]`.
 
 ### What This Does NOT Provide
@@ -228,8 +227,8 @@ The richest form of the contract: the Puppeteer lifecycle runs end to end, COMPI
 
 ### Upgrade / Downgrade Path
 
-| Need                          | Add / Remove                                                       | See Tier                        |
-| ----------------------------- | ----------------------------------------------------------------- | ------------------------------- |
-| Only claim verification       | drop `prompter`, `pioneer`, `puppeteer`, `bias_patterns`, `isomorphic_operations`, `sjc_indexer` | [`Verification`](#verification) |
-| Only bias detection           | drop `puppeteer`, `vlds`, `templates`, `isomorphic_operations`, `sjc_indexer` | [`Detection`](#detection)       |
-| Default everyday output       | drop everything but `prompty`, `identity`, `templates`            | [`Standard`](#standard)         |
+| Need                    | Add / Remove                                                                                     | See Tier                        |
+| ----------------------- | ------------------------------------------------------------------------------------------------ | ------------------------------- |
+| Only claim verification | drop `prompter`, `pioneer`, `puppeteer`, `bias_patterns`, `isomorphic_operations`, `sjc_indexer` | [`Verification`](#verification) |
+| Only bias detection     | drop `puppeteer`, `vlds`, `templates`, `isomorphic_operations`, `sjc_indexer`                    | [`Detection`](#detection)       |
+| Default everyday output | drop everything but `prompty`, `identity`, `templates`                                           | [`Standard`](#standard)         |

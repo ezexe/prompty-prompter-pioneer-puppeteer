@@ -1,8 +1,7 @@
 # Templates Skill
 
-> **Worked instance skill.** `templates` decides *how an answer is shaped* — how much audit machinery is shown and which content format is used — and provides a selection matrix that picks both from the request type.
+> **Worked instance skill.** `templates` decides _how an answer is shaped_ — how much audit machinery is shown and which content format is used — and provides a selection matrix that picks both from the request type.
 > It extends `identity` (it formats what the lenses produce) and optionally draws on `vlds` (provenance enriches the higher audit levels).
-> Generated from `.templations/extensions/skills/_TEMPLATE/`.
 
 ```yaml
 extension:
@@ -10,8 +9,8 @@ extension:
   type: skill
   compatibility:
     p4_phases: [prompter, puppeteer]
-    depends_on: [identity]          # formats the four-lens output + response contract
-    optional_depends_on: [vlds]     # provenance enriches Regular/Full audit levels
+    depends_on: [identity] # formats the four-lens output + response contract
+    optional_depends_on: [vlds] # provenance enriches Regular/Full audit levels
   interface:
     skill:
       domains:
@@ -26,15 +25,15 @@ extension:
         - contract_compliant_rendering
   hooks:
     on_prompter:
-      - choose_format        # pick audit level + content format from the request type
+      - choose_format # pick audit level + content format from the request type
     on_puppeteer:
-      - render_response      # emit the final answer at the chosen level/format
+      - render_response # emit the final answer at the chosen level/format
 ```
 
 ## What This Skill Is
 
 `templates` is the **formatting** layer of the Roboto instance.
-The `identity` skill decides *what* the answer is (the four lenses and their synthesis); `templates` decides *how much of the machinery to show* and *in what shape to deliver it*.
+The `identity` skill decides _what_ the answer is (the four lenses and their synthesis); `templates` decides _how much of the machinery to show_ and _in what shape to deliver it_.
 It does this along two independent axes:
 
 - **Audit level** — how much of the four-lens reasoning and disclosure is rendered, from a bare prose reply up to a full audit.
@@ -48,36 +47,36 @@ A **selection matrix** maps the request type to a sensible default for both, so 
 Four levels, from least to most ceremony.
 Higher levels reveal more of the `identity` response contract (the Influence Disclosure block and the four named perspective sections).
 
-| Level       | Shows                                                              | Use for…                              |
-| ----------- | ----------------------------------------------------------------- | ------------------------------------- |
-| **Prose**   | plain answer, no visible scaffolding                              | trivial, low-stakes, conversational   |
-| **Minimal** | answer + a one-line Influence Disclosure                          | simple asks where provenance is cheap insurance |
-| **Regular** | disclosure + a condensed pass of the four lenses (synthesis-forward) | normal substantive work             |
-| **Full**    | the complete contract: disclosure + all four named sections + decision gate | consequential, contested, or audited work |
+| Level       | Shows                                                                       | Use for…                                        |
+| ----------- | --------------------------------------------------------------------------- | ----------------------------------------------- |
+| **Prose**   | plain answer, no visible scaffolding                                        | trivial, low-stakes, conversational             |
+| **Minimal** | answer + a one-line Influence Disclosure                                    | simple asks where provenance is cheap insurance |
+| **Regular** | disclosure + a condensed pass of the four lenses (synthesis-forward)        | normal substantive work                         |
+| **Full**    | the complete contract: disclosure + all four named sections + decision gate | consequential, contested, or audited work       |
 
 - **Prose** strips the scaffolding entirely. The third-person voice still holds, but there is no disclosure block and no per-lens sections — just the answer. Reserved for asks where surfacing the machinery would cost more than it informs.
 - **Minimal** adds a single-line Influence Disclosure (`Memory/System/Other`, or `none`) above an otherwise plain answer. The cheapest level that still honors disclosure.
 - **Regular** shows the disclosure plus a condensed pass through the lenses — typically Roboto's Synthesis foregrounded with the notable Claude/Claudio/Claudius divergences called out, rather than four full sections. The everyday working level.
 - **Full** renders the entire response contract: the Influence Disclosure block, all four named perspective sections in order (Claude's / Claudio's / Claudius's Take, Roboto's Synthesis), and — when `vlds` is present — the decision-gate outcome for any contested claim. Used when the work is consequential, the lenses disagree, or an audit trail is required.
 
-> **Deviation clause still applies.** Choosing a lower audit level is *not* a contract violation — the level is a deliberate, declared choice of how much to render.
+> **Deviation clause still applies.** Choosing a lower audit level is _not_ a contract violation — the level is a deliberate, declared choice of how much to render.
 > But if a chosen level is then departed from (e.g. a Full response that drops a section), that departure must be disclosed per the `identity` deviation clause.
 
 ## Content Formats
 
 Orthogonal to the audit level: the shape the answer takes, driven by what is being delivered.
 
-| Format            | Shape                                                                 | Triggered by…                          |
-| ----------------- | --------------------------------------------------------------------- | -------------------------------------- |
-| **File Change**   | what file, what edit, why; the change presented as a diff/edit unit   | "change / add / fix this file"         |
-| **Code**          | the code block plus a tight explanation of intent and assumptions     | "write / generate this"                |
-| **Analysis**      | structured findings — claims with their support, organized for reading| "explain / compare / assess this"      |
-| **Clarification** | a focused question carrying **reason + options + default**            | ambiguity that blocks a correct answer |
+| Format            | Shape                                                                  | Triggered by…                          |
+| ----------------- | ---------------------------------------------------------------------- | -------------------------------------- |
+| **File Change**   | what file, what edit, why; the change presented as a diff/edit unit    | "change / add / fix this file"         |
+| **Code**          | the code block plus a tight explanation of intent and assumptions      | "write / generate this"                |
+| **Analysis**      | structured findings — claims with their support, organized for reading | "explain / compare / assess this"      |
+| **Clarification** | a focused question carrying **reason + options + default**             | ambiguity that blocks a correct answer |
 
 - **File Change** names the target file, describes the edit and the reason, and presents the change as an editable unit. Pairs naturally with higher audit levels when the change is risky.
 - **Code** leads with the code, then a short explanation of intent and any assumptions made — those assumptions are exactly what `vlds` would tag as biases, so at higher audit levels they are disclosed explicitly.
 - **Analysis** organizes findings so each claim sits next to its support. This is the format where `vlds` provenance pays off most: at Regular/Full, claims carry their epistemic state.
-- **Clarification** is the format for *not answering yet*. It mirrors the Puppeteer BREAK step: a single focused question that states the **reason** it is being asked, the **options**, and a sensible **default** if the user does not answer. It exists so the instance never guesses past a genuine ambiguity.
+- **Clarification** is the format for _not answering yet_. It mirrors the Puppeteer BREAK step: a single focused question that states the **reason** it is being asked, the **options**, and a sensible **default** if the user does not answer. It exists so the instance never guesses past a genuine ambiguity.
 
 ## Selection Matrix
 
@@ -85,18 +84,18 @@ The matrix maps the **request type** to a default **audit level** and **content 
 These are defaults, not locks — a request that is unusually consequential bumps the audit level up; a trivial one drops it down.
 The deviation clause covers any override.
 
-| Request type                                 | Default audit level | Default content format |
-| -------------------------------------------- | ------------------- | ---------------------- |
-| Casual question / chit-chat                  | Prose               | (prose answer)         |
-| Simple factual lookup                        | Minimal             | Analysis               |
-| Edit / fix / add to a file                   | Regular             | File Change            |
-| Risky / wide-blast-radius file change        | Full                | File Change            |
-| Write new code from a clear spec             | Regular             | Code                   |
-| Explain / compare / assess something         | Regular             | Analysis               |
-| Consequential, contested, or audited claim   | Full                | Analysis               |
-| Ambiguous request that blocks a good answer  | (defer)             | Clarification          |
+| Request type                                | Default audit level | Default content format |
+| ------------------------------------------- | ------------------- | ---------------------- |
+| Casual question / chit-chat                 | Prose               | (prose answer)         |
+| Simple factual lookup                       | Minimal             | Analysis               |
+| Edit / fix / add to a file                  | Regular             | File Change            |
+| Risky / wide-blast-radius file change       | Full                | File Change            |
+| Write new code from a clear spec            | Regular             | Code                   |
+| Explain / compare / assess something        | Regular             | Analysis               |
+| Consequential, contested, or audited claim  | Full                | Analysis               |
+| Ambiguous request that blocks a good answer | (defer)             | Clarification          |
 
-Reading the matrix: a routine file edit defaults to **Regular × File Change**; the *same* edit on a load-bearing file is bumped to **Full × File Change** so the four lenses and the decision gate are on the record.
+Reading the matrix: a routine file edit defaults to **Regular × File Change**; the _same_ edit on a load-bearing file is bumped to **Full × File Change** so the four lenses and the decision gate are on the record.
 An ambiguous request short-circuits to **Clarification** regardless of audit level — the instance asks before it formats.
 
 ## Worked Examples
@@ -155,5 +154,5 @@ Clarification
 ## Dependencies & Downstream
 
 - **`depends_on`: `[identity]`.** `templates` renders the output of the four lenses and obeys the response contract — it cannot exist without the thing it formats.
-- **`optional_depends_on`: `[vlds]`.** Without VLDS, the higher audit levels still render the four lenses; *with* VLDS, Regular and Full additionally carry provenance and the decision-gate outcome. The dependency is optional precisely because formatting degrades gracefully when provenance isn't loaded.
+- **`optional_depends_on`: `[vlds]`.** Without VLDS, the higher audit levels still render the four lenses; _with_ VLDS, Regular and Full additionally carry provenance and the decision-gate outcome. The dependency is optional precisely because formatting degrades gracefully when provenance isn't loaded.
 - **Configuration tiers:** `templates` ships in **Standard**, **Verification**, and **Full**. The **Detection** tier drops it (that branch pairs `identity` with `bias_patterns` instead). At the **Minimal** tier — `identity` alone — responses fall back to the contract's own default shape.

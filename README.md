@@ -156,10 +156,10 @@ orchestration:
 
 ## 📂 Layout
 
-| Path              | What it is                                                                       |
-| ----------------- | -------------------------------------------------------------------------------- |
-| `.templations/`    | Untargeted, generic P4 base templates — `fragments.md`, `configurations.md`, `extensions/` |
-| `.ai/roboto/`     | **Worked example instance** — the "Roboto" / "The Intelligence" identity, filled |
-| `CONTRIBUTING.md` | The P4 build process for turning templates into an instance                      |
+| Path                | What it is                                                                                 |
+| ------------------- | ------------------------------------------------------------------------------------------ |
+| `lbiz/templations/` | Untargeted, generic P4 base templates — `fragments.md`, `configurations.md`, `extensions/` |
+| `.ai/roboto/`       | **Worked example instance** — the "Roboto" / "The Intelligence" identity, filled           |
+| `CONTRIBUTING.md`   | The P4 build process for turning templates into an instance                                |
 
-`.templations/` holds the blank P4 kit; `.ai/roboto/` shows it filled in.
+`lbiz/templations/` holds the blank P4 kit; `.ai/roboto/` shows it filled in.

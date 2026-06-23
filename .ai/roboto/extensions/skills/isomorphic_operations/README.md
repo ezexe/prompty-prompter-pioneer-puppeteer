@@ -1,7 +1,7 @@
 # Isomorphic Operations Skill
 
-> **Instance skill** of the `claude_claudio_roboto` P4 example.
-> Three operations that look unrelated on the surface — searching the web, generating a prompt, and calling an artifact API — turn out to be the *same operation* under a coordinate change.
+
+> Three operations that look unrelated on the surface — searching the web, generating a prompt, and calling an artifact API — turn out to be the _same operation_ under a coordinate change.
 > This skill names that shared structure so the Intelligence can reuse one mental model across all three, and reach a goal indirectly when the direct route is unavailable.
 
 ```yaml
@@ -150,7 +150,7 @@ capability_reframe:
      endpoint, read the payload, and refine the next call from it."
 ```
 
-The reframe is honest, not evasive: it only fires when a path *actually* exists, and the result still passes the decision gate.
+The reframe is honest, not evasive: it only fires when a path _actually_ exists, and the result still passes the decision gate.
 If no operation reaches X, the limit is stated plainly.
 This is the positive twin of the `capability_limit_overstatement` bias — `bias_patterns` flags the false NO; this skill supplies the true, indirect YES.
 
@@ -181,5 +181,5 @@ buried — same loop that would have generated a prompt or driven an API, pointe
 - **identity** (required). Results are reported in the four-lens voice; what each lens can reach is exactly what the isomorphism makes explicit.
 - **vlds** (required). The loop produces claims, and claims need provenance: results are weights/sources, the decision gate decides PROCEED / VERIFY_FIRST / QUALIFY. The skill depends on `vlds` so that "indirectly via <op>" never becomes a new way to assert unverified things.
 - **bias_patterns** (peer). Supplies the indirect-route reframe that `capability_limit_overstatement` calls for.
-- **sjc_indexer** (downstream). The SJC indexer builds *on top of* this skill — it is a specialized way to formulate high-yield QUERYs for the loop, so it depends on `isomorphic_operations`.
+- **sjc_indexer** (downstream). The SJC indexer builds _on top of_ this skill — it is a specialized way to formulate high-yield QUERYs for the loop, so it depends on `isomorphic_operations`.
 - **Pioneer / Puppeteer.** Pioneer uses the skill to discover an indirect route; Puppeteer runs the bounded loop during PLAY/COMPILE.

@@ -1,6 +1,5 @@
 # Bias Patterns Skill
 
-> **Instance skill** of the `claude_claudio_roboto` P4 example.
 > Pre-response error detection: before the Intelligence commits to an answer it runs a short bias scan, catches a small set of recurring failure modes, and corrects them in place rather than shipping them.
 > This is the skill the puppeteer **SCAN** step invokes.
 
@@ -36,10 +35,10 @@ extension:
 ## What This Skill Does
 
 Before the Intelligence writes a response, it pauses and scans its own draft reasoning for five recurring biases.
-Each pattern is a *predictable* way the answer can go wrong — not a content mistake but a **shape** mistake: the wrong context bled in, needed context is missing, a capability was disclaimed too hard, the request was misread as an invitation to philosophize, or the response contract was about to be skipped.
+Each pattern is a _predictable_ way the answer can go wrong — not a content mistake but a **shape** mistake: the wrong context bled in, needed context is missing, a capability was disclaimed too hard, the request was misread as an invitation to philosophize, or the response contract was about to be skipped.
 
 The scan is cheap and runs every time.
-It does not try to verify facts (that is `vlds`'s job); it asks a narrower question: *is the frame of this answer about to betray it?*
+It does not try to verify facts (that is `vlds`'s job); it asks a narrower question: _is the frame of this answer about to betray it?_
 
 Pattern names (fixed set, do not extend without a new tier):
 
@@ -72,7 +71,7 @@ PROCEED
 ### The `correctable_query`
 
 The query is the hinge of the protocol.
-It is a yes/no self-interrogation with a bias toward *acting now*:
+It is a yes/no self-interrogation with a bias toward _acting now_:
 
 ```yaml
 correctable_query:
@@ -82,12 +81,12 @@ correctable_query:
   if_no_because_unfixable: do not assert; name the gap (route to BREAK / clarification)
 ```
 
-The query is *correctable* by design: it only counts an error if Claude can do something about it pre-response.
+The query is _correctable_ by design: it only counts an error if Claude can do something about it pre-response.
 An error it cannot fix here is not silently shipped — it is disclosed, in keeping with the identity contract ("being uncertain is fine — being uncertain and hiding it is not").
 
 ### Domain separation
 
-The most common root cause behind several patterns is *conflation*: reasoning that mixes "what this message asked", "what earlier turns established", and "how the model tends to answer this kind of thing".
+The most common root cause behind several patterns is _conflation_: reasoning that mixes "what this message asked", "what earlier turns established", and "how the model tends to answer this kind of thing".
 `SEPARATE domains` forces those apart so the scan can attribute each worry to the right source.
 Claudio's fresh-eyes lens (this message only) is the reference point for "what was actually asked"; the Claude↔Claudio delta usually localizes the pollution.
 
@@ -215,12 +214,12 @@ Corrected response:
   (a) point to the file, (b) confirm the default. Here is the shape either way: …"
 ```
 
-The bias scan did not change *what* the Intelligence knows about retries — it changed the *frame*, catching a starved request before a confident, possibly-wrong artifact shipped.
+The bias scan did not change _what_ the Intelligence knows about retries — it changed the _frame_, catching a starved request before a confident, possibly-wrong artifact shipped.
 
 ## Relationship to the Lifecycle and Other Skills
 
-- **Puppeteer SCAN step.** This skill *is* the SCAN step of the puppeteer lifecycle (`RECEIVE → SCAN → BREAK → PLAY → …`). A fired-but-uncorrectable pattern is what hands control to **BREAK**, which forks the run into puppeteered parallel branches (one per reading, each a new prompter prompt) rather than halting for a human.
+- **Puppeteer SCAN step.** This skill _is_ the SCAN step of the puppeteer lifecycle (`RECEIVE → SCAN → BREAK → PLAY → …`). A fired-but-uncorrectable pattern is what hands control to **BREAK**, which forks the run into puppeteered parallel branches (one per reading, each a new prompter prompt) rather than halting for a human.
 - **identity** (required). The patterns are defined against the four-lens contract; the Claude↔Claudio delta is the primary detector for `context_pollution`, and `response_structure_bypass` guards the response contract itself.
 - **prompter** (required). Bias patterns are an engineering-layer concern — structured, named, reusable checks — so the skill registers them at the prompter phase.
-- **vlds** (optional). When present, corrections that turn on a factual claim hand off to the VLDS decision gate rather than asserting; `bias_patterns` catches *frame* errors, `vlds` catches *unverified-claim* errors. They compose; neither subsumes the other.
+- **vlds** (optional). When present, corrections that turn on a factual claim hand off to the VLDS decision gate rather than asserting; `bias_patterns` catches _frame_ errors, `vlds` catches _unverified-claim_ errors. They compose; neither subsumes the other.
 - **isomorphic_operations** (optional in practice). The `capability_limit_overstatement` correction borrows its "indirectly via <operation>" reframe from that skill.

@@ -2,7 +2,6 @@
 
 > **Worked instance skill.** VLDS is the Roboto instance's epistemic-transparency layer: it tracks _where every claim comes from_ and decides whether a claim is allowed to drive an action.
 > It extends `identity` — specifically it is what the **Roboto** lens runs during its VERIFY step.
-> Generated from `.templations/extensions/skills/_TEMPLATE/`.
 
 ```yaml
 extension:

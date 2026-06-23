@@ -3,8 +3,6 @@
 > **Template.** One file per instance.
 > Each `##` section is one tier: a fenced YAML config block plus that tier's detail.
 > Repeat the `## [Tier Name]` block per tier (e.g. minimal → full).
-> Worked example: `.ai/roboto/configurations.md`.
-> Generate tiers with the P4 build process in `../CONTRIBUTING.md`.
 
 ---
 
@@ -37,6 +35,6 @@ use_case: "[one-line use case]"
 
 ### Upgrade / Downgrade Path
 
-| Need  | Add / Remove Fragment | See Tier             |
-| ----- | --------------------- | -------------------- |
+| Need  | Add / Remove Fragment | See Tier              |
+| ----- | --------------------- | --------------------- |
 | [...] | [...]                 | [`[Other]`](#[other]) |
