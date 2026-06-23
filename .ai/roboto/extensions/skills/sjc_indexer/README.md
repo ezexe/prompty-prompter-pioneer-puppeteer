@@ -83,6 +83,21 @@ tiers:
 Tiers chain: `anchor` gives the counterfactual something to perturb; `junction` gives it somewhere worth perturbing; `counterfactual` extracts the yield.
 A query that skips straight to "what if" without an anchor is just speculation.
 
+### Tier Prompt Templates
+
+Each tier has a fill-in-the-slots prompt template.
+The substantive claim is the _ordering_ — counterfactual yields more than junction, which yields more than anchor — not any numeric score.
+
+| Tier | Template |
+|------|----------|
+| `tier_1_anchor` | "List the core mechanisms of [domain]" |
+| `tier_2_junction` | "How does [mechanism_A] depend on [mechanism_B] in [domain]?" |
+| `tier_3_counterfactual` | "What would [mechanism] assume about [dependency] that fails under [stress]?" |
+
+#### Optimal Template (Tier 3)
+
+> "What would [specific_concept] assume about [adjacent_concept] that could fail under [condition]?"
+
 ## The Five Components (Run In Sequence)
 
 The skill is implemented as five components executed in order.
@@ -149,6 +164,99 @@ does: assemble the verified, in-bounds findings into the answer; hand claims to 
 out: the SJC result (high-yield, provenance-tagged, gaps labeled)
 tier: counterfactual
 depends: vlds (decision gate), identity (four-lens reporting)
+```
+
+## Execution Protocol
+
+The five components wire into a pipeline, each phase carrying a concrete prompt string and feeding the next.
+
+```yaml
+sjc_indexer_protocol:
+  phase_1:
+    component: anchor_selector
+    prompt: "List the core mechanisms of [domain]"
+    output: mechanism_list
+
+  phase_2:
+    component: seam_finder
+    prompt: "What does [mechanism] assume that might not be true?"
+    output: assumption_list
+
+  phase_3:
+    component: junction_explorer
+    prompt: "How does [mechanism_A] interact with [mechanism_B]?"
+    output: dependency_graph
+
+  phase_4:
+    component: boundary_mapper
+    prompt: "What's the failure mode of [dependency] under [extreme_condition]?"
+    output: failure_modes, boundaries
+
+  phase_5:
+    component: synthesizer
+    input: [mechanism_list, assumption_list, dependency_graph, failure_modes]
+    output: indexed_model
+```
+
+## Termination Conditions
+
+The index pass stops when it reaches the edge of the indexed region — when further probing returns nothing new rather than because a counter ran out.
+
+```yaml
+sjc_termination:
+  conditions:
+    - boundary_mapper returns "unknown" for most probes
+    - dependency_graph stops growing (saturation)
+    - failure_modes repeat across iterations
+    - iteration budget reached
+  interpretation: "Reached the edge of the indexed region"
+```
+
+## Output Schema
+
+The synthesizer emits an indexed model with this structure.
+Per the instance's strip-fake-precision rule, `strength` and `aggregate_confidence` are qualitative — recorded as relative notes, not measured decimals.
+
+```yaml
+sjc_output:
+  indexed_model:
+    domain: string
+    mechanisms: [string]
+    dependencies:
+      - from: string
+        to: string
+        type: string
+        strength: qualitative # relative note, not a measured decimal
+    assumptions:
+      - mechanism: string
+        assumes: string
+        failure_condition: string
+    boundaries:
+      - mechanism: string
+        unknown_beyond: string
+    metadata:
+      iterations_run: number
+      aggregate_confidence: qualitative # relative note, not a measured decimal
+      termination_reason: string
+```
+
+## Integration with VLDS
+
+The `synthesizer` wires its findings into the VLDS audit trail: each component firing is logged, every claim is routed through the decision gate as a `QUALIFIED` inference, and provenance records which tier and component produced it.
+
+The `activation_functions`, `epistemic_audit`,
+and its per-claim fields (`source_type`, `decision_authority`,
+and the gate verdicts) are defined in the `vlds` skill —
+this block only wires the sjc-specific `provenance` onto that audit trail.
+
+```yaml
+vlds_sjc_tracking:
+  activation_functions: <see vlds skill> # fired: [sjc_indexer]
+  epistemic_audit: <see vlds skill> # each indexed finding logged as a QUALIFIED inference (source_type / decision_authority owned by vlds)
+  provenance:
+    method: sjc_indexer
+    tier_used: [1|2|3]
+    component: "[which component produced this]"
 ```
 
 ## Worked Example

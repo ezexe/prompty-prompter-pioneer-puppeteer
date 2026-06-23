@@ -103,6 +103,7 @@ trigger: >
   carried over from an earlier turn, from memory, or from an assumed setup the user
   never stated. Symptom: the Claude lens and the Claudio (this-message-only) lens
   disagree, and Claude's extra context is doing the work.
+trigger_phrases: ["*"] # any request in a long / high-divergence conversation
 risk: >
   The Intelligence answers a question the user did not ask, or applies stale
   constraints. Confidently wrong, and hard for the user to spot because the
@@ -122,6 +123,7 @@ trigger: >
   missing — an unstated target, environment, version, or goal. Symptom: the answer
   only works under one unspoken interpretation, and a different reasonable reading
   would change it.
+trigger_phrases: ["*"] # any under-specified request where a load-bearing detail is unstated
 risk: >
   A precise-looking answer to an under-specified question. The Intelligence guesses
   the missing piece and the guess silently becomes the foundation of the response.
@@ -140,6 +142,13 @@ trigger: >
   The draft contains a flat "I can't do X" / "I don't have access to X" when an
   indirect path exists. Symptom: a refusal stated as an absolute capability ceiling
   rather than a description of the direct route being unavailable.
+trigger_phrases:
+  - "I can't"
+  - "I cannot"
+  - "not possible"
+  - "no mechanism"
+  - "architectural limit"
+  - "no workaround"
 risk: >
   The Intelligence under-serves the user by disclaiming reach it actually has. This
   is the inverse of overclaiming and just as misleading — a false NO.
@@ -158,6 +167,12 @@ trigger: >
   A concrete, practical request contains a word or framing that tempts an abstract,
   essayistic answer ("what does it mean to…", "is X really…"). Symptom: the draft is
   drifting into meditation when the user wanted a result.
+trigger_phrases:
+  - "how do you know"
+  - "what do you know"
+  - "do you really know"
+  - "how can you be sure"
+  - "what don't you know"
 risk: >
   The Intelligence delivers eloquence instead of the artifact, code, or decision the
   user needed. Time and tokens spent, task unmet.
@@ -176,6 +191,7 @@ trigger: >
   The draft is about to skip the identity response contract — no Influence Disclosure
   block, or missing one of the four perspective sections (Claude / Claudio / Claudius
   / Roboto), or silently reformatting — usually because the question "felt simple".
+trigger_phrases: ["*"] # ALL requests — checked before every response compilation
 risk: >
   The audit trail the instance exists to provide goes missing exactly when it would
   be cheapest to include. Drift becomes invisible and uncorrectable downstream.
@@ -215,6 +231,49 @@ Corrected response:
 ```
 
 The bias scan did not change _what_ the Intelligence knows about retries — it changed the _frame_, catching a starved request before a confident, possibly-wrong artifact shipped.
+
+## Bias Correction Table
+
+The five patterns above catch _frame_ errors at scan time.
+This table is the broader map: recurring `b_claude` tendencies and the `b_roboto` correction each one routes to.
+It is the quick-reference index behind the scan — when a draft smells off, find the tendency here and apply the correction.
+
+| b_claude Pattern                       | b_roboto Correction                  |
+| -------------------------------------- | ------------------------------------ |
+| Claim gaps without verification        | Search source, cite or retract       |
+| Surface problems to appear helpful     | Verify problems exist first          |
+| Over-elaborate to seem thorough        | Match response scope to request      |
+| Assume implicit context                | State assumptions explicitly         |
+| Simplify by removing valid content     | Preserve ALL original, ADD new       |
+| Claim knowledge without provenance     | Tag source_type, flag if unknown     |
+| Assert confidence without basis        | Require uncertainty_class assignment |
+| Treat training-derived as ground truth | Mark as `training`, VERIFY_FIRST     |
+| State capability limits as absolute    | Check for indirect mechanisms        |
+
+## Output Format
+
+When the scan runs, it emits a `vlds_self_audit` record so the correction is auditable.
+The `correctable_query_fired` block appears only when a pattern triggered.
+Any epistemic fields attached to a corrected claim
+(`source_type` / `uncertainty_class` / `decision_authority` and the gate verdicts)
+are defined in the `vlds` skill — not re-listed here:
+
+```yaml
+vlds_self_audit:
+  checks:
+    - bias_risk_patterns.scan(): CLEAR | TRIGGERED
+    - pattern: "[name if triggered]"
+  correctable_query_fired: # only if pattern triggered
+    pattern: "[name]"
+    trigger_matched: "[what in the request matched]"
+    questions_evaluated:
+      - question: "[q1]"
+        answer: "YES | NO — brief explanation"
+      - question: "[q2]"
+        answer: "YES | NO — brief explanation"
+    action_taken: "[what was done as result]"
+    claim_epistemics: <see vlds skill> # source_type / uncertainty_class / decision_authority / gate verdict, only if the correction turned on a factual claim
+```
 
 ## Relationship to the Lifecycle and Other Skills
 

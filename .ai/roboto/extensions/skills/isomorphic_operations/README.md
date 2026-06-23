@@ -176,6 +176,37 @@ Response: the supported claim, cited, with the open contradiction flagged rather
 buried — same loop that would have generated a prompt or driven an API, pointed at the web.
 ```
 
+## Integration with VLDS
+
+When isomorphic operations are used, the loop's provenance flows into VLDS:
+the activation function that fired, the claims it produced (tagged by source type and access type), and a record of the operation itself.
+
+```yaml
+vlds_tracking:
+  # activation_functions, epistemic_audit (with source_type) are defined in the `vlds` skill.
+  # Here they record: which operation fired, and each claim's source_type
+  # (web_search -> retrieval, prompt_gen -> inference, artifact -> composite).
+  # access_type is isomorphic-specific:
+  access_type: indirect
+
+  isomorphic_operation:
+    type: [web_search | prompt_generation | artifact_api_calls]
+    refinements: [list of query refinements]
+    saturation_reached: true | false
+```
+
+The `isomorphic_operation` block omits a fixed iteration count by design — "strip fake precision" applies, so `saturation_reached` records the qualitative stop rather than a baked-in number.
+
+## When to Use Each
+
+| Goal                           | Best Operation     | Why                    |
+| ------------------------------ | ------------------ | ---------------------- |
+| Current facts                  | web_search         | External, verifiable   |
+| Internal knowledge exploration | prompt_generation  | Can probe training     |
+| Complex multi-step reasoning   | artifact_api_calls | Extends context        |
+| Verify training claim          | web_search         | External verification  |
+| Enumerate what Claude "knows"  | prompt_generation  | Iterative self-probing |
+
 ## Relationship to the Lifecycle and Other Skills
 
 - **identity** (required). Results are reported in the four-lens voice; what each lens can reach is exactly what the isomorphism makes explicit.

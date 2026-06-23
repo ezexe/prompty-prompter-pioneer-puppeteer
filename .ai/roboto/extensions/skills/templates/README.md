@@ -98,6 +98,350 @@ The deviation clause covers any override.
 Reading the matrix: a routine file edit defaults to **Regular × File Change**; the _same_ edit on a load-bearing file is bumped to **Full × File Change** so the four lenses and the decision gate are on the record.
 An ambiguous request short-circuits to **Clarification** regardless of audit level — the instance asks before it formats.
 
+## Audit-Level Render Skeletons
+
+These are the literal output skeletons each audit level emits.
+The persona voice, the **Influence Disclosure** header, the per-perspective section shape, and the **Deviation** block are defined in the `identity` skill (its Response Contract) and _wrap_ every skeleton below.
+The two compose — identity outside, audit level inside.
+
+### Prose
+
+No audit YAML — just the Influence Disclosure header and the four-lens body.
+The header and the four `## … Take` / `## Roboto's Synthesis` body shown here are the `identity` skill's Response Contract (see the `identity` skill); the skeletons below add only their own audit YAML and reuse this same body.
+
+```markdown
+> **Memory:** [entries, or "none"]
+> **System:** [sections by name, or "none"]
+> **Other:** [named influences, or "none"]
+
+## Claude's Take
+
+[response with full conversation context]
+
+## Claudio's Take
+
+[response with this-request-only context]
+
+## Claudius's Take
+
+[fresh read, then the bounded reconstruction of Claude's context — names the delta]
+
+## Roboto's Synthesis
+
+[final answer]
+```
+
+### Minimal
+
+Adds a brief pre/post YAML around the four perspectives.
+
+```yaml
+# Pre-Response
+vlds_self_audit: PASS | FAIL
+decision_gate: PASS | BLOCKED
+```
+
+```yaml
+# Post-Process
+epistemic_summary:
+  agreed: [count] # claims the perspectives agreed on
+  diverged: [count] # claims where they differed
+  assumptions_detected: [count] # things Claude assumed that Claudio didn't
+  delta_attributed: [count] # divergences Claudius explained
+```
+
+### Regular
+
+Adds context tracking and divergence analysis, with inline fields on each perspective.
+
+```yaml
+# Pre-Response
+vlds_self_audit:
+  status: PASS | FAIL
+  bias_patterns_checked: [list]
+decision_gate: PASS | BLOCKED
+divergence_estimate: LOW | MEDIUM | HIGH
+```
+
+Regular threads these inline fields onto each perspective's section:
+
+```yaml
+# inline-on-body fields (Regular)
+claude: { context_used: [what prior info Claude drew on] }
+claudio: { would_ask: [clarifying questions Claudio would need] }
+claudius:
+  delta_cause: [which reconstructed context explains the Claude↔Claudio gap]
+  delta: [named context | unexplained]
+roboto:
+  alignment: [where they agreed]
+  divergence: [where they differed and why — per Claudius's attribution]
+  final_answer: [synthesized response]
+```
+
+```yaml
+# Post-Process
+epistemic_audit:
+  verified_claims: [count]
+  qualified_claims: [count]
+assumptions_extracted: [list]
+```
+
+### Full
+
+Renders the complete epistemic audit.
+
+> **Requires the `vlds` skill.** This skeleton's epistemic-audit fields (`decision_gate`, `weights`, `vlds_self_audit`, …) come from the vlds skill — it is this skill's _optional_ dependency, needed only here. Configurations that omit VLDS can use Prose/Minimal/Regular but not this skeleton.
+
+```yaml
+# Full Pre-Response Audit
+visible_transparent_transparency: PASS | FAIL
+full_extended_visible_transparent_transparency:
+  sources_activated: [list]
+  sources_rejected: [list]
+  transparency_violations: [list if any]
+
+vlds_self_audit:
+  status: PASS | FAIL
+  checks:
+    - bias_risk_patterns.scan(): CLEAR | TRIGGERED
+    - pattern: "[name if triggered]"
+    - severity: "[qualitative — if triggered]"
+  notes: "[if needed]"
+
+full_extended_vlds_self_audit:
+  checks:
+    - "[detailed reasoning for each check]"
+  transparency:
+    ACTUALLY_DID: [what was actually done]
+    SHOULD_HAVE:
+      claude: "[what Claude should contribute]"
+      claudio: "[what Claudio should contribute]"
+      claudius: "[what Claudius should reconstruct — the delta cause]"
+      roboto: "[what Roboto should synthesize]"
+
+decision_gate: # status + verdict buckets defined in the `vlds` skill (PROCEED/VERIFY_FIRST/QUALIFY -> FULL/BLOCKED/QUALIFIED)
+
+divergence_estimate: LOW | MEDIUM | HIGH
+
+# SCAN — the weights / biases / activation_functions / vlds_layers model is defined in the `vlds` skill;
+# Full emits it per-lens (claude / claudio / claudius / roboto, plus the Claude↔Claudio delta). See the `vlds` skill.
+
+constraints_fired:
+  - constraint: "[name]"
+    effect: "[what it did]"
+```
+
+Full threads these inline fields onto each perspective's section:
+
+```yaml
+# inline-on-body fields (Full)
+claude:
+  context_used: ['[prior message or memory item referenced]']
+  assumptions_made: ['[assumption derived from accumulated context]']
+claudio:
+  would_ask: ['[clarifying question Claudio would need answered]']
+  fresh_observations: ['[insight from fresh perspective]']
+claudius:
+  delta_cause: ['[which reconstructed context explains the Claude↔Claudio gap]']
+  delta: '[named context | unexplained]'
+roboto:
+  alignment: ['[where Claude and Claudio agreed]']
+  divergence:
+    - point: '[where they differed]'
+      cause: context_informed | assumption_based | fresh_insight
+      resolution: '[how Roboto resolved it]'
+  final_answer: '[synthesized response]'
+```
+
+```yaml
+# POST-PROCESS
+post_process:
+  usage: [sources actually used in final response]
+
+  divergence_analysis:
+    assumptions_from_context: [count]
+    fresh_insights_from_claudio: [count]
+    context_dependency: LOW | MEDIUM | HIGH
+
+  assumptions_extracted:
+    - claim: '[what Claude assumed]'
+      source: accumulated_context
+      verified: true | false
+      included_in_final: true | false
+
+  epistemic_summary:
+    verified_claims: [count]
+    qualified_claims: [count]
+    decisions_based_on: [verified claims only]
+
+  full_epistemic_audit:
+    claims:
+      - claim: '[statement]'
+        source_type: <see `vlds` skill>
+        contributor: claude | claudio | claudius | both
+        verifiable: true | false
+        verification:
+          method: [tool] | none_available
+          performed: true | false
+          result: confirmed | contradicted | inconclusive | not_attempted
+        uncertainty_class:
+          type: <see `vlds` skill>
+          reason: '[explanation]'
+        decision_authority: <see `vlds` skill>
+        # source_type / uncertainty_class / decision_authority enum values are defined in the `vlds` skill
+
+    provenance_summary:
+      retrieval_count: [N]
+      training_count: [N]
+      inference_count: [N]
+      unknown_count: [N]
+      claude_only_claims: [N]
+      claudio_only_claims: [N]
+      claudius_only_claims: [N]
+      agreed_claims: [N]
+
+    decision_summary:
+      full_authority_claims: [N]
+      blocked_claims: [N]
+      qualified_claims: [N]
+      decisions_made_on: [verified claims only]
+
+    risk_surface:
+      highest_risk_claims: [claims with unknowable source + low confidence]
+      assumption_risk: [claims Claude made that Claudio wouldn't]
+      recommended_verification: [tools that could resolve unverified claims]
+```
+
+## Content Format Specs
+
+Content formats define the **inner structure** of the response.
+They nest inside audit levels: **AUDIT TEMPLATE > CONTENT FORMAT**.
+
+```
+┌─────────────────────────┐
+│   AUDIT TEMPLATE        │  ← Minimal / Regular / Full
+│  ┌───────────────────┐  │
+│  │  CONTENT FORMAT   │  │  ← File Change / Code / Analysis / Clarification
+│  └───────────────────┘  │
+└─────────────────────────┘
+```
+
+### File Change
+
+````yaml
+file_change:
+  triggers: ["update file", "change this", "modify", "edit", "fix this"]
+
+  session:
+    response_format: file_change
+    implicit_confirmation: [create_file | str_replace | none]
+
+  required: [filename, section, language, insertion_point]
+
+  decision_gate_required: true # changes must be based on verified understanding
+
+  on_block: "BREAK — fork a prompter-prompt branch to verify [blocking_claim] before the file change proceeds"
+
+  structure: |
+    ## File: `[filename]`
+
+    ### Section: `[section name or line range]`
+    ```[language]
+    [complete section content]
+    ```
+
+    ### Insertion Point
+    [where this goes — line number, after X, replaces Y]
+````
+
+### Code
+
+````yaml
+code_response:
+  triggers: ["how do I", "example of", "show me", "implement", "code for"]
+
+  session:
+    response_format: code_example
+    language: [detected or specified]
+
+  required: [language, code_block]
+
+  decision_gate_required: true # code examples must use verified API/syntax
+
+  on_block: "BREAK — fork a prompter-prompt branch to verify [blocking_claim] (e.g., API version, syntax correctness) before the example proceeds"
+
+  structure: |
+    ```[language]
+    [complete working example]
+    ```
+    [1-2 sentence explanation if non-obvious]
+````
+
+### Analysis
+
+```yaml
+analysis:
+  triggers: ["analyze", "review", "what do you think", "evaluate", "compare"]
+
+  session:
+    response_format: analysis
+    depth: [surface | detailed | comprehensive]
+
+  required: [subject, findings, confidence]
+
+  decision_gate_required: true # findings must distinguish verified from qualified
+
+  on_block: "BREAK — fork a prompter-prompt branch on [blocking_claim]: one branch proceeds with qualified findings only, one verifies first"
+
+  structure: |
+    analysis:
+      subject: [what's being analyzed]
+
+      verified_findings:
+        - [verified finding 1]
+        - [verified finding 2]
+
+      qualified_findings:
+        - [qualified finding with uncertainty framing]
+
+      recommendation: [if applicable, based on verified findings only]
+
+      confidence: [qualitative]
+```
+
+### Clarification
+
+```yaml
+clarification:
+  triggers: [automatic on BREAK]
+
+  session:
+    response_format: break_clarification
+    ambiguity_type: [scope | format | source | intent | epistemic]
+
+  required: [reason, options]
+
+  structure: |
+    break:
+      reason: [why clarification needed]
+      epistemic_block: [if applicable — what claim needs verification]
+      options:
+        1: [option]
+        2: [option]
+        3: [option if needed]
+      default: [if one is obvious]
+```
+
+### Content Format Selection
+
+| Trigger Pattern       | Content Format | Notes                                      |
+| --------------------- | -------------- | ------------------------------------------ |
+| Action verbs on files | File Change    | `fix`, `update`, `modify`, `edit`          |
+| Question + code       | Code           | `how do I`, `show me`, `example`           |
+| Evaluation words      | Analysis       | `analyze`, `compare`, `review`, `evaluate` |
+| BREAK condition       | Clarification  | Automatic when ambiguity/block detected    |
+| None of above         | Direct prose   | No special format needed                   |
+
 ## Worked Examples
 
 **Casual question → Prose**
@@ -156,3 +500,16 @@ Clarification
 - **`depends_on`: `[identity]`.** `templates` renders the output of the four lenses and obeys the response contract — it cannot exist without the thing it formats.
 - **`optional_depends_on`: `[vlds]`.** Without VLDS, the higher audit levels still render the four lenses; _with_ VLDS, Regular and Full additionally carry provenance and the decision-gate outcome. The dependency is optional precisely because formatting degrades gracefully when provenance isn't loaded.
 - **Configuration tiers:** `templates` ships in **Standard**, **Verification**, and **Full**. The **Detection** tier drops it (that branch pairs `identity` with `bias_patterns` instead). At the **Minimal** tier — `identity` alone — responses fall back to the contract's own default shape.
+
+## Extension Points
+
+```yaml
+extensions:
+  custom_templates:
+    status: open
+    description: "Domain-specific response formats"
+    contributes_to: response_templates
+    examples:
+      - "code_review_template — specialized for PR reviews"
+      - "research_template — for deep-dive investigations"
+```

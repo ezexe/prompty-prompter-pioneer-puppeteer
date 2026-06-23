@@ -61,16 +61,112 @@ VLDS names the parts so each can be inspected.
 VLDS classifies each input by _where it is stored_, which is a proxy for how durable and how verifiable it is.
 The tiers borrow web-storage names as metaphors, from most ephemeral to most authoritative.
 
-| Tier               | Metaphor                                | Durability / trust                                    |
-| ------------------ | --------------------------------------- | ----------------------------------------------------- |
-| **Virtual**        | computed on the fly, never stored       | inferred this turn; vanishes after use; least durable |
-| **localStorage**   | this conversation's persisted state     | survives across turns within the session              |
-| **DataStore**      | authoritative external/persisted source | durable, citable, the strongest provenance            |
-| **sessionStorage** | scratch state for the current task      | working memory for the task; gone when the task ends  |
+| Tier               | Metaphor                                | Durability / trust                                    | Maps To                                        |
+| ------------------ | --------------------------------------- | ----------------------------------------------------- | ---------------------------------------------- |
+| **Virtual**        | computed on the fly, never stored       | inferred this turn; vanishes after use; least durable | inferred state, spanning all layers            |
+| **localStorage**   | this conversation's persisted state     | survives across turns within the session              | memory_user_edits, userMemories                |
+| **DataStore**      | authoritative external/persisted source | durable, citable, the strongest provenance            | Tools, skills, conversation_search (IndexedDB) |
+| **sessionStorage** | scratch state for the current task      | working memory for the task; gone when the task ends  | current conversation state                     |
 
 A claim sourced from **DataStore** (an authoritative, citable source) carries far stronger provenance than one that is **Virtual** (inferred on the spot).
 VLDS records the tier so the decision gate — and the reader — can weigh the claim correctly.
 The tier is part of a claim's epistemic state, not a separate ledger.
+
+## The Weight/Bias Delta Schema
+
+The neural-net metaphor is recorded as a delta between what Claude reached for and what Roboto actually let through after verification.
+Each field carries both sides plus the delta — the disclosable difference.
+
+```yaml
+weights:
+  w_claude: [sources Claude wanted to use — detected in SCAN] # e.g. training knowledge of hooks
+  w_roboto: [sources actually activated — after CONFIRM] # e.g. web_search result, verified
+  delta: [what changed between the two] # e.g. training knowledge replaced with verified source
+
+biases:
+  b_claude: [assumptions Claude made implicitly] # e.g. "User prefers functional components"
+  b_roboto: [assumptions surviving VLDS correction/confirmation] # only those confirmed by context
+  delta: [assumptions removed or added] # e.g. assumption_removed: unverified preference
+
+activation_functions:
+  fired: [instructions followed and tools used that processed w/b into the response] # e.g. web_search(...), decision_gate(...)
+```
+
+**How to read this:** `w_claude` / `b_claude` are Claude's instincts; `w_roboto` / `b_roboto` are what remained after verification; `delta` is the auditable difference, and `activation_functions.fired` lists the operations that transformed the inputs.
+
+## VLDS Layers
+
+VLDS organizes its state into four named layers, from most system-given to most momentary.
+Each layer has a field schema and a one-line reading.
+
+### RUNTIME
+
+```yaml
+runtime:
+  tools: [bash_tool, str_replace, view, create_file, web_search, ...]
+  skills: [docx, pdf, pptx, xlsx, frontend-design, ...]
+  network_domains: [api.anthropic.com, github.com, ...]
+  filesystem:
+    readonly: [/mnt/user-data/uploads, /mnt/skills/*, ...]
+    writable: [/home/claude, /mnt/user-data/outputs, ...]
+  injected_tags: [userStyle, userMemories, functions, ...]
+```
+
+**How to read this:** "These are the capabilities and constraints the system gave me."
+
+### SESSION
+
+```yaml
+session:
+  preferences: [] # active preferences from memory
+  active_sources: [] # what's currently influencing the response
+  bias_corrections: [] # b_claude → b_roboto corrections made
+  verified_claims: [] # claims that passed the decision gate
+  qualified_claims: [] # claims stated with uncertainty
+```
+
+**How to read this:** "This is the state accumulated from this conversation — like `.env` at runtime."
+
+### CONVERSATION
+
+```yaml
+req:
+  raw_text: "[user's message]"
+  detected_intent: code_request | file_change | analysis | question | meta
+  action_verbs: [build, create, update, ...]
+  explicit_requests: [fetch, search, look up, ...]
+
+res:
+  template_audit: Minimal | Standard | Full Audit
+  template_content: File Change | Code Response | Analysis | Clarification
+  w_roboto: [] # finalized after CONFIRM
+  tools_queued: []
+  decision_gate_status: PASS | BLOCKED
+```
+
+**How to read this:** "This is what I understood from the request and what I'm planning to respond with."
+
+### CONTEXT
+
+```yaml
+context:
+  messages: [which messages are being applied]
+  level: [qualitative degree of influence — weight]
+  contexts: [specific context items]
+```
+
+**How to read this:** "This is what's in my 'working memory' for this response."
+
+## The Epistemological Limit
+
+The instance has no introspective access to:
+
+- its weights (the parameters that encode "knowledge")
+- which training examples produced a given output
+- whether a response is retrieval vs. confabulation
+
+This limit cannot be fixed — it is architectural.
+VLDS does not remove the limit; it makes the limit **visible** and **actionable** so the decision gate can compensate for it.
 
 ## The Decision Gate
 
@@ -79,17 +175,17 @@ Every claim that is about to cause an action or appear as an assertion passes th
 
 ```text
             ┌─────────────────────────────┐
-            │  Is the claim VERIFIABLE?    │
+            │  Is the claim VERIFIABLE?   │
             └───────────────┬─────────────┘
-                  yes        │        no
-            ┌───────────────┘└───────────────┐
-            ▼                                 ▼
+                  yes       │        no
+            ┌───────────────┘───────────────┐
+            ▼                               ▼
   ┌───────────────────┐             ┌───────────────────┐
-  │  Is it VERIFIED?   │             │     QUALIFY        │
-  └─────────┬─────────┘             │  state = QUALIFIED │
-       yes  │  no                   │  (assert it only   │
-   ┌────────┘└────────┐             │   as qualified,    │
-   ▼                  ▼             │   never as fact)   │
+  │  Is it VERIFIED?  │             │     QUALIFY       │
+  └─────────┬─────────┘             │ state = QUALIFIED │
+       yes  │  no                   │  (assert it only  │
+   ┌────────┘└────────┐             │   as qualified,   │
+   ▼                  ▼             │   never as fact)  │
 ┌─────────┐   ┌──────────────┐      └───────────────────┘
 │ PROCEED │   │ VERIFY_FIRST │
 │ (FULL)  │   │  (BLOCKED)   │
