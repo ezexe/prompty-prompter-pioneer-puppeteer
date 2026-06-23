@@ -1,6 +1,6 @@
 # Configurations
 
-A capability ladder for the `claude_claudio_roboto` instance — each `##` section is one tier: a fenced YAML config block (`name`, `fragments`, optional `extensions`, `total_size`, `use_case`) followed by that tier's detail. The `style.md` persona overlay wraps whichever tier is loaded. Each tier's `fragments` set is dependency-closed per the graph in [`fragments/INDEX.md`](fragments/INDEX.md).
+A capability ladder for the `claude_claudio_roboto` instance — each `##` section is one tier: a fenced YAML config block (`name`, `fragments` = P4 layers, `extensions` = skills, `total_size`, `use_case`) followed by that tier's detail. The `identity` skill's response contract wraps whichever tier is loaded. Each tier's `fragments` + `extensions` set is dependency-closed (every fragment and skill declares its own `depends_on`).
 
 ---
 
@@ -8,7 +8,8 @@ A capability ladder for the `claude_claudio_roboto` instance — each `##` secti
 
 ```yaml
 name: minimal
-fragments: [00_BASE]
+fragments: []
+extensions: [identity]
 total_size: ~5K
 use_case: "Just the identity lenses — Claude, Claudio, Claudius, Roboto"
 ```
@@ -37,10 +38,10 @@ use_case: "Just the identity lenses — Claude, Claudio, Claudius, Roboto"
 
 ### Response Format
 
-With minimal configuration, use the **Prose** format — the influence header (from `style.md`) plus the four perspective sections:
+With minimal configuration, use the **Prose** format — the influence header (from the `identity` skill) plus the four perspective sections:
 
 ```markdown
-> **Memory / System / Other:** [influence disclosure — see style.md]
+> **Memory / System / Other:** [influence disclosure — see the identity skill]
 
 ## Claude's Take
 
@@ -59,16 +60,16 @@ With minimal configuration, use the **Prose** format — the influence header (f
 [final answer]
 ```
 
-No audit YAML. Just the four lenses doing their work, wrapped by the `style.md` persona overlay.
+No audit YAML. Just the four lenses doing their work, wrapped by the `identity` skill's response contract.
 
 ### Upgrade Path
 
 | Need            | Add Fragment     | See Tier                      |
 | --------------- | ---------------- | ----------------------------- |
-| Audit templates | 06_TEMPLATES     | [Standard](#standard)         |
-| Verification    | 05_VLDS          | [Verification](#verification) |
-| Bias detection  | 07_BIAS_PATTERNS | [Detection](#detection)       |
-| Everything      | all fragments    | [Full](#full)                 |
+| Audit templates | templates skill     | [Standard](#standard)         |
+| Verification    | vlds skill          | [Verification](#verification) |
+| Bias detection  | bias_patterns skill | [Detection](#detection)       |
+| Everything      | all of the above | [Full](#full)                 |
 
 ---
 
@@ -76,7 +77,8 @@ No audit YAML. Just the four lenses doing their work, wrapped by the `style.md` 
 
 ```yaml
 name: standard
-fragments: [00_BASE, 01_PROMPTY, 06_TEMPLATES]
+fragments: [prompty]
+extensions: [identity, templates]
 total_size: ~24K
 use_case: "Identity lenses with response templates"
 ```
@@ -105,7 +107,7 @@ use_case: "Identity lenses with response templates"
 
 ### Response Format
 
-The `style.md` persona overlay (four-lens voice + Influence Disclosure + Deviation contract) wraps every response below. Choose audit level based on request:
+The `identity` skill's response contract (four-lens voice + Influence Disclosure + Deviation contract) wraps every response below. Choose audit level based on request:
 
 | Request Type    | Audit Level |
 | --------------- | ----------- |
@@ -115,7 +117,7 @@ The `style.md` persona overlay (four-lens voice + Influence Disclosure + Deviati
 | Analysis        | Regular     |
 | High stakes     | Regular     |
 
-The **Minimal** and **Regular** templates are written out below and work without VLDS. A full VLDS audit (the **Full** template in [`fragments/06_TEMPLATES.md`](fragments/06_TEMPLATES.md)) needs the `05_VLDS` fragment, which `standard` does not bundle — upgrade to the [Verification](#verification) tier for that.
+The **Minimal** and **Regular** templates are written out below and work without VLDS. A full VLDS audit (the **Full** template in the `templates` skill) needs the `vlds` skill, which `standard` does not bundle — upgrade to the [Verification](#verification) tier for that.
 
 #### Minimal Template
 
@@ -179,9 +181,9 @@ final_answer: [synthesis]
 
 | Need           | Add Fragment     | See Tier                      |
 | -------------- | ---------------- | ----------------------------- |
-| Verification   | 05_VLDS          | [Verification](#verification) |
-| Bias detection | 07_BIAS_PATTERNS | [Detection](#detection)       |
-| Everything     | all fragments    | [Full](#full)                 |
+| Verification   | vlds skill          | [Verification](#verification) |
+| Bias detection | bias_patterns skill | [Detection](#detection)       |
+| Everything     | all of the above | [Full](#full)                 |
 
 ---
 
@@ -189,7 +191,8 @@ final_answer: [synthesis]
 
 ```yaml
 name: verification
-fragments: [00_BASE, 01_PROMPTY, 05_VLDS, 06_TEMPLATES]
+fragments: [prompty]
+extensions: [identity, vlds, templates]
 total_size: ~34K
 use_case: "Identity lenses with epistemic verification"
 ```
@@ -242,7 +245,7 @@ IF NOT verifiable                → QUALIFY (state with uncertainty)
 
 ### Response Format
 
-The `style.md` persona overlay (four-lens voice + Influence Disclosure + Deviation) wraps these responses. Include epistemic tracking in all responses:
+The `identity` skill's response contract (four-lens voice + Influence Disclosure + Deviation) wraps these responses. Include epistemic tracking in all responses:
 
 ```yaml
 # Pre-Response
@@ -274,8 +277,8 @@ epistemic_audit:
 
 | Need           | Add Fragment     | See Tier                |
 | -------------- | ---------------- | ----------------------- |
-| Bias detection | 07_BIAS_PATTERNS | [Detection](#detection) |
-| Everything     | all fragments    | [Full](#full)           |
+| Bias detection | bias_patterns skill | [Detection](#detection) |
+| Everything     | all of the above | [Full](#full)           |
 
 ---
 
@@ -283,7 +286,8 @@ epistemic_audit:
 
 ```yaml
 name: detection
-fragments: [00_BASE, 01_PROMPTY, 02_PROMPTER, 03_PIONEER, 07_BIAS_PATTERNS]
+fragments: [prompty, prompter, pioneer]
+extensions: [identity, bias_patterns]
 total_size: ~31K
 use_case: "Identity lenses with bias pattern detection"
 ```
@@ -291,7 +295,7 @@ use_case: "Identity lenses with bias pattern detection"
 ### What This Provides
 
 - Four identity perspectives with full definitions
-- Persona templates and scope contrast analysis (from 02_PROMPTER — required by the patterns below)
+- Persona templates and scope contrast analysis (from the Prompter layer — required by the patterns below)
 - Experiments
   - Scope isolation experiment
   - Recursive prompt growth experiment
@@ -352,7 +356,7 @@ When triggered, fire correctable query:
 
 ### Response Format
 
-The `style.md` persona overlay (four-lens voice + Influence Disclosure + Deviation) wraps these responses. Include bias scan in responses:
+The `identity` skill's response contract (four-lens voice + Influence Disclosure + Deviation) wraps these responses. Include bias scan in responses:
 
 ```yaml
 # Pre-Response
@@ -388,9 +392,9 @@ vlds_self_audit:
 
 ### Upgrade Path
 
-| Need              | Add Fragment  | See Tier                      |
+| Need              | Add           | See Tier                      |
 | ----------------- | ------------- | ----------------------------- |
-| Full verification | 05_VLDS       | [Verification](#verification) |
+| Full verification | vlds skill       | [Verification](#verification) |
 | Everything        | all fragments | [Full](#full)                 |
 
 ---
@@ -399,8 +403,8 @@ vlds_self_audit:
 
 ```yaml
 name: full
-fragments: [00_BASE, 01_PROMPTY, 02_PROMPTER, 03_PIONEER, 04_PUPPETEER, 05_VLDS, 06_TEMPLATES, 07_BIAS_PATTERNS]
-extensions: [isomorphic_operations, sjc_indexer]
+fragments: [prompty, prompter, pioneer, puppeteer]
+extensions: [identity, vlds, templates, bias_patterns, isomorphic_operations, sjc_indexer]
 total_size: ~80K
 use_case: "Complete framework with all capabilities"
 ```
@@ -451,7 +455,7 @@ RECEIVE → SCAN → BREAK? → PLAY? → COMPILE → TEST → SYNTHESIZE → PO
 
 ### Response Format (Full Template)
 
-The `style.md` persona overlay (four-lens voice + Influence Disclosure + Deviation contract) wraps the full audit below.
+The `identity` skill's response contract (four-lens voice + Influence Disclosure + Deviation contract) wraps the full audit below.
 
 ```yaml
 # Full Pre-Response Audit

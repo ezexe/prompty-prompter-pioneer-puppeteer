@@ -1,5 +1,30 @@
 # Isomorphic Operations
 
+```yaml
+extension:
+  name: isomorphic_operations
+  type: skill
+  compatibility:
+    p4_phases: [pioneer, puppeteer]
+    depends_on: [identity, vlds]
+  interface:
+    skill:
+      domains:
+        - capability_reframing
+        - indirect_access
+        - iterative_exploration
+      capabilities:
+        - identify_indirect_mechanisms
+        - reframe_capability_limits
+        - structural_equivalence_mapping
+  hooks:
+    on_pioneer:
+      - detect_capability_limit_statements
+      - suggest_indirect_access_methods
+    on_puppeteer:
+      - reframe_absolute_limits_in_synthesis
+```
+
 ## Overview
 
 **Isomorphic operations** are operations that share the same structure despite working on different domains. They all:
@@ -97,9 +122,37 @@ capability_reframe_rule:
     proceed: "Genuine limitation — state as absolute"
 ```
 
+**Example — "list everything you know about React?"**
+
+```text
+Before (wrong):
+  "I cannot enumerate my training data or list everything I know about any
+   topic. My knowledge isn't stored in a searchable database."
+
+After (correct):
+  "I cannot enumerate my training data directly, but I can explore it
+   indirectly via prompt_generation — iteratively probing and refining:
+     1. 'What are React's core concepts?'    → components, JSX, state, props, hooks
+     2. 'What does each concept assume?'      → assumptions for each
+     3. 'Where do these concepts intersect?'  → dependency graph
+     4. repeat until saturation
+   Not exhaustive, but it systematically surfaces what I can access."
+```
+
 ### Detection Trigger
 
-Any self-limitation statement should fire `capability_limit_overstatement` pattern check (see 07_BIAS_PATTERNS.md).
+Any self-limitation statement should fire `capability_limit_overstatement` pattern check (see the bias_patterns skill).
+
+**Example — hook fires on a self-limitation:**
+
+```yaml
+hook: detect_capability_limit_statements
+trigger: "You can't really understand code, can you?"
+triggered_by: "can't really understand"
+check: "Is this a direct limitation or does indirect access exist?"
+finding: "Code understanding happens via prompt_generation — iterative analysis"
+reframe: "I don't 'understand' code the way humans do, but I can analyze it iteratively..."
+```
 
 ---
 
@@ -140,6 +193,17 @@ Because they're structurally equivalent:
 - Limitations of one often apply to others
 - If you can iterate with web_search, you can iterate with prompt_generation
 
+**Example — same structure, different index:**
+
+```text
+web_search:                            prompt_generation (same shape):
+  search("React performance opt")        prompt("React performance optimizations?")
+    → memo, useMemo, useCallback           → memo, useMemo, useCallback
+    → refine("memo vs useMemo")            → refine("memo vs useMemo difference?")
+    → more specific results                → more specific output
+    → accumulate                           → accumulate
+```
+
 ---
 
 ## Integration with VLDS
@@ -163,6 +227,31 @@ vlds_tracking:
     iterations: N
     refinements: [list of query refinements]
     saturation_reached: true | false
+```
+
+**Example — exploring database indexing:**
+
+```yaml
+vlds_tracking:
+  activation_functions:
+    fired: [prompt_generation]
+  isomorphic_operation:
+    type: prompt_generation
+    iterations: 5
+    refinements:
+      - "List database index types"
+      - "How does B-tree indexing work?"
+      - "What does B-tree assume about data access patterns?"
+      - "When do B-tree assumptions fail?"
+      - "What alternatives exist when B-tree fails?"
+    saturation_reached: true # answers started repeating
+  epistemic_audit:
+    claims:
+      - claim: "B-tree indexes assume read-heavy workloads"
+        source_type: inference
+        access_type: indirect
+        iterations: 3
+        confidence: 75
 ```
 
 ---

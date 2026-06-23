@@ -73,7 +73,7 @@ script:
     # The concrete level → fragment map is INSTANCE data, not part of this
     # identity-agnostic guide. General form:  [level]: [fragment_id, ...]
     # Filled example (Roboto instance):
-    #   .ai/roboto/fragments/INDEX.md → "Configuration Composition"
+    #   .ai/roboto/configurations.md (each tier's fragments + extensions block)
     ```
 
     **Custom Requirements:** {custom_requirements}
@@ -104,12 +104,11 @@ script:
 
     **Validation Checks:**
     1. All dependencies included? Every selected fragment's `depends_on` (declared in
-       its own frontmatter and rendered in the instance's `fragments/INDEX.md`
-       dependency graph) must be satisfied by the selection — include the full
+       its own frontmatter or manifest block) must be satisfied by the selection — include the full
        transitive closure. Fragments may also declare `optional_depends_on`: these
        enhance a fragment but are NOT required for closure (omitting one just disables
        the feature it powers). Concrete edges are instance data; e.g. see
-       `.ai/roboto/fragments/INDEX.md`.
+       `.ai/roboto/fragments.md` and the skills' manifests.
 
     2. No conflicting fragments?
     3. Appropriate for use case?
@@ -206,9 +205,9 @@ script:
 ```
 You are building a P4 configuration.
 
-Read templations/fragments/INDEX.md and templations/fragments/_TEMPLATE.md to understand the fragment
-structure. For filled examples, read an instance such as .ai/roboto/fragments/
-(its 00_BASE.md is the minimal set).
+Read templations/fragments.md to understand the fragment
+structure. For filled examples, read an instance such as .ai/roboto/ (its fragments.md
+holds the four P4 layers; the identity skill is the minimal set).
 
 Add a tier section to your instance's configurations.md following templations/configurations.md.
 ```
@@ -220,7 +219,7 @@ You are building a custom P4 configuration.
 
 User needs: {requirements}
 
-1. Read templations/fragments/INDEX.md for the dependency graph
+1. Read templations/fragments.md for the dependency rule
 2. Identify which fragments satisfy the requirements
 3. Validate all dependencies are included
 4. Add a tier section to your instance's configurations.md
@@ -292,7 +291,7 @@ Capabilities    Knowledge           Bridges
 ### Extension Schema
 
 ```yaml
-# templations/extensions/[type]/[name]/EXTENSION.yaml
+# Manifest — a fenced yaml block at the top of templations/extensions/[type]/[name]/README.md
 
 extension:
   name: string
@@ -312,7 +311,6 @@ extension:
     skill:
       domains: [string]
       capabilities: [string]
-      skill_file: path/to/SKILL.md
 
     # Connectors: integration interface
     connector:
@@ -332,7 +330,7 @@ extension:
 #### Tool Extension
 
 ```yaml
-# templations/extensions/tools/code_analyzer/EXTENSION.yaml
+# in templations/extensions/tools/code_analyzer/README.md
 
 extension:
   name: code_analyzer
@@ -359,7 +357,7 @@ extension:
 #### Skill Extension
 
 ```yaml
-# templations/extensions/skills/api_design/EXTENSION.yaml
+# in templations/extensions/skills/api_design/README.md
 
 extension:
   name: api_design
@@ -372,7 +370,6 @@ extension:
         - schema_generation
         - endpoint_design
         - documentation
-      skill_file: ./SKILL.md
 
   hooks:
     on_prompter:
@@ -384,7 +381,7 @@ extension:
 #### Connector Extension
 
 ```yaml
-# templations/extensions/connectors/openai_bridge/EXTENSION.yaml
+# in templations/extensions/connectors/openai_bridge/README.md
 
 extension:
   name: openai_bridge
@@ -413,7 +410,7 @@ extension:
 
 1. **Identify the extension type** (tool, skill, connector)
 2. **Determine phase affinity** (which P4 phases benefit)
-3. **Create extension manifest** following the schema
+3. **Create the extension's `README.md`** opening with the manifest block (per the schema)
 4. **Implement hooks** for relevant phases
 5. **Document capabilities** in extension README
 6. **Submit for integration**
@@ -427,8 +424,7 @@ guidelines:
     prefix_by_type: false # Let type field distinguish
 
   documentation:
-    required: [README.md, EXTENSION.yaml]
-    recommended: [EXAMPLES.md, CHANGELOG.md]
+    required: [README.md] # manifest block + inline fenced example blocks in the sections they illustrate
 
   testing:
     required: tests/phase_hook/

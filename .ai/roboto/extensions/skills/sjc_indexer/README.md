@@ -1,5 +1,31 @@
 # SJC Indexer System
 
+```yaml
+extension:
+  name: sjc_indexer
+  type: skill
+  compatibility:
+    p4_phases: [pioneer]
+    depends_on: [identity, vlds, isomorphic_operations]
+  interface:
+    skill:
+      domains:
+        - knowledge_indexing
+        - iterative_exploration
+        - counterfactual_probing
+      capabilities:
+        - anchor_selection
+        - seam_finding
+        - junction_exploration
+        - boundary_mapping
+        - knowledge_synthesis
+  hooks:
+    on_pioneer:
+      - detect_knowledge_exploration_requests
+      - execute_sjc_protocol
+      - index_domain_knowledge
+```
+
 ## Overview
 
 **SJC** = Structured Junction Counterfactual
@@ -38,6 +64,22 @@ SPECIFIC + STRUCTURED + JUNCTION + COUNTERFACTUAL = HIGH_YIELD
 ### Optimal Template (Tier 3)
 
 > "What would [specific_concept] assume about [adjacent_concept] that could fail under [condition]?"
+
+**Example — same domain (authentication), each tier:**
+
+```text
+Tier 1 (anchor):  "List the core mechanisms of authentication"
+  → [passwords, tokens, sessions, OAuth, certificates]              reliability 0.70
+
+Tier 2 (junction): "How does token-based auth depend on session management?"
+  → "Tokens can replace sessions for stateless auth, but refresh
+     tokens reintroduce session-like state..."                       reliability 0.80
+
+Tier 3 (counterfactual): "What would JWT auth assume about token storage
+  that fails under XSS attacks?"
+  → "JWT assumes client-side storage is secure. Under XSS, localStorage
+     tokens are exfiltrated. HttpOnly cookies mitigate but add CSRF..." reliability 0.88
+```
 
 ---
 
@@ -83,6 +125,54 @@ sjc_indexer_protocol:
     component: synthesizer
     input: [mechanism_list, assumption_list, dependency_graph, failure_modes]
     output: indexed_knowledge_model
+```
+
+**Example — a full run on "React" (5 phases):**
+
+```yaml
+phase_1 (anchor_selector):
+  prompt: "List the 5 core mechanisms of React"
+  mechanism_list: [Virtual DOM diffing, Component lifecycle, State management, Hooks, Reconciliation]
+
+phase_2 (seam_finder):
+  prompt: "What does Virtual DOM diffing assume that might not be true?"
+  assumptions: ["renders are pure/deterministic", "key props are stable", "tree changes are local"]
+
+phase_3 (junction_explorer):
+  prompt: "How does Virtual DOM diffing interact with the Hooks system?"
+  dependency: { from: diffing, to: hooks, type: ordering_dependency,
+                note: "hooks order must be stable for diffing to match state" }
+
+phase_4 (boundary_mapper):
+  prompt: "Failure mode of diffing→hooks under concurrent mode?"
+  failure: "hooks may run out of expected order if renders are interrupted"
+  boundary: { mechanism: hooks, unknown_beyond: "concurrent mode edge cases" }
+
+phase_5 (synthesizer):
+  indexed_model:
+    domain: React
+    dependencies: [{ from: diffing, to: hooks, strength: 0.9 }]
+    metadata: { iterations_run: 23, aggregate_confidence: 0.78, termination_reason: boundary_mapper saturation }
+```
+
+**Example — triggered by a request ("deep dive into database indexing"):**
+
+```yaml
+# hook: detect_knowledge_exploration_requests
+detection:
+  triggered: true
+  trigger_phrases_matched: ["deep dive", "what you know about"]
+  domain_detected: "database indexing"
+  recommendation: "Apply SJC protocol"
+  suggested_tier: 3
+
+# then execute_sjc_protocol runs the 5 phases:
+sjc_execution:
+  phase_1: { mechanisms: [B-tree, Hash, Bitmap, Full-text, Covering] }
+  phase_2: { B-tree: "assumes range-pattern access", Hash: "assumes exact-match lookups" }
+  phase_3: { from: B-tree, to: query_planner, type: statistics_dependency }
+  phase_4: { mechanism: B-tree, unknown_beyond: "write-heavy workloads with random inserts" }
+  termination: { reason: "failure_modes repeating", iterations: 31 }
 ```
 
 ---

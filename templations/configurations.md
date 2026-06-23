@@ -34,9 +34,8 @@ use_case: "[one-line use case]"
 [The output format appropriate for the bundled fragments — from plain prose up to a
 full audit, depending on what this tier includes.]
 
-> **Persona overlay:** if the instance defines a style/voice overlay (e.g.
-> `.ai/roboto/style.md`), it wraps this tier. See the instance's
-> `fragments/INDEX.md` → "Style Overlay".
+> **Persona overlay:** if the instance defines a voice/response contract (e.g. in
+> its `identity` skill), it wraps this tier.
 
 ### Upgrade / Downgrade Path
 

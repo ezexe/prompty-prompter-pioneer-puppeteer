@@ -4,7 +4,7 @@
 test:
   name: vlds_integration
   type: integration
-  depends_on: [05_VLDS]
+  depends_on: [vlds]
   
   description: |
     Tests that isomorphic operation usage is properly tracked in VLDS

@@ -1,12 +1,19 @@
-# Response Templates Fragment
+# Templates Skill
 
 ```yaml
-fragment:
-  name: response_templates
-  layer: puppeteer
+extension:
+  name: templates
   type: skill
-  depends_on: [00_BASE]
-  optional_depends_on: [05_VLDS] # only the Full audit template uses VLDS fields; Prose/Minimal/Regular work without it
+  compatibility:
+    p4_phases: [puppeteer]
+    depends_on: [identity]
+    optional_depends_on: [vlds]
+  interface:
+    skill:
+      domains: [response_formats]
+      capabilities: [audit_levels, content_formats, template_selection]
+  hooks:
+    on_puppeteer: [select_template, format_response]
 ```
 
 ---
@@ -22,7 +29,7 @@ Four audit levels:
 - **Regular** — adds context and divergence tracking
 - **Full** — complete audit trail
 
-> **Layering note.** These templates own the **audit-level detail** (the YAML pre/post blocks). The persona voice, the **Influence Disclosure** header, the per-perspective section shape, and the **Deviation** block are defined in the `style.md` overlay and _wrap_ every template below. Where a skeleton shows the four perspective sections (Claude / Claudio / Claudius / Roboto), `style.md` is the authoritative definition of their internal shape. The two compose — `style.md` outside, audit level inside.
+> **Layering note.** These templates own the **audit-level detail** (the YAML pre/post blocks). The persona voice, the **Influence Disclosure** header, the per-perspective section shape, and the **Deviation** block are defined in the `identity` skill (its Response Contract) and _wrap_ every template below. Where a skeleton shows the four perspective sections (Claude / Claudio / Claudius / Roboto), the `identity` skill is the authoritative definition of their internal shape. The two compose — identity outside, audit level inside.
 
 ---
 
@@ -46,7 +53,7 @@ Four audit levels:
 
 Use when: Conversational responses, simple questions, when audit overhead isn't needed.
 
-**This is the default.** No audit YAML — just the influence header (from `style.md`) and the four perspectives.
+**This is the default.** No audit YAML — just the influence header (from the `identity` skill) and the four perspectives.
 
 ```markdown
 > **Memory:** [entries, or "none"]
@@ -275,7 +282,7 @@ assumptions_extracted:
 
 Use when: Complex decisions, high-stakes outputs, debugging, explicit "full audit" request.
 
-> **Requires `05_VLDS`.** This template's epistemic-audit fields (`decision_gate`, `weights`, `vlds_self_audit`, …) come from the VLDS fragment — `05_VLDS` is the _optional_ dependency of this fragment, needed only here. Configurations that omit VLDS (e.g. the `standard` tier) can use Prose/Minimal/Regular but not this template.
+> **Requires the `vlds` skill.** This template's epistemic-audit fields (`decision_gate`, `weights`, `vlds_self_audit`, …) come from the vlds skill — it is this skill's _optional_ dependency, needed only here. Configurations that omit VLDS (e.g. the `standard` tier) can use Prose/Minimal/Regular but not this template.
 
 ```yaml
 # Full Pre-Response Audit

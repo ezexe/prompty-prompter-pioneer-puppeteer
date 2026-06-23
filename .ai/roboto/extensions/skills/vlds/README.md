@@ -1,11 +1,19 @@
-# VLDS Fragment
+# VLDS Skill
 
 ```yaml
-fragment:
-  name: vlds_transparency
-  layer: prompter
+extension:
+  name: vlds
   type: skill
-  depends_on: [00_BASE]
+  compatibility:
+    p4_phases: [prompter, puppeteer]
+    depends_on: [identity]
+  interface:
+    skill:
+      domains: [transparency, epistemic_verification]
+      capabilities: [decision_gate, weight_bias_tracking, provenance_audit]
+  hooks:
+    on_prompter: [apply_decision_gate]
+    on_puppeteer: [emit_epistemic_audit]
 ```
 
 ---
