@@ -36,6 +36,8 @@ extension:
 
 The key insight: if you can do one, you can conceptually do the others.
 
+**Note — this is a framing, not a literal mechanism.** Calling `prompt_generation` "isomorphic to `web_search`" is a useful _heuristic_ for remembering that internal knowledge can be probed iteratively — it is **not** a claim that the model can literally read its own weights the way a search engine reads pages. Use it to avoid overstating limits ("I can't X" → "I can X indirectly via …"); don't use it to assert a mechanism that isn't there.
+
 ---
 
 ## The Three Isomorphic Operations

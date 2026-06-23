@@ -18,7 +18,7 @@ use_case: "Just the identity lenses — Claude, Claudio, Claudius, Roboto"
 
 - Four identity perspectives (Claude, Claudio, Claudius, Roboto)
 - Response flow (Claude → Claudio → Claudius → Roboto → Response)
-- The 3/6/9 rule for Claudius's bounded context reconstruction
+- Claudius's bounded context reconstruction (names the context or marks it unexplained)
 - Scope definitions (conversation vs request vs reconstruction vs synthesis)
 - Core principle: "Claudio is the control group"
 
@@ -53,7 +53,7 @@ With minimal configuration, use the **Prose** format — the influence header (f
 
 ## Claudius's Take
 
-[fresh read + 3/6/9 reconstruction of Claude's context]
+[fresh read + bounded reconstruction of Claude's context]
 
 ## Roboto's Synthesis
 
@@ -64,12 +64,12 @@ No audit YAML. Just the four lenses doing their work, wrapped by the `identity` 
 
 ### Upgrade Path
 
-| Need            | Add Fragment     | See Tier                      |
-| --------------- | ---------------- | ----------------------------- |
+| Need            | Add                 | See Tier                      |
+| --------------- | ------------------- | ----------------------------- |
 | Audit templates | templates skill     | [Standard](#standard)         |
 | Verification    | vlds skill          | [Verification](#verification) |
 | Bias detection  | bias_patterns skill | [Detection](#detection)       |
-| Everything      | all of the above | [Full](#full)                 |
+| Everything      | all of the above    | [Full](#full)                 |
 
 ---
 
@@ -86,7 +86,7 @@ use_case: "Identity lenses with response templates"
 ### What This Provides
 
 - Four identity perspectives with full definitions
-- What each identity sees and provides (including Claudius's 3/6/9 reconstruction)
+- What each identity sees and provides (including Claudius's bounded reconstruction)
 - Response templates (Minimal, Regular, Full audit levels)
 - Content format templates (File Change, Code Response, Analysis, Clarification)
 - Template selection matrix
@@ -137,7 +137,7 @@ decision_gate: PASS | BLOCKED
 
 ## Claudius's Take
 
-[fresh read + 3/6/9 reconstruction]
+[fresh read + bounded reconstruction]
 
 ## Roboto's Synthesis
 
@@ -167,7 +167,7 @@ would_ask: [questions]
 
 ## Claudius's Take
 
-[fresh read + 3/6/9 reconstruction]
+[fresh read + bounded reconstruction]
 delta_cause: [which context explains the gap]
 
 ## Roboto's Synthesis
@@ -179,11 +179,11 @@ final_answer: [synthesis]
 
 ### Upgrade Path
 
-| Need           | Add Fragment     | See Tier                      |
-| -------------- | ---------------- | ----------------------------- |
+| Need           | Add                 | See Tier                      |
+| -------------- | ------------------- | ----------------------------- |
 | Verification   | vlds skill          | [Verification](#verification) |
 | Bias detection | bias_patterns skill | [Detection](#detection)       |
-| Everything     | all of the above | [Full](#full)                 |
+| Everything     | all of the above    | [Full](#full)                 |
 
 ---
 
@@ -258,7 +258,7 @@ decision_gate:
 weights:
   w_claude: [sources Claude wanted]
   w_claudio: [sources Claudio used]
-  w_claudius: [context reconstructed within 3/6/9]
+  w_claudius: [context Claudius reconstructed]
   w_roboto: [sources actually activated]
 
 # Response
@@ -275,10 +275,10 @@ epistemic_audit:
 
 ### Upgrade Path
 
-| Need           | Add Fragment     | See Tier                |
-| -------------- | ---------------- | ----------------------- |
+| Need           | Add                 | See Tier                |
+| -------------- | ------------------- | ----------------------- |
 | Bias detection | bias_patterns skill | [Detection](#detection) |
-| Everything     | all of the above | [Full](#full)           |
+| Everything     | all of the above    | [Full](#full)           |
 
 ---
 
@@ -383,7 +383,7 @@ vlds_self_audit:
 
 ## Claudius's Take
 
-[fresh read + 3/6/9 reconstruction]
+[fresh read + bounded reconstruction]
 
 ## Roboto's Synthesis
 
@@ -394,7 +394,7 @@ vlds_self_audit:
 
 | Need              | Add           | See Tier                      |
 | ----------------- | ------------- | ----------------------------- |
-| Full verification | vlds skill       | [Verification](#verification) |
+| Full verification | vlds skill    | [Verification](#verification) |
 | Everything        | all fragments | [Full](#full)                 |
 
 ---
@@ -474,7 +474,7 @@ decision_gate:
 weights:
   w_claude: [sources Claude wanted]
   w_claudio: [sources Claudio used]
-  w_claudius: [context reconstructed within 3/6/9]
+  w_claudius: [context Claudius reconstructed]
   w_roboto: [sources activated]
   delta: [difference]
 
@@ -510,9 +510,9 @@ fresh_observations: [insights]
 
 ## Claudius's Take
 
-[fresh read, then 3/6/9 reconstruction]
+[fresh read, then bounded reconstruction]
 delta_cause: [which context explains the Claude↔Claudio gap]
-steps_used: [3 | 6 | 9 | unexplained]
+delta: [named context | unexplained]
 
 ## Roboto's Synthesis
 

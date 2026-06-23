@@ -70,7 +70,7 @@ Use when: Conversational responses, simple questions, when audit overhead isn't 
 
 ## Claudius's Take
 
-[fresh read, then the 3/6/9 reconstruction of Claude's context — names the delta]
+[fresh read, then the bounded reconstruction of Claude's context — names the delta]
 
 ## Roboto's Synthesis
 
@@ -93,7 +93,7 @@ For managing subscriptions in React, `useEffect` with a cleanup return is the st
 
 ## Claudius's Take
 
-Both reads land on `useEffect` + cleanup. In 3 steps, the "earlier discussion" Claude cites most likely pinned the specific subscription — so context adds specificity, not a different answer. Delta is detail, not direction.
+Both reads land on `useEffect` + cleanup. Reconstructing, the "earlier discussion" Claude cites most likely pinned the specific subscription — so context adds specificity, not a different answer. Delta is detail, not direction.
 
 ## Roboto's Synthesis
 
@@ -122,7 +122,7 @@ decision_gate: PASS | BLOCKED
 
 ## Claudius's Take
 
-[fresh read + 3/6/9 reconstruction — names the delta]
+[fresh read + bounded reconstruction — names the delta]
 
 ## Roboto's Synthesis
 
@@ -135,7 +135,7 @@ epistemic_summary:
   agreed: [count] # claims the perspectives agreed on
   diverged: [count] # claims where they differed
   assumptions_detected: [count] # things Claude assumed that Claudio didn't
-  delta_attributed: [count] # divergences Claudius explained within 3/6/9
+  delta_attributed: [count] # divergences Claudius explained
 ```
 
 **Example:**
@@ -156,7 +156,7 @@ For side effects in React, `useEffect` is the standard hook. What specific behav
 
 ## Claudius's Take
 
-In 3 steps, the "earlier discussion" maps to the same side effect Claudio assumes — context and fresh read converge.
+Reconstructing, the "earlier discussion" maps to the same side effect Claudio assumes — context and fresh read converge.
 
 ## Roboto's Synthesis
 
@@ -199,9 +199,9 @@ would_ask: [clarifying questions Claudio would need]
 
 ## Claudius's Take
 
-[fresh read, then 3/6/9 reconstruction]
+[fresh read, then bounded reconstruction]
 delta_cause: [which reconstructed context explains the Claude↔Claudio gap]
-steps_used: [3 | 6 | 9 | unexplained]
+delta: [named context | unexplained]
 
 ## Roboto's Synthesis
 
@@ -250,8 +250,8 @@ would_ask:
 
 ## Claudius's Take
 
+[fresh read lands on the same extraction advice; reconstructing, the `handleSubmit` context traces to a prior session]
 delta_cause: "`handleSubmit` and 'yesterday' trace to a prior session, not this request — real context, but unstated here"
-steps_used: 3
 
 ## Roboto's Synthesis
 
@@ -323,7 +323,7 @@ divergence_estimate: LOW | MEDIUM | HIGH
 weights:
   w_claude: [sources Claude wanted to use]
   w_claudio: [sources Claudio used — should be minimal, request-only]
-  w_claudius: [context Claudius reconstructed within 3/6/9]
+  w_claudius: [context Claudius reconstructed]
   w_roboto: [sources actually activated in synthesis]
   delta: [difference between Claude and Claudio]
 
@@ -348,7 +348,7 @@ vlds_layers:
   conversation:
     messages_influencing_claude: [count or 'all']
     messages_influencing_claudio: 1 # always 1 — this request only
-    messages_influencing_claudius: [reconstructed within the 3/6/9 budget]
+    messages_influencing_claudius: [reconstructed, bounded]
     intent_detected: [type]
   context:
     claude_context_size: [accumulated]
@@ -381,11 +381,11 @@ would_ask:
 
 ## Claudius's Take
 
-[fresh read, then 3/6/9 reconstruction]
+[fresh read, then bounded reconstruction]
 delta_cause:
 
 - '[which reconstructed context explains the Claude↔Claudio gap]'
-  steps_used: '[3 | 6 | 9 | unexplained]'
+  delta: '[named context | unexplained]'
 
 ## Roboto's Synthesis
 

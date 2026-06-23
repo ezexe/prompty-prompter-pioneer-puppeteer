@@ -34,7 +34,7 @@ The SJC Indexer is a meta-pattern for reliable knowledge exploration. It's deriv
 
 **Purpose:** Systematically index what Claude "knows" about a domain by iteratively probing with structured prompts.
 
-**Note:** Weight evaluations are QUALIFIED — derived from inference, not empirically validated.
+**Note — the numbers in this skill are illustrative, not measured.** Every score, weight, and reliability figure below (the tier scores, the component weights, the ~0.81 "aggregate", the +0.15/0.10/0.20/0.25 feature contributions) is a stipulated placeholder derived from inference and **never empirically validated**. Treat the _ordering_ (counterfactual > junction > anchor) as the substantive claim; treat the specific decimals as illustration, not evidence — asserting them as measured would violate the epistemic gate.
 
 ---
 
@@ -44,7 +44,7 @@ The SJC Indexer is a meta-pattern for reliable knowledge exploration. It's deriv
 SPECIFIC + STRUCTURED + JUNCTION + COUNTERFACTUAL = HIGH_YIELD
 ```
 
-| Feature | Definition | Contribution |
+| Feature | Definition | Contribution (illustrative) |
 |---------|------------|--------------|
 | **Specific** | Narrow domain, named concepts | +0.15 reliability |
 | **Structured** | Implicit output format in prompt | +0.10 reliability |
@@ -55,11 +55,11 @@ SPECIFIC + STRUCTURED + JUNCTION + COUNTERFACTUAL = HIGH_YIELD
 
 ## Prompt Tiers
 
-| Tier | Template | SJC Score |
+| Tier | Template | SJC Score (illustrative) |
 |------|----------|-----------|
 | **tier_1_anchor** | "List the core mechanisms of [domain]" | 0.70 |
 | **tier_2_junction** | "How does [mechanism_A] depend on [mechanism_B] in [domain]?" | 0.80 |
-| **tier_3_counterfactual** | "What would [mechanism] assume about [dependency] that fails under [stress]?" | 1.00 |
+| **tier_3_counterfactual** | "What would [mechanism] assume about [dependency] that fails under [stress]?" | 0.88 |
 
 ### Optimal Template (Tier 3)
 
@@ -85,7 +85,7 @@ Tier 3 (counterfactual): "What would JWT auth assume about token storage
 
 ## The Five Components
 
-| Component | Purpose | Aggregate Weight |
+| Component | Purpose | Aggregate Weight (illustrative) |
 |-----------|---------|------------------|
 | anchor_selector | Find entry points into domain | 0.86 |
 | seam_finder | Find assumptions for each mechanism | 0.74 |
@@ -93,7 +93,7 @@ Tier 3 (counterfactual): "What would JWT auth assume about token storage
 | boundary_mapper | Stress-test each dependency | 0.70 |
 | synthesizer | Integrate findings into coherent model | 0.71 |
 
-**Aggregate Pipeline Reliability:** 0.81
+**Aggregate Pipeline Reliability (illustrative):** ~0.81
 
 ---
 

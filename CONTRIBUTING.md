@@ -299,6 +299,8 @@ extension:
 
   compatibility:
     p4_phases: [prompty, prompter, pioneer, puppeteer]
+    depends_on: [string] # fragment/skill ids this requires (the closure must be satisfied)
+    optional_depends_on: [string] # enhances but not required for closure
 
   interface:
     # Tools: execution interface
@@ -427,8 +429,7 @@ guidelines:
     required: [README.md] # manifest block + inline fenced example blocks in the sections they illustrate
 
   testing:
-    required: tests/phase_hook/
-    recommended: tests/integration/
+    recommended: [tests/phase_hook/, tests/integration/] # optional spec fixtures; no runner ships
 ```
 
 ---
@@ -437,7 +438,7 @@ guidelines:
 
 ### With Style Instructions
 
-P4 integrates with style systems (like userStyle configurations) at the Prompter phase:
+P4 integrates with style systems (like userStyle configurations) at the Prompter phase. The concrete mapping is **instance data** — an instance maps its persona/voice/transparency concerns to its own skills (e.g. the Roboto instance uses its `identity` and `vlds` skills). Generic shape:
 
 ```yaml
 style_integration:
@@ -446,9 +447,8 @@ style_integration:
   mapping:
     identity: persona_configuration
     tone: response_formatting
-    memory_system: session_persistence
-    epistemic_system: verification_gates
-    vlds: transparency_layer
+    # instance-specific concerns (verification, transparency, memory) map to
+    # that instance's own skills — see the instance's docs
 
   hooks:
     pre_compile: validate_style_compliance

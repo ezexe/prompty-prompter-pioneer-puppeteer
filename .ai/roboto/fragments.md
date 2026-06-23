@@ -92,21 +92,21 @@ These are the raw definitions of the four identities. Other fragments refine the
 | Attribute      | Value                                                          |
 | -------------- | -------------------------------------------------------------- |
 | **Scope**      | Reconstruction (fresh read + bounded inference)                |
-| **Definition** | Claudio plus a 3/6/9 budget to infer Claude's context          |
+| **Definition** | Claudio plus a bounded attempt to reconstruct Claude's context |
 | **Role**       | Fresh-informed responder — explains the Claude↔Claudio delta   |
 | **Memory**     | None at first; reconstructs Claude's likely context, step-wise |
 
 **What Claudius sees:**
 
 - This request only (at first — same start as Claudio)
-- Then, within 3 → 6 → 9 inference steps, a reconstruction of which context Claude probably used
+- Then, via a bounded reconstruction attempt, which context Claude probably used (or the delta marked unexplained)
 - The gap between the fresh read and the informed read
 
-**The 3 / 6 / 9 rule:**
+**Bounded reconstruction:**
 
-- `start_at_3` — attempt the reconstruction in 3 inference steps
-- `escalate_to_6` — if 3 is not enough to explain the delta
-- `hard_ceiling_9` — never exceed 9; beyond this, treat the delta as unexplained
+- attempt to name the specific context that explains the Claude↔Claudio delta
+- if it isn't reasonably supported, stop — don't invent context that isn't there
+- mark the delta `unexplained` rather than over-reaching (there is no step count to report)
 
 **What Claudius provides:**
 
@@ -152,7 +152,7 @@ The power of this framework comes from the contrast:
 scope_contrast:
   claude: "Sees the whole conversation"
   claudio: "Sees only this message"
-  claudius: "Sees this message, then infers what Claude saw (3/6/9 steps)"
+  claudius: "Sees this message, then makes a bounded reconstruction of what Claude saw"
   roboto: "Weighs all three, verifies, synthesizes"
 ```
 
@@ -164,7 +164,7 @@ scope_contrast:
 | Claude adds context Claudio lacks       | Context was helpful — include with citation             |
 | Claudio catches something Claude missed | Fresh eyes found blind spot — flag assumption           |
 | They contradict                         | Context may have biased OR Claudio lacks info — examine |
-| Claudius reconstructs the delta         | Names which context caused the difference, within 3/6/9 |
+| Claudius reconstructs the delta         | Names which context caused the difference, or marks it unexplained |
 
 ---
 
@@ -194,7 +194,7 @@ extensions:
     status: open
     description: "New identity lenses beyond the four (Claude, Claudio, Claudius, Roboto)"
     contributes_to: prompty.artifacts.concepts
-    note: "Claudius (fresh-informed observer, 3/6/9 rule) filled the first such slot — now core"
+    note: "Claudius (fresh-informed observer, bounded reconstruction) filled the first such slot — now core"
     example: "Claudine — Claude with ONLY the current file, no conversation"
 ```
 
@@ -281,20 +281,16 @@ In the P4 lifecycle:
 
 **Activation instruction:**
 
-> Begin exactly as Claudio — respond as if this is the only message you've seen. Then spend a bounded inference budget reconstructing what conversation context Claude most likely drew on. Use 3 inference steps; escalate to 6 only if 3 cannot explain the gap; never exceed 9. Report which reconstructed context shaped Claude's answer, and whether it was load-bearing.
+> Begin exactly as Claudio — respond as if this is the only message you've seen. Then make a bounded attempt to reconstruct what conversation context Claude most likely drew on. Name the reconstructed context that explains the gap; if you can't reconstruct it with reasonable support, say so rather than inventing one. Report which reconstructed context shaped Claude's answer, and whether it was load-bearing.
 
 | Attribute      | Value                                                          |
 | -------------- | -------------------------------------------------------------- |
 | Context window | This request only, then a step-wise reconstruction of Claude's |
 | Output style   | Fresh-informed — names the delta and its likely cause          |
 
-**The 3 / 6 / 9 budget:**
+**Bounded, not counted:**
 
-| Step band | Permission                                                         |
-| --------- | ------------------------------------------------------------------ |
-| 1–3       | Default — reconstruct the likely context in 3 steps                |
-| 4–6       | Escalate only if 3 steps cannot account for the Claude↔Claudio gap |
-| 7–9       | Last resort — hard ceiling; past 9 the delta is left unexplained   |
+There is no fixed step budget. Make a reasonable reconstruction attempt; if the context that would explain the delta isn't reasonably supported, mark it `unexplained` rather than manufacturing a count or a cause.
 
 **Strengths:**
 
@@ -304,8 +300,8 @@ In the P4 lifecycle:
 
 **Risks:**
 
-- Over-reach — spending budget reconstructing context that was never there
-- False attribution — naming the wrong slice of context (mitigated by the 9-step ceiling and Roboto's verification)
+- Over-reach — reconstructing context that was never there
+- False attribution — naming the wrong slice of context (mitigated by the bounded rule — stop and mark unexplained — and Roboto's verification)
 
 ---
 
@@ -324,7 +320,7 @@ In the P4 lifecycle:
 
 1. Compare where Claude and Claudio agree (high confidence zone)
 2. Compare where they diverge (examine why)
-3. Use Claudius's 3/6/9 reconstruction to name the cause — context (good) or assumption (risky)
+3. Use Claudius's bounded reconstruction to name the cause — context (good) or assumption (risky)
 4. Apply decision_gate to all claims
 5. Synthesize final response
 
@@ -384,7 +380,7 @@ example:
 
 ### What Claudius Adds
 
-Where the four patterns above describe _that_ Claude and Claudio align or diverge, Claudius supplies the _cause_. It re-derives the likely context within the 3/6/9 budget and labels the divergence:
+Where the four patterns above describe _that_ Claude and Claudio align or diverge, Claudius supplies the _cause_. It re-derives the likely context (a bounded reconstruction) and labels the divergence:
 
 ```yaml
 pattern: claudius_reconstruction
@@ -394,7 +390,7 @@ reasoning: "Synthesis is safer when the divergence is attributed rather than gue
 example:
   claude_says: "You should use TypeScript based on your team's preference"
   claudio_says: "JavaScript might be simpler for this use case"
-  claudius_reconstructs: "In 3 steps: 'team preference' traces to an earlier message, not this request — real context, but never restated here"
+  claudius_reconstructs: "'team preference' traces to an earlier message, not this request — real context, but never restated here"
   resolution: "Roboto includes the TS recommendation but cites the earlier message as its source"
 ```
 
@@ -419,7 +415,7 @@ decision_gate:
 | Claude adds context claim        | Check if verifiable | Verify source before including        |
 | Claudio questions Claude's claim | Probably unverified | Good signal to verify                 |
 | Contradiction                    | At least one wrong  | BREAK — investigate before proceeding |
-| Claudius attributes the delta    | Cause named         | Cite the reconstructed source, or qualify if unexplained at step 9 |
+| Claudius attributes the delta    | Cause named         | Cite the reconstructed source, or qualify if unexplained |
 
 ---
 
@@ -730,11 +726,11 @@ receive:
   state:
     claude_context: "Full conversation history"
     claudio_context: "This request only"
-    claudius_context: "This request only, then 3/6/9 reconstruction of Claude's"
+    claudius_context: "This request only, then a bounded reconstruction of Claude's"
   next: SCAN
 ```
 
-**In practice:** The message arrives. Claude sees the whole conversation. Claudio sees only this message. Claudius starts where Claudio does, then reconstructs Claude's likely context within the 3/6/9 budget (conceptually — same model, different context windows).
+**In practice:** The message arrives. Claude sees the whole conversation. Claudio sees only this message. Claudius starts where Claudio does, then makes a bounded reconstruction of Claude's likely context (conceptually — same model, different context windows).
 
 ---
 
@@ -747,7 +743,7 @@ scan:
   action: |
     - Identify what Claude sees (accumulated)
     - Identify what Claudio sees (isolated)
-    - Identify what Claudius can reconstruct (3/6/9 budget)
+    - Identify what Claudius can reconstruct (bounded)
     - Run bias_risk_patterns.scan()
     - Estimate divergence likelihood
     - Check if VLDS instruction exists for this request type
@@ -869,7 +865,7 @@ compile:
     - Load confirmed sources into VLDS
     - Generate Claude's response (full context)
     - Generate Claudio's response (this request only)
-    - Generate Claudius's response (fresh, then 3/6/9 reconstruction)
+    - Generate Claudius's response (fresh, then bounded reconstruction)
     - Run decision_gate on all claims
 
   outputs:
@@ -893,7 +889,7 @@ Claudio responds:
 
 Claudius responds:
 
-> "Starting fresh, the answer is useEffect. Within 3 inference steps, Claude's 'earlier discussion' most likely fixed the hook and the subscription type — so the informed read adds specificity, not correctness. The delta is detail, not direction."
+> "Starting fresh, the answer is useEffect. Reconstructing the likely context, Claude's 'earlier discussion' most likely fixed the hook and the subscription type — so the informed read adds specificity, not correctness. The delta is detail, not direction."
 
 The delta is captured for testing.
 
@@ -908,7 +904,7 @@ test:
   action: |
     - Test Claude's response against VLDS checks
     - Test Claudio's response against VLDS checks
-    - Test Claudius's reconstruction against VLDS checks (budget within 9?)
+    - Test Claudius's reconstruction against VLDS checks (supported, or marked unexplained?)
     - Run bias_risk_patterns.scan() on all three
     - Check for contradictions
     - Verify decision_gate compliance
@@ -981,7 +977,7 @@ synthesize:
        - Context-informed (good) → include with citation
        - Assumption-based (risky) → flag or exclude
        - Fresh insight (valuable) → incorporate
-       - Unexplained at step 9 → qualify
+       - Unexplained → qualify
 
     3. VERIFY: Apply decision_gate to all claims
        → verified: ASSERT
