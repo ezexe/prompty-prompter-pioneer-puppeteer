@@ -1,0 +1,16 @@
+---
+name: [agent-name]
+description: [when this subagent should be selected — the routing hook the main thread reads]
+# tools: [Read, Grep, Edit, Bash]    # optional tool allowlist (omit to inherit all)
+# model: sonnet                       # optional model override (sonnet | opus | haiku | inherit)
+---
+
+<!-- Template — copy to `agents/[agent-name].md` at the plugin root, then delete this note.
+     A subagent runs in its own context window with the body below as its base system prompt. -->
+
+# [Agent Name]
+
+[The subagent's system prompt — who it is, how it works, and what it ALWAYS does. Because a
+subagent's base prompt is always loaded (unlike a skill, which loads only on trigger), this is
+the right home for an always-on contract or persona. Reference bundled skills by name so the
+agent pulls them in when relevant.]

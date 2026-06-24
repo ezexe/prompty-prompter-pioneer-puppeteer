@@ -1,0 +1,41 @@
+---
+name: [skill-name]
+description: [What the skill does AND when Claude should use it — this is the auto-trigger hook. State WHAT + WHEN. <=1024 chars, no XML tags.]
+# --- optional standard fields ---
+# allowed-tools: [Read, Grep]          # restrict this skill to a tool subset (omit to allow all)
+# license: Apache-2.0
+# --- P4 model, preserved as tolerated metadata (the skill loader ignores unknown metadata keys) ---
+metadata:
+  p4:
+    type: skill                         # skill | tool | connector (informational; the standard infers type from location)
+    phases: []                          # P4 layers this skill hooks, e.g. [pioneer, puppeteer]
+    depends_on: []                      # skill names and/or P4 layer ids, e.g. [identity, vlds] — the closure must be satisfied
+    optional_depends_on: []             # enhances the skill but is not required for closure
+    interface:
+      domains: []                       # knowledge domains this skill covers
+      capabilities: []                  # named capabilities it adds (internal ids stay snake_case)
+    hooks:
+      on_prompty: []
+      on_prompter: []
+      on_pioneer: []
+      on_puppeteer: []
+    tiers: []                           # which configuration profiles bundle this skill (see docs/configurations.md)
+---
+
+> **Template — delete this note after copying.** Copy this file to `skills/[skill-name]/SKILL.md`
+> (one directory per skill, named exactly like the frontmatter `name`).
+> `name` must match `^[a-z0-9-]+$`, be <=64 chars, and must NOT contain "claude" or "anthropic"
+> (those words are fine in prose and in `description`, just not in `name`).
+> A skill packages domain knowledge / a named capability as an auto-triggerable instruction set.
+> Worked examples: `skills/isomorphic-operations/SKILL.md`, `skills/sjc-indexer/SKILL.md`.
+> Bundle helper scripts under `skills/[skill-name]/scripts/` and reference docs under
+> `skills/[skill-name]/references/` — they load lazily (progressive disclosure), so keep this
+> body under ~5k tokens and push depth into the referenced files.
+
+# [Skill Name] Skill
+
+> One or two lines on what the skill is and what it builds on.
+
+## What This Skill Is
+
+[Describe the skill's behavior here. Inline fenced example blocks in the sections they illustrate.]

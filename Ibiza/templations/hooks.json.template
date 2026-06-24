@@ -1,0 +1,19 @@
+// Template — copy to `hooks/hooks.json` at the plugin root (optional), then strip these comments.
+// Each event name maps to an array of matcher groups; each group runs one or more hook commands.
+// ${CLAUDE_PLUGIN_ROOT} resolves to the plugin directory.
+// Events include: PreToolUse, PostToolUse, UserPromptSubmit, Stop, SubagentStop,
+// SessionStart, SessionEnd, Notification, PreCompact.
+{
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/example.sh"
+          }
+        ]
+      }
+    ]
+  }
+}

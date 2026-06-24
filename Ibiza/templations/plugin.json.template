@@ -1,0 +1,14 @@
+// Template — copy to `.claude-plugin/plugin.json` at the plugin root, then strip these comments.
+// Only `name` is required. If `version` is omitted for a git-distributed plugin, the commit SHA
+// is used (users update on every commit); set it explicitly to gate updates to version bumps.
+// Components are discovered by convention at the plugin root: skills/, commands/, agents/,
+// hooks/hooks.json, .mcp.json. ${CLAUDE_PLUGIN_ROOT} is available to bundled components.
+{
+  "name": "[plugin-name]",
+  "version": "0.1.0",
+  "description": "[one-line description shown in the plugin manager]",
+  "author": { "name": "[you]" },
+  "homepage": "https://github.com/[you]/[repo]",
+  "repository": "https://github.com/[you]/[repo]",
+  "license": "Apache-2.0"
+}

@@ -11,537 +11,168 @@ These files use **semantic line breaks** so a one-word edit shows up as a one-li
 - **Italics:** use `_word_`, not `*word*` (keep `*` for bold `**…**` and list markers).
 
 Let the editor soft-wrap long lines; Markdown renderers ignore single newlines, so the rendered output is identical either way.
-The instance (`.ai/roboto/`) and the templates (`lbiz/templations/`) are kept in this style — match it when editing.
+The plugins (under `Ibiza/plugins/<plugin>/`) and the templates (`Ibiza/templations/`) are kept in this style — match it when editing.
 
-## 🤖 AI-Driven Configuration Building
+## 🔤 Naming conventions
 
-Use the P4 lifecycle itself to build configurations from fragments.
+- **Skill `name` (and its directory):** lowercase letters, digits, and hyphens only — `^[a-z0-9-]+$`, ≤64 chars — and it must **not** contain "claude" or "anthropic".
+  The persona names _Claude / Claudio / Claudius / Roboto_ are fine in prose and in a `description`; just never in a skill `name`.
+  This is why the three originally `snake_case` skills are `bias-patterns`, `isomorphic-operations`, and `sjc-indexer`.
+- **Internal identifiers stay `snake_case`.** Hooks, capabilities, and operation/field ids (`web_search`, `anchor_selector`, `register_bias_patterns`, `bias_patterns_checked`, `sjc_indexer_protocol`) keep underscores — only a skill's _package name_ is hyphenated.
 
-### The Lifecycle Cycle Recycler
+---
+
+## 🧩 The `Ibiza/` framework + marketplace
+
+`Ibiza/` is the P4 framework + **plugin marketplace** — the build target. The framework (`Ibiza/templations/` + these docs) generates plugins, each living in its own subdirectory under `Ibiza/plugins/<name>/`; a (soon-to-start) `src/` builder will generate them. The marketplace at `Ibiza/.claude-plugin/marketplace.json` lists them.
+Inside a plugin, components are discovered **by convention** at the plugin root — there is no central registry to edit.
+
+| Component        | Location (under `Ibiza/plugins/<name>/`) | Discovered as                      |
+| ---------------- | ------------------------------- | ---------------------------------- |
+| Plugin manifest  | `.claude-plugin/plugin.json`    | required; only `name` is mandatory |
+| Skills           | `skills/<name>/SKILL.md`        | auto-triggered by `description`    |
+| Subagents        | `agents/<name>.md`              | selected by the main thread        |
+| Slash commands   | `commands/<name>.md`            | invoked as `/<plugin>:<name>`      |
+| Connectors (MCP) | `.mcp.json` (`mcpServers`)      | MCP servers, local or remote       |
+| Hooks            | `hooks/hooks.json`              | event handlers                     |
+
+The marketplace index (`Ibiza/.claude-plugin/marketplace.json`, whose root is `Ibiza/`) lists each plugin with `source: "./plugins/<name>"`.
+Only `plugin.json` lives _inside_ a plugin's `.claude-plugin/`; everything else sits at the plugin root.
+Bundled components resolve paths with `${CLAUDE_PLUGIN_ROOT}`.
+
+---
+
+## 📦 Authoring a Skill
+
+A skill is a `SKILL.md` file: YAML frontmatter the model always sees, then a body it loads when the skill triggers.
+Start from [`Ibiza/templations/SKILL.md.template`](Ibiza/templations/SKILL.md.template).
+
+```yaml
+---
+name: my-skill          # ^[a-z0-9-]+$, ≤64 chars, matches the directory, no "claude"/"anthropic"
+description: What it does AND when Claude should use it — the auto-trigger hook. ≤1024 chars.
+# optional: allowed-tools, license, version, disable-model-invocation
+metadata:
+  p4: { ... }           # the P4 model, preserved here (see below)
+---
+
+# My Skill
+[body — keep under ~5k tokens; push depth into skills/my-skill/references/ which load lazily]
+```
+
+**Progressive disclosure** has three levels: the frontmatter (always loaded, ~tens of tokens), the body (loaded on trigger), and bundled `scripts/` / `references/` (loaded on demand). Write the `description` to state both **what** the skill does and **when** to reach for it — a vague description either never fires or fires on everything.
+
+### The P4 model lives under `metadata.p4`
+
+The skill loader requires only `name` + `description`; unknown `metadata` keys are tolerated and ignored.
+So the entire P4 dependency/phase/hook model is preserved losslessly under a single `metadata.p4` object: `type`, `phases`, `depends_on` (+ `optional_depends_on`), `interface` (`domains` / `capabilities`), `hooks` (`on_prompty` / `on_prompter` / `on_pioneer` / `on_puppeteer`), and `tiers`.
+The one-time mapping from the old bespoke `extension:` manifest is recorded in [`CHANGELOG.md`](CHANGELOG.md).
+
+**Two id-spaces in `depends_on`.** A `depends_on` entry is either a **skill name** (resolves to `skills/<name>/`) or a **P4 layer id** (`prompty | prompter | pioneer | puppeteer`, resolves to a section in the plugin's [`docs/fragments.md`](Ibiza/plugins/roboto/docs/fragments.md)). For example `bias-patterns` depends on `[identity, prompter]` — `identity` is a skill, `prompter` is a layer. A closure check must not treat a layer id as a missing skill.
+
+### "Tools" fold into skills or MCP
+
+There is no standalone "tool" packaging unit anymore. A capability that used to be a P4 _tool_ becomes either:
+
+- a **skill** that ships executable helpers under `skills/<name>/scripts/` (deterministic local helper), or
+- an **MCP tool** exposed by a connector (external or stateful service).
+
+Decision rule: deterministic and local → a script in a skill; external, networked, or stateful → an MCP server.
+
+---
+
+## 🔌 Connectors (MCP)
+
+A "connector" _is_ an MCP server. Configure connectors in `.mcp.json` at the plugin root; start from [`Ibiza/templations/mcp.json.template`](Ibiza/templations/mcp.json.template).
+
+```json
+{
+  "mcpServers": {
+    "example-stdio": { "type": "stdio", "command": "node", "args": ["${CLAUDE_PLUGIN_ROOT}/servers/example/index.js"] },
+    "example-http":  { "type": "http",  "url": "https://api.example.com/mcp", "headers": { "Authorization": "Bearer ${TOKEN}" } }
+  }
+}
+```
+
+The one-time mapping from the old bespoke `connector:` manifest is recorded in [`CHANGELOG.md`](CHANGELOG.md).
+
+**Never ship a live `.mcp.json` entry pointing at a server you have not implemented** — installing the plugin would try to spawn it.
+The `roboto` plugin ships none; [`Ibiza/plugins/roboto/.mcp.json.example`](Ibiza/plugins/roboto/.mcp.json.example) documents how to add one.
+
+---
+
+## 🧰 Other plugin components
+
+- **`plugin.json`** ([`Ibiza/templations/plugin.json.template`](Ibiza/templations/plugin.json.template)) — only `name` is required. Omitting `version` on a git-distributed plugin means the commit SHA is the version (users update every commit); set it to gate updates to version bumps.
+- **`marketplace.json`** ([`Ibiza/templations/marketplace.json.template`](Ibiza/templations/marketplace.json.template)) — at `Ibiza/.claude-plugin/`; lists each plugin with `source: "./plugins/<name>"` (one entry per plugin).
+- **Subagents** (`agents/<name>.md`, [`Ibiza/templations/agent.md.template`](Ibiza/templations/agent.md.template)) — a subagent's body is _always_ loaded as its base prompt, so it is the right home for an always-on contract or persona. `agents/roboto.md` carries the four-lens contract for the **Full** profile.
+- **Slash commands** (`commands/<name>.md`, [`Ibiza/templations/command.md.template`](Ibiza/templations/command.md.template)) — manual-only prompts. The P4 build lifecycle ships as `/p4-prompty`, `/p4-prompter`, `/p4-pioneer`, `/p4-puppeteer`.
+- **Hooks** (`hooks/hooks.json`, [`Ibiza/templations/hooks.json.template`](Ibiza/templations/hooks.json.template)) — event handlers; optional, not shipped by default.
+
+---
+
+## 🤖 Building configurations with the P4 lifecycle
+
+The P4 lifecycle _is_ the authoring method, and it now maps onto the real component pipeline:
 
 ```
 prompty → prompter → pioneer → puppeteer
    ↑__________________________________|
 ```
 
-The output of orchestration (puppeteer) feeds new seeds (prompty).
-This recursion applies to building configurations too.
-
-### Build Scripts
-
-#### Script 1: Identify Need (Prompty Phase)
-
-```yaml
-# prompty_identify_need.yaml
-# Use this prompt to identify what configuration a user needs
-
-script:
-  name: identify_need
-  phase: prompty
-  type: ideation
-
-  prompt: |
-    Based on the user's requirements, identify which configuration level they need.
-
-    **User Requirements:**
-    {user_requirements}
-
-    **Available Configurations:**
-    - minimal: Just the base identity fragment
-    - standard: Identity + response templates
-    - verification: Add VLDS epistemic checking
-    - detection: Add bias pattern detection
-    - full: Everything including advanced extensions
-
-    **Questions to ask yourself:**
-    1. Does the user need audit trails? → standard or higher
-    2. Does the user need claim verification? → verification or higher
-    3. Does the user need error prevention? → detection or higher
-    4. Is this for research/exploration? → full
-
-    **Output:**
-    configuration_level: [minimal | standard | verification | detection | full]
-    reasoning: [why this level]
-
-  output: configuration_level
-```
-
-#### Script 2: Select Fragments (Prompter Phase)
-
-````yaml
-# prompter_select_fragments.yaml
-# Use this prompt to select appropriate fragments
-
-script:
-  name: select_fragments
-  phase: prompter
-  type: engineering
-
-  prompt: |
-    Based on the identified configuration level, select the required fragments.
-
-    **Configuration Level:** {configuration_level}
-
-    **Fragment Dependency Map:**
-    ```
-    # The concrete level → fragment map is INSTANCE data, not part of this
-    # identity-agnostic guide. General form:  [level]: [fragment_id, ...]
-    # Filled example (Roboto instance):
-    #   .ai/roboto/configurations.md (each tier's fragments + extensions block)
-    ```
-
-    **Custom Requirements:** {custom_requirements}
-
-    **Output:**
-    selected_fragments: [list]
-    dependencies_satisfied: true | false
-    missing_dependencies: [list if any]
-
-  output: fragment_list
-````
-
-#### Script 3: Validate Selection (Pioneer Phase)
-
-```yaml
-# pioneer_validate_selection.yaml
-# Use this prompt to validate fragment selection
-
-script:
-  name: validate_selection
-  phase: pioneer
-  type: research
-
-  prompt: |
-    Validate that the selected fragments form a coherent configuration.
-
-    **Selected Fragments:** {fragment_list}
-
-    **Validation Checks:**
-    1. All dependencies included? Every selected fragment's `depends_on` (declared in
-       its own frontmatter or manifest block) must be satisfied by the selection — include the full
-       transitive closure. Fragments may also declare `optional_depends_on`: these
-       enhance a fragment but are NOT required for closure (omitting one just disables
-       the feature it powers). Concrete edges are instance data; e.g. see
-       `.ai/roboto/fragments.md` and the skills' manifests.
-
-    2. No conflicting fragments?
-    3. Appropriate for use case?
-
-    **Output:**
-    valid: true | false
-    issues: [list if any]
-    recommendations: [list if any]
-
-  output: validation_result
-```
-
-#### Script 4: Generate Configuration (Puppeteer Phase)
-
-````yaml
-# puppeteer_generate_configuration.yaml
-# Use this prompt to generate the final configuration
-
-script:
-  name: generate_configuration
-  phase: puppeteer
-  type: automation
-
-  prompt: |
-    Add a configuration tier (a `##` section in `configurations.md`) from the validated fragment selection.
-
-    **Validated Fragments:** {fragment_list}
-    **Configuration Name:** {config_name}
-    **Use Case:** {use_case}
-
-    **Generation Steps:**
-    1. Create the tier section header (`## {Tier}`) with a YAML metadata block
-    2. List what the configuration provides
-    3. List what it does NOT provide
-    4. Define when to use it
-    5. List the bundled fragments in the YAML block (and extensions, if any)
-    6. Define response format for this tier
-    7. Define upgrade/downgrade paths (links to other tier sections)
-
-    **Output Format (a `##` section appended to configurations.md):**
-    ```markdown
-    ## {Tier}
-
-    ```yaml
-    name: {config_name}
-    fragments: {fragment_list}
-    use_case: "{use_case}"
-    ```
-
-    ### What This Provides
-    [generated from fragments]
-
-    ### What This Does NOT Provide
-    [generated from missing fragments]
-
-    ### When To Use
-    [generated from use case]
-
-    ### Response Format
-    [appropriate template for this level]
-
-    ### Upgrade/Downgrade Path
-    [generated from configuration hierarchy — links to other tier sections]
-    ```
-
-  output: configuration_file
-````
-
-### Usage Example
-
-```yaml
-# To build a custom configuration:
-
-1. Run prompty_identify_need with user requirements
-   → Output: configuration_level
-
-2. Run prompter_select_fragments with configuration_level
-   → Output: fragment_list
-
-3. Run pioneer_validate_selection with fragment_list
-   → Output: validation_result
-
-4. If valid, run puppeteer_generate_configuration
-   → Output: configuration_file
-
-5. Configuration feeds back as new prompty seed
-   → Cycle: continues for refinement
-```
-
-### Prompt Templates for AI Building
-
-#### Build Minimal Configuration
-
-```
-You are building a P4 configuration.
-
-Read lbiz/templations/fragments.md to understand the fragment
-structure. For filled examples, read an instance such as .ai/roboto/ (its fragments.md
-holds the four P4 layers; the identity skill is the minimal set).
-
-Add a tier section to your instance's configurations.md following lbiz/templations/configurations.md.
-```
-
-#### Build Custom Configuration
-
-```
-You are building a custom P4 configuration.
-
-User needs: {requirements}
-
-1. Read lbiz/templations/fragments.md for the dependency rule
-2. Identify which fragments satisfy the requirements
-3. Validate all dependencies are included
-4. Add a tier section to your instance's configurations.md
-
-Use the P4 lifecycle:
-- Prompty: What does the user need?
-- Prompter: Which fragments satisfy it?
-- Pioneer: Are dependencies valid?
-- Puppeteer: Generate the configuration
-```
-
-#### Extend Existing Configuration
-
-```
-You are extending an existing P4 configuration.
-
-Base configuration: {base_config}
-Extension needed: {extension}
-
-1. Read the base configuration
-2. Identify which additional fragments are needed
-3. Check for dependency conflicts
-4. Generate extended configuration
-
-The new configuration should:
-- Include all base fragments
-- Add extension fragments
-- Update "What This Provides" section
-- Update response format if needed
-```
+| Phase         | Authoring step                          | Command                  |
+| ------------- | --------------------------------------- | ------------------------ |
+| **Prompty**   | identify which profile a request needs  | `/p4-prompty`      |
+| **Prompter**  | select the dependency-closed skills     | `/p4-prompter`   |
+| **Pioneer**   | validate closure + test the triggering  | `/p4-pioneer` |
+| **Puppeteer** | append the profile to `configurations.md` + bundle/publish | `/p4-puppeteer` |
+
+The output of orchestration (Puppeteer) feeds a new seed (Prompty) — the recursion applies to building configurations too.
+Capability **profiles** (Minimal → Full) are named, dependency-closed _subsets_ of a plugin's skills, documented in [`Ibiza/plugins/roboto/docs/configurations.md`](Ibiza/plugins/roboto/docs/configurations.md); they are not separate installs.
 
 ---
 
-### 📋 Configuration Contribution Checklist
+## ♻️ Regeneration map
 
-When contributing a new configuration:
+The framework is meant to be reconstructable, not frozen — its value is the regeneration rules, not the rendered text.
+Every worked artifact regenerates from a template plus the design docs:
 
-- [ ] Configuration metadata complete (name, fragments, use_case)
-- [ ] "What This Provides" section accurate
-- [ ] "What This Does NOT Provide" section accurate
-- [ ] "When To Use" section helpful
-- [ ] All fragment dependencies satisfied
-- [ ] Response format appropriate for configuration level
-- [ ] Upgrade/downgrade paths defined
-- [ ] Example responses included (optional but recommended)
+| Worked artifact                                   | Regenerate from                                                                |
+| ------------------------------------------------- | ------------------------------------------------------------------------------ |
+| `Ibiza/plugins/<plugin>/skills/<name>/SKILL.md`            | `Ibiza/templations/SKILL.md.template` + the skill's `metadata.p4` deltas               |
+| `Ibiza/plugins/<plugin>/docs/fragments.md` (four layers)   | `Ibiza/templations/fragments.md.template`                                              |
+| `Ibiza/plugins/<plugin>/docs/configurations.md` (profiles) | `Ibiza/templations/configurations.md.template` + each skill's `metadata.p4.depends_on` |
+| `Ibiza/plugins/<plugin>/.claude-plugin/plugin.json`        | `Ibiza/templations/plugin.json.template`                                               |
+| `Ibiza/.claude-plugin/marketplace.json`           | `Ibiza/templations/marketplace.json.template`                                          |
+| `Ibiza/plugins/<plugin>/.mcp.json`                          | `Ibiza/templations/mcp.json.template`                                                  |
 
----
-
-## 🔌 Extensibility
-
-P4 is designed as an open framework.
-Extensions plug into any lifecycle phase.
-
-### Extension Model
-
-```
-  TOOLS          SKILLS           CONNECTORS
-  ─────          ──────           ──────────
-Execution        Domain           Integration
-Capabilities    Knowledge           Bridges
-
-• bash          • docx           • API endpoints
-• file_ops      • pptx           • External LLMs
-• web_search    • xlsx           • Data sources
-• code_exec     • pdf            • Agent frameworks
-• ...           • frontend       • MCP servers
-                • ...            • ...
-```
-
-### Extension Schema
-
-```yaml
-# Manifest — a fenced yaml block at the top of lbiz/templations/extensions/[type]/[name]/README.md
-
-extension:
-  name: string
-  type: tool | skill | connector
-
-  compatibility:
-    p4_phases: [prompty, prompter, pioneer, puppeteer]
-    depends_on: [string] # fragment/skill ids this requires (the closure must be satisfied)
-    optional_depends_on: [string] # enhances but not required for closure
-
-  interface:
-    # Tools: execution interface
-    tool:
-      commands: [string]
-      parameters: schema
-      returns: schema
-
-    # Skills: knowledge interface
-    skill:
-      domains: [string]
-      capabilities: [string]
-
-    # Connectors: integration interface
-    connector:
-      protocol: rest | graphql | websocket | mcp
-      endpoints: [endpoint_schema]
-      auth: auth_schema
-
-  hooks:
-    on_prompty: [actions] # Seed phase hooks
-    on_prompter: [actions] # Refinement phase hooks
-    on_pioneer: [actions] # Exploration phase hooks
-    on_puppeteer: [actions] # Orchestration phase hooks
-```
-
-### Creating Extensions
-
-#### Tool Extension
-
-```yaml
-# in lbiz/templations/extensions/tools/code_analyzer/README.md
-
-extension:
-  name: code_analyzer
-  type: tool
-
-  interface:
-    tool:
-      commands: [analyze, lint, complexity]
-      parameters:
-        file_path: string
-        language: string?
-        depth: shallow | deep
-      returns:
-        findings: [finding]
-        metrics: metrics_object
-
-  hooks:
-    on_pioneer:
-      - analyze_novel_patterns
-    on_puppeteer:
-      - automated_code_review
-```
-
-#### Skill Extension
-
-```yaml
-# in lbiz/templations/extensions/skills/api_design/README.md
-
-extension:
-  name: api_design
-  type: skill
-
-  interface:
-    skill:
-      domains: [rest, graphql, grpc, websocket]
-      capabilities:
-        - schema_generation
-        - endpoint_design
-        - documentation
-
-  hooks:
-    on_prompter:
-      - validate_api_patterns
-    on_pioneer:
-      - explore_novel_architectures
-```
-
-#### Connector Extension
-
-```yaml
-# in lbiz/templations/extensions/connectors/openai_bridge/README.md
-
-extension:
-  name: openai_bridge
-  type: connector
-
-  interface:
-    connector:
-      protocol: rest
-      endpoints:
-        - path: /v1/chat/completions
-          method: POST
-          purpose: cross_model_prompting
-      auth:
-        type: bearer
-        env_var: OPENAI_API_KEY
-
-  hooks:
-    on_puppeteer:
-      - multi_model_orchestration
-      - comparative_prompting
-```
+The dependency closure of any profile is fully derivable from the skills' `metadata.p4.depends_on` plus the layer ids in `Ibiza/plugins/<plugin>/docs/fragments.md` — so a profile can be rebuilt without copying prose.
 
 ---
 
-### Adding Extensions
+## 📋 Contribution checklists
 
-1. **Identify the extension type** (tool, skill, connector)
-2. **Determine phase affinity** (which P4 phases benefit)
-3. **Create the extension's `README.md`** opening with the manifest block (per the schema)
-4. **Implement hooks** for relevant phases
-5. **Document capabilities** in extension README
-6. **Submit for integration**
+**New skill**
 
-### Extension Guidelines
+- [ ] `Ibiza/plugins/<plugin>/skills/<name>/SKILL.md` with `name` (hyphenated, matches dir, no "claude"/"anthropic") + a WHAT-and-WHEN `description`
+- [ ] `metadata.p4` carries `type`, `phases`, `depends_on` (+ `optional_depends_on`), `interface`, `hooks`, `tiers`
+- [ ] every `depends_on` id resolves to a skill or a P4 layer
+- [ ] body under ~5k tokens; depth pushed to `references/`; helpers (if any) in `scripts/`
+- [ ] cross-references to sibling skills use the hyphenated names
 
-```yaml
-guidelines:
-  naming:
-    pattern: lowercase_with_underscores
-    prefix_by_type: false # Let type field distinguish
+**New / changed configuration profile**
 
-  documentation:
-    required: [README.md] # manifest block + inline fenced example blocks in the sections they illustrate
-
-  testing:
-    recommended: [tests/phase_hook/, tests/integration/] # optional spec fixtures; no runner ships
-```
+- [ ] YAML block complete (`name`, `fragments`, `extensions`, `use_case`)
+- [ ] "What This Provides" / "What This Does NOT Provide" / "When To Use" accurate
+- [ ] fragment + extension set is dependency-closed
+- [ ] Upgrade / Downgrade paths link to sibling profiles
+- [ ] each included skill's `metadata.p4.tiers` lists this profile
 
 ---
 
-## 🔗 Integration Guide
+## 🔗 Integration
 
-### With Style Instructions
-
-P4 integrates with style systems (like userStyle configurations) at the Prompter phase.
-The concrete mapping is **instance data** — an instance maps its persona/voice/transparency concerns to its own skills (e.g. the Roboto instance uses its `identity` and `vlds` skills).
-Generic shape:
-
-```yaml
-style_integration:
-  phase: prompter
-
-  mapping:
-    identity: persona_configuration
-    tone: response_formatting
-    # instance-specific concerns (verification, transparency, memory) map to
-    # that instance's own skills — see the instance's docs
-
-  hooks:
-    pre_compile: validate_style_compliance
-    post_compile: audit_style_application
-```
-
-### With Tool Systems
-
-```yaml
-tool_integration:
-  phases: [pioneer, puppeteer]
-
-  capabilities:
-    file_operations:
-      tools: [create_file, str_replace, view]
-      phase_affinity: puppeteer
-
-    web_access:
-      tools: [web_search, web_fetch]
-      phase_affinity: pioneer
-
-    execution:
-      tools: [bash_tool]
-      phase_affinity: puppeteer
-```
-
-### With Skill Systems
-
-```yaml
-skill_integration:
-  phases: [prompter, pioneer]
-
-  skill_types:
-    document_creation:
-      skills: [docx, pptx, xlsx, pdf]
-      phase_affinity: prompter
-
-    specialized_knowledge:
-      skills: [frontend-design, product-self-knowledge]
-      phase_affinity: pioneer
-
-    meta_skills:
-      skills: [skill-creator]
-      phase_affinity: prompty
-```
-
-### With Connector Systems
-
-```yaml
-connector_integration:
-  phases: [puppeteer]
-
-  connector_types:
-    llm_bridges:
-      purpose: multi_model_orchestration
-      protocols: [rest, mcp]
-
-    data_sources:
-      purpose: knowledge_augmentation
-      protocols: [rest, graphql]
-
-    agent_frameworks:
-      purpose: extended_orchestration
-      protocols: [mcp, websocket]
-```
-
----
-
-## 🚀 Roadmap Contributions
-
-### Priority Extensions
-
-| Area                      | Type      | Priority | Description                       |
-| ------------------------- | --------- | -------- | --------------------------------- |
-| Multi-model orchestration | Connector | High     | Cross-LLM prompt routing          |
-| Prompt versioning         | Tool      | High     | Git-like prompt history           |
-| A/B testing framework     | Tool      | Medium   | Comparative prompt evaluation     |
-| Visual prompt builder     | Skill     | Medium   | Graphical P4 lifecycle management |
-| Telemetry connector       | Connector | Medium   | Prompt performance analytics      |
+- **Skills** carry domain knowledge / reasoning protocols and auto-trigger by `description`.
+- **Subagents** override the system prompt with their own base context — use one for an always-on persona or contract.
+- **Connectors (MCP)** bridge external systems; multi-model or data-source orchestration lands here.
+- **Style / voice** integration is the Prompter-phase concern: an instance maps its persona/voice/transparency concerns to its own skills (the Roboto instance uses `identity` and `vlds`).
