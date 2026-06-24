@@ -3,6 +3,9 @@
   "owner": {
     "name": "ezexe"
   },
+  "metadata": {
+    "description": "P4 — the prompty / prompter / pioneer / puppeteer meta-prompting framework; ships the Roboto four-lens reasoning instance as an installable plugin."
+  },
   "plugins": [
     {
       "name": "roboto",

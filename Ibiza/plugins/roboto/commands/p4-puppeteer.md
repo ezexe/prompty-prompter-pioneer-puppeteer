@@ -8,6 +8,8 @@ arguments: [closure, fires_when]
 
 The **puppeteer** stage of the P4 runtime pipeline — compile and emit a new closure.
 
+This is the **sync point**: where the **puppet↔puppeteer bridges** meet over the shared-mem `memory` (the physical store) and reconcile it against VLDS (the virtual space) — SYNTHESIZE commits the coherent, synced result as the closure.
+
 Closure + fires-when: $closure / $fires_when
 
 Register the closure — there is no separate file; a closure _is_ its members' `tiers` plus a `rubric` row:

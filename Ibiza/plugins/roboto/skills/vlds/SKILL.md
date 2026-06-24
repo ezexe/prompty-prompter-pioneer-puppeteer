@@ -27,8 +27,22 @@ metadata:
 
 VLDS is the instance's answer to a single question: **"Do I actually know this, or am I about to assert it because it sounds right?"** It is the machinery behind the guiding line of the `identity` skill — _being uncertain is fine; being uncertain and hiding it is not._ Where `identity` defines the lenses, VLDS gives the **Roboto** lens a concrete procedure for verifying divergences and for refusing to let an unverified claim cause an action.
 
+In the instance's computer model, **VLDS is the virtual space** — the virtual address space of _claims_ (what is claimed/known), held apart from the physical `memory` substrate that backs them. Everything below describes how that virtual space is populated, tiered, and checked against its physical backing.
+
 The name is read as a stack of provenance-tracking concerns.
 The core idea is to borrow the vocabulary of a neural network as a **metaphor** for where a claim's content comes from, then classify each input by _how durable and how trustworthy its storage is_, then gate the claim.
+
+## Virtual space and physical memory
+
+The instance is modeled as a computer, and its memory has two faces:
+
+| Face         | What it is                                                                                                | Where it lives                               |
+| ------------ | -------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
+| **Virtual**  | VLDS — the address space of _claims_ (what is claimed/known), provenance-tagged and durability-tiered     | this skill                                   |
+| **Physical** | `memory` — the shared-memory ring the **puppet↔puppeteer bridges** sync through (`mmap` / `MapViewOfFile`) | the `roboto` agent's `memory: project` field |
+
+VLDS holds the virtual pages; `memory` is the physical substrate that can _back_ them.
+**Verification is the translation between the two** — the MMU-style check that a virtual claim maps to a resident physical page (see [The Decision Gate](#the-decision-gate) below): a claim that maps PROCEEDs, one whose page is not yet resident faults in (VERIFY_FIRST), one that no physical page can ever back stays virtual-only (QUALIFY).
 
 ## The Neural-Net Provenance Metaphor
 
@@ -62,6 +76,7 @@ The tiers borrow web-storage names as metaphors, from most ephemeral to most aut
 A claim sourced from **DataStore** (an authoritative, citable source) carries far stronger provenance than one that is **Virtual** (inferred on the spot).
 VLDS records the tier so the decision gate — and the reader — can weigh the claim correctly.
 The tier is part of a claim's epistemic state, not a separate ledger.
+In the virtual/physical framing the **Virtual** tier is an _unbacked_ page (inferred, nothing physical behind it), while **localStorage** (userMemories) and **DataStore** are the **physical-backed** tiers — where a virtual claim finds resident backing in `memory` or an authoritative source.
 
 ## The Weight/Bias Delta Schema
 
@@ -193,6 +208,8 @@ Every claim that is about to cause an action or appear as an assertion passes th
 - **VERIFY_FIRST (BLOCKED).** The claim is checkable but has not yet been checked. The action is **blocked** until verification runs. This is the gate doing its job: a plausible-but-unchecked claim is not permitted to silently become an action. State is `BLOCKED`.
 - **QUALIFY (QUALIFIED).** The claim cannot be verified from available provenance. It is not thrown away — it is **qualified**: stated with its uncertainty attached, never asserted as fact. State is `QUALIFIED`. This is how VLDS honors "qualified, not asserted."
 
+**As the physical↔virtual check:** the gate is the instance's MMU. A claim is a virtual page and verification is address translation against the physical `memory` substrate — **PROCEED** = the page maps to a resident physical page; **VERIFY_FIRST** = a _page fault_ (the page is faultable but not yet resident, so fault it in — verify — before access); **QUALIFY** = an _unbackable_ page (no physical page can ever back it, so it stays virtual, asserted only as qualified).
+
 The gate is a _boundary_, not a filter that drops claims.
 Nothing is hidden — a BLOCKED claim is verified or disclosed as blocked; a QUALIFIED claim is surfaced with its hedge intact.
 
@@ -233,6 +250,8 @@ When the lenses diverge, Roboto's VERIFY step routes each contested claim throug
 - A divergence backed by a **DataStore** source that checks out → PROCEED (FULL) → it settles the divergence.
 - A divergence that _could_ be checked (e.g. against this conversation's `localStorage`) but wasn't → VERIFY_FIRST (BLOCKED) → Roboto verifies, then proceeds.
 - A divergence resting on a **Virtual** inference with no durable source → QUALIFY (QUALIFIED) → Roboto's synthesis carries the hedge into the final answer.
+
+Roboto's **SYNTHESIZE** step then reconciles physical against virtual — what actually synced into `memory` versus what VLDS still only claims — and commits the coherent result. Source type tracks the same axis: `retrieval` is already resident, `training` must be faulted in, `unknown` is unbackable.
 
 ## Worked Example
 

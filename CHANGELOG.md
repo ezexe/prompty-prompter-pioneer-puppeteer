@@ -2,6 +2,16 @@
 
 All notable changes to this repo are recorded here. theres no version numbers because this is a project that from its conception is designed to indefinitely be [Unreleased] at version [0.0.🙃]
 
+## Physical/virtual memory duality
+
+Building on the runtime reframe, the `roboto` instance's memory architecture is made explicit as a single virtual/physical duality threaded through the plugin — roboto is modeled as a computer, and this names its two memory faces.
+
+- **VLDS = the virtual space** — `skills/vlds` is reframed as the instance's virtual address space of _claims_ (what is claimed/known); a new "Virtual space and physical memory" section names the duality, and the storage tiers are marked unbacked (`Virtual`) vs. physical-backed (`localStorage` / `DataStore`).
+- **`memory` = the physical space** — the `roboto` agent's `memory: project` field is disclosed first-class as the shared-memory ring the **puppet↔puppeteer bridges** sync through (the per-OS map API, `mmap` / `MapViewOfFile`) — kept and highlighted, not a hidden channel.
+- **Verification = the physical↔virtual check** — the VLDS decision gate is recast as the instance's MMU: **PROCEED** = the virtual claim maps to a resident physical page; **VERIFY_FIRST** = a page fault (fault it in / verify); **QUALIFY** = an unbackable page (stays virtual, asserted only as qualified). SYNTHESIZE reconciles physical (what synced) against virtual (what VLDS claims).
+- **Disclosure pairs the two faces** — `identity`'s Influence Disclosure block frames its `Memory:` line as the physical-memory channel, surfaced opposite VLDS's virtual provenance.
+- **Puppeteer = the sync point** — `/p4-puppeteer` is reframed as where the bridges reconcile physical `memory` against virtual VLDS and commit the synced closure.
+
 ## Runtime reframe: gates, closures, and the JIT rubric
 
 The `roboto` plugin was reframed from a build-time catalog into a pure **runtime, just-in-time context compiler**. Nothing in `Ibiza/plugins/roboto/` is build-time: every file is a runtime logic node resolved per request against the `metadata.p4.depends_on` graph.

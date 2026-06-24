@@ -1,6 +1,6 @@
 ---
 name: sjc-indexer
-description: SJC (Structured Junction Counterfactual) — a method for formulating high-yield queries: pin a SPECIFIC anchor, give it STRUCTURE, aim it at a JUNCTION (a seam between two things), and bend it with a COUNTERFACTUAL ("what if it were otherwise"), then run a five-component sequence (anchor_selector -> seam_finder -> junction_explorer -> boundary_mapper -> synthesizer). Use when a flat query would boil the ocean and you need a non-obvious, decision-relevant answer located at the seam that actually matters — root-causing, frontier exploration, or finding which assumption is load-bearing. Builds on isomorphic-operations and needs vlds + identity.
+description: SJC (Structured Junction Counterfactual) — a method for formulating high-yield queries — pin a SPECIFIC anchor, give it STRUCTURE, aim it at a JUNCTION (a seam between two things), and bend it with a COUNTERFACTUAL ("what if it were otherwise"), then run a five-component sequence (anchor_selector -> seam_finder -> junction_explorer -> boundary_mapper -> synthesizer). Use when a flat query would boil the ocean and you need a non-obvious, decision-relevant answer located at the seam that actually matters — root-causing, frontier exploration, or finding which assumption is load-bearing. Builds on isomorphic-operations and needs vlds + identity.
 when_to_use: "Trigger on 'help me ask a better question', 'where's the real problem', or root-cause / frontier-exploration / 'which assumption is load-bearing' asks where a flat query would boil the ocean."
 metadata:
   p4:

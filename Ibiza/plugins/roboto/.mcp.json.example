@@ -1,4 +1,0 @@
-{
-  "_comment": "This plugin ships no MCP server. To add a connector, copy this file to .mcp.json and define servers under mcpServers. See Ibiza/templations/mcp.json.template for stdio / http / sse examples and ${CLAUDE_PLUGIN_ROOT} usage. Do not leave example entries in a live .mcp.json — Claude Code would try to spawn them.",
-  "mcpServers": {}
-}
