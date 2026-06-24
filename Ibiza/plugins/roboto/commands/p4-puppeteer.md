@@ -18,5 +18,5 @@ Append a `##` profile section to `docs/configurations.md` containing:
 5. **Upgrade / Downgrade Path** (links to sibling profiles).
 
 Then add the new profile's name to each newly-included skill's frontmatter `metadata.p4.tiers`.
-Keep the selection dependency-closed. The output of this phase can feed a new Prompty seed —
-the lifecycle recurses.
+Keep the selection dependency-closed.
+The output of this phase can feed a new Prompty seed — the lifecycle recurses.

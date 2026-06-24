@@ -5,7 +5,7 @@
 // hooks/hooks.json, .mcp.json. ${CLAUDE_PLUGIN_ROOT} is available to bundled components.
 {
   "name": "[plugin-name]",
-  "version": "0.1.0",
+  "version": "0.0.1",
   "description": "[one-line description shown in the plugin manager]",
   "author": { "name": "[you]" },
   "homepage": "https://github.com/[you]/[repo]",

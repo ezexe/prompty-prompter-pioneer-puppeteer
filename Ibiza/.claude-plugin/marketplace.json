@@ -9,7 +9,7 @@
       "name": "roboto",
       "source": "./plugins/roboto",
       "description": "Roboto / \"The Intelligence\" — the four-lens reasoning instance of the P4 framework: identity, vlds, templates, bias-patterns, isomorphic-operations, and sjc-indexer skills plus a roboto subagent.",
-      "version": "0.1.0",
+      "version": "0.0.1",
       "category": "prompt-engineering",
       "keywords": ["prompt-engineering", "reasoning", "epistemics", "agent", "p4", "roboto"]
     }

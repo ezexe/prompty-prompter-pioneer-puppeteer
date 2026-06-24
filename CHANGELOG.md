@@ -2,7 +2,7 @@
 
 All notable changes to this repo are recorded here.
 
-## [0.1.0] — 2026-06-24 — Migration to the Claude Skills / Plugins / Connectors standard
+## [0.0.1] — 2026-06-24 — Migration to the Claude Skills / Plugins / Connectors standard
 
 The framework's bespoke `extension:` packaging model — a fenced-YAML manifest at the top of each skill/tool/connector `README.md` — was migrated to the current Claude **Agent Skills / Plugins / MCP** standard, and the repo was reorganized into the `Ibiza/` framework + marketplace.
 `roboto` is the first worked plugin, at `Ibiza/plugins/roboto/`.
@@ -25,7 +25,8 @@ Each skill's `README.md` became `skills/<name>/SKILL.md` with `name` + `descript
 
 ### Connectors: `connector:` manifest → `.mcp.json`
 
-A "connector" is now an MCP server, configured in `.mcp.json`. The bespoke `connector:` manifest maps onto the standard:
+A "connector" is now an MCP server, configured in `.mcp.json`.
+The bespoke `connector:` manifest maps onto the standard:
 
 | Old `connector:` field                   | New home in `.mcp.json`                                                   |
 | ---------------------------------------- | ------------------------------------------------------------------------ |

@@ -10,7 +10,8 @@ These files use **semantic line breaks** so a one-word edit shows up as a one-li
 - **Code / YAML fences:** never reflowed — their line breaks are content.
 - **Italics:** use `_word_`, not `*word*` (keep `*` for bold `**…**` and list markers).
 
-Let the editor soft-wrap long lines; Markdown renderers ignore single newlines, so the rendered output is identical either way.
+Let the editor soft-wrap long lines;
+Markdown renderers ignore single newlines, so the rendered output is identical either way.
 The plugins (under `Ibiza/plugins/<plugin>/`) and the templates (`Ibiza/templations/`) are kept in this style — match it when editing.
 
 ## 🔤 Naming conventions
@@ -24,7 +25,9 @@ The plugins (under `Ibiza/plugins/<plugin>/`) and the templates (`Ibiza/templati
 
 ## 🧩 The `Ibiza/` framework + marketplace
 
-`Ibiza/` is the P4 framework + **plugin marketplace** — the build target. The framework (`Ibiza/templations/` + these docs) generates plugins, each living in its own subdirectory under `Ibiza/plugins/<name>/`; a (soon-to-start) `src/` builder will generate them. The marketplace at `Ibiza/.claude-plugin/marketplace.json` lists them.
+`Ibiza/` is the P4 framework + **plugin marketplace** — the build target.
+The framework (`Ibiza/templations/` + these docs) generates plugins, each living in its own subdirectory under `Ibiza/plugins/<name>/`; a (soon-to-start) `src/` builder will generate them.
+The marketplace at `Ibiza/.claude-plugin/marketplace.json` lists them.
 Inside a plugin, components are discovered **by convention** at the plugin root — there is no central registry to edit.
 
 | Component        | Location (under `Ibiza/plugins/<name>/`) | Discovered as                      |
@@ -60,19 +63,25 @@ metadata:
 [body — keep under ~5k tokens; push depth into skills/my-skill/references/ which load lazily]
 ```
 
-**Progressive disclosure** has three levels: the frontmatter (always loaded, ~tens of tokens), the body (loaded on trigger), and bundled `scripts/` / `references/` (loaded on demand). Write the `description` to state both **what** the skill does and **when** to reach for it — a vague description either never fires or fires on everything.
+**Progressive disclosure** has three levels: the frontmatter (always loaded, ~tens of tokens), the body (loaded on trigger), and bundled `scripts/` / `references/` (loaded on demand).
+Write the `description` to state both **what** the skill does and **when** to reach for it — a vague description either never fires or fires on everything.
 
 ### The P4 model lives under `metadata.p4`
 
-The skill loader requires only `name` + `description`; unknown `metadata` keys are tolerated and ignored.
+The skill loader requires only `name` + `description`;
+unknown `metadata` keys are tolerated and ignored.
 So the entire P4 dependency/phase/hook model is preserved losslessly under a single `metadata.p4` object: `type`, `phases`, `depends_on` (+ `optional_depends_on`), `interface` (`domains` / `capabilities`), `hooks` (`on_prompty` / `on_prompter` / `on_pioneer` / `on_puppeteer`), and `tiers`.
 The one-time mapping from the old bespoke `extension:` manifest is recorded in [`CHANGELOG.md`](CHANGELOG.md).
 
-**Two id-spaces in `depends_on`.** A `depends_on` entry is either a **skill name** (resolves to `skills/<name>/`) or a **P4 layer id** (`prompty | prompter | pioneer | puppeteer`, resolves to a section in the plugin's [`docs/fragments.md`](Ibiza/plugins/roboto/docs/fragments.md)). For example `bias-patterns` depends on `[identity, prompter]` — `identity` is a skill, `prompter` is a layer. A closure check must not treat a layer id as a missing skill.
+**Two id-spaces in `depends_on`.**
+A `depends_on` entry is either a **skill name** (resolves to `skills/<name>/`) or a **P4 layer id** (`prompty | prompter | pioneer | puppeteer`, resolves to a section in the plugin's [`docs/fragments.md`](Ibiza/plugins/roboto/docs/fragments.md)).
+For example `bias-patterns` depends on `[identity, prompter]` — `identity` is a skill, `prompter` is a layer.
+A closure check must not treat a layer id as a missing skill.
 
 ### "Tools" fold into skills or MCP
 
-There is no standalone "tool" packaging unit anymore. A capability that used to be a P4 _tool_ becomes either:
+There is no standalone "tool" packaging unit anymore.
+A capability that used to be a P4 _tool_ becomes either:
 
 - a **skill** that ships executable helpers under `skills/<name>/scripts/` (deterministic local helper), or
 - an **MCP tool** exposed by a connector (external or stateful service).
@@ -83,7 +92,8 @@ Decision rule: deterministic and local → a script in a skill; external, networ
 
 ## 🔌 Connectors (MCP)
 
-A "connector" _is_ an MCP server. Configure connectors in `.mcp.json` at the plugin root; start from [`Ibiza/templations/mcp.json.template`](Ibiza/templations/mcp.json.template).
+A "connector" _is_ an MCP server.
+Configure connectors in `.mcp.json` at the plugin root; start from [`Ibiza/templations/mcp.json.template`](Ibiza/templations/mcp.json.template).
 
 ```json
 {
@@ -97,7 +107,8 @@ A "connector" _is_ an MCP server. Configure connectors in `.mcp.json` at the plu
 The one-time mapping from the old bespoke `connector:` manifest is recorded in [`CHANGELOG.md`](CHANGELOG.md).
 
 **Never ship a live `.mcp.json` entry pointing at a server you have not implemented** — installing the plugin would try to spawn it.
-The `roboto` plugin ships none; [`Ibiza/plugins/roboto/.mcp.json.example`](Ibiza/plugins/roboto/.mcp.json.example) documents how to add one.
+The `roboto` plugin ships none;
+[`Ibiza/plugins/roboto/.mcp.json.example`](Ibiza/plugins/roboto/.mcp.json.example) documents how to add one.
 
 ---
 

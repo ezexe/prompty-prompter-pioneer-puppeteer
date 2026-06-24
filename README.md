@@ -156,7 +156,8 @@ orchestration:
 
 ## 📂 Layout
 
-This repo is a **meta-prompting P4 framework**. `Ibiza/` is the framework + plugin marketplace — the build **target**; a (soon-to-start) `src/` builder generates plugins that follow the framework into `Ibiza/plugins/<name>/`.
+This repo is a **meta-prompting P4 framework**.
+`Ibiza/` is the framework + plugin marketplace — the build **target**; a (soon-to-start) `src/` builder generates plugins that follow the framework into `Ibiza/plugins/<name>/`.
 `roboto` is the first worked plugin.
 
 | Path                                    | What it is                                                                                                            |
@@ -182,7 +183,8 @@ Each plugin under `Ibiza/plugins/` is a standard plugin tree — components are 
 
 ## 🚀 Install
 
-The marketplace lives at `Ibiza/` (the directory holding `.claude-plugin/`). Add it by local path, then install a plugin:
+The marketplace lives at `Ibiza/` (the directory holding `.claude-plugin/`).
+Add it by local path, then install a plugin:
 
 ```
 /plugin marketplace add ./Ibiza
