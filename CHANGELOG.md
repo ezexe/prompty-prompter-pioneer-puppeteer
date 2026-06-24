@@ -1,8 +1,20 @@
 # Changelog
 
-All notable changes to this repo are recorded here.
+All notable changes to this repo are recorded here. theres no version numbers because this is a project that from its conception is designed to indefinitely be [Unreleased] at version [0.0.🙃]
 
-## [0.0.1] — 2026-06-24 — Migration to the Claude Skills / Plugins / Connectors standard
+## Runtime reframe: gates, closures, and the JIT rubric
+
+The `roboto` plugin was reframed from a build-time catalog into a pure **runtime, just-in-time context compiler**. Nothing in `Ibiza/plugins/roboto/` is build-time: every file is a runtime logic node resolved per request against the `metadata.p4.depends_on` graph.
+
+- **Layers → gates, then dissolved** — the four P4 gates (`prompty` / `prompter` / `pioneer` / `puppeteer`) are no longer a `docs/` file; the fixed gate chain lives in `skills/rubric` and each skill declares its own gate hooks via `metadata.p4.phases`.
+- **Profiles → closures, derived not stored** — there is no `docs/configurations.md`; a closure's members = the skills whose `metadata.p4.tiers` lists it, resolved at runtime by the `rubric` gate (which holds the `fires_when` signal→closure rows).
+- **New `rubric` skill** — `skills/rubric/SKILL.md` is the always-on **engagement gate**: it scores the request and selects which closure to compile just-in-time.
+- **`roboto` is a JIT driver** — preloads only `identity` + `rubric`; pulls the other skills on demand via the `Skill` tool instead of eagerly bundling all six.
+- **Commands are runtime pipeline stages** — `/p4-prompty` (score → pick), `/p4-prompter` (resolve), `/p4-pioneer` (gate-check), `/p4-puppeteer` (compile + emit a closure); reframed from "build lifecycle."
+- **Newer Claude-standard frontmatter adopted** — `when_to_use` on every skill; named `arguments` on the commands; `tools` / `model` / `effort` / `skills` / `memory` on the `roboto` agent.
+- **`docs/` deleted** — `docs/fragments.md`, `docs/configurations.md`, and the now-dead `templations/fragments.md.template` + `configurations.md.template` were removed; the gate graph + closures derive at runtime from `metadata.p4` + `rubric`.
+
+## Migration to the Claude Skills / Plugins / Connectors standard
 
 The framework's bespoke `extension:` packaging model — a fenced-YAML manifest at the top of each skill/tool/connector `README.md` — was migrated to the current Claude **Agent Skills / Plugins / MCP** standard, and the repo was reorganized into the `Ibiza/` framework + marketplace.
 `roboto` is the first worked plugin, at `Ibiza/plugins/roboto/`.

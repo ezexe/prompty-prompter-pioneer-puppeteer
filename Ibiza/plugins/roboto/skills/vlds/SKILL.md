@@ -1,6 +1,7 @@
 ---
 name: vlds
 description: The epistemic-transparency and claim-verification layer — tracks every claim's provenance through a neural-net metaphor (weights = sources, biases = assumptions, activation functions = tools/instructions), classifies storage durability, and runs a decision gate (PROCEED / VERIFY_FIRST / QUALIFY) so no unverified claim drives an action and no unverifiable claim is asserted as fact. Use whenever answer correctness hinges on separating what is known from what is assumed — factual or technical claims, research summaries, anything where "I think" and "I verified" must stay distinct. Extends the identity four-lens protocol.
+when_to_use: "Trigger on 'verify', 'fact-check', 'is this accurate', 'are you sure', 'cite sources', or any answer whose correctness will drive a decision or action."
 metadata:
   p4:
     type: skill

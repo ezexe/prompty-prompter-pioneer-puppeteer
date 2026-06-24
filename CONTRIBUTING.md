@@ -74,9 +74,9 @@ So the entire P4 dependency/phase/hook model is preserved losslessly under a sin
 The one-time mapping from the old bespoke `extension:` manifest is recorded in [`CHANGELOG.md`](CHANGELOG.md).
 
 **Two id-spaces in `depends_on`.**
-A `depends_on` entry is either a **skill name** (resolves to `skills/<name>/`) or a **P4 layer id** (`prompty | prompter | pioneer | puppeteer`, resolves to a section in the plugin's [`docs/fragments.md`](Ibiza/plugins/roboto/docs/fragments.md)).
-For example `bias-patterns` depends on `[identity, prompter]` — `identity` is a skill, `prompter` is a layer.
-A closure check must not treat a layer id as a missing skill.
+A `depends_on` entry is either a **skill name** (resolves to `skills/<name>/`) or a **P4 gate id** (`prompty | prompter | pioneer | puppeteer`, resolves to the gate graph in the plugin's [`skills/rubric`](Ibiza/plugins/roboto/skills/rubric/SKILL.md)).
+For example `bias-patterns` depends on `[identity, prompter]` — `identity` is a skill, `prompter` is a gate.
+A closure check must not treat a gate id as a missing skill.
 
 ### "Tools" fold into skills or MCP
 
@@ -116,30 +116,30 @@ The `roboto` plugin ships none;
 
 - **`plugin.json`** ([`Ibiza/templations/plugin.json.template`](Ibiza/templations/plugin.json.template)) — only `name` is required. Omitting `version` on a git-distributed plugin means the commit SHA is the version (users update every commit); set it to gate updates to version bumps.
 - **`marketplace.json`** ([`Ibiza/templations/marketplace.json.template`](Ibiza/templations/marketplace.json.template)) — at `Ibiza/.claude-plugin/`; lists each plugin with `source: "./plugins/<name>"` (one entry per plugin).
-- **Subagents** (`agents/<name>.md`, [`Ibiza/templations/agent.md.template`](Ibiza/templations/agent.md.template)) — a subagent's body is _always_ loaded as its base prompt, so it is the right home for an always-on contract or persona. `agents/roboto.md` carries the four-lens contract for the **Full** profile.
-- **Slash commands** (`commands/<name>.md`, [`Ibiza/templations/command.md.template`](Ibiza/templations/command.md.template)) — manual-only prompts. The P4 build lifecycle ships as `/p4-prompty`, `/p4-prompter`, `/p4-pioneer`, `/p4-puppeteer`.
+- **Subagents** (`agents/<name>.md`, [`Ibiza/templations/agent.md.template`](Ibiza/templations/agent.md.template)) — a subagent's body is _always_ loaded as its base prompt, so it is the right home for an always-on contract or persona. `agents/roboto.md` carries the four-lens contract as the always-on JIT driver (`identity` + `rubric` preloaded; other skills pulled on demand).
+- **Slash commands** (`commands/<name>.md`, [`Ibiza/templations/command.md.template`](Ibiza/templations/command.md.template)) — manual-only prompts. The P4 runtime pipeline ships as `/p4-prompty`, `/p4-prompter`, `/p4-pioneer`, `/p4-puppeteer`.
 - **Hooks** (`hooks/hooks.json`, [`Ibiza/templations/hooks.json.template`](Ibiza/templations/hooks.json.template)) — event handlers; optional, not shipped by default.
 
 ---
 
-## 🤖 Building configurations with the P4 lifecycle
+## 🤖 Compiling closures with the P4 pipeline
 
-The P4 lifecycle _is_ the authoring method, and it now maps onto the real component pipeline:
+The P4 pipeline _is_ the runtime compiler — it runs per request, and it maps onto the real component pipeline:
 
 ```
 prompty → prompter → pioneer → puppeteer
    ↑__________________________________|
 ```
 
-| Phase         | Authoring step                          | Command                  |
-| ------------- | --------------------------------------- | ------------------------ |
-| **Prompty**   | identify which profile a request needs  | `/p4-prompty`      |
-| **Prompter**  | select the dependency-closed skills     | `/p4-prompter`   |
-| **Pioneer**   | validate closure + test the triggering  | `/p4-pioneer` |
-| **Puppeteer** | append the profile to `configurations.md` + bundle/publish | `/p4-puppeteer` |
+| Stage         | What it does                                        | Command         |
+| ------------- | --------------------------------------------------- | --------------- |
+| **prompty**   | score the request → pick the closure                | `/p4-prompty`   |
+| **prompter**  | resolve the dependency-closed skills + gates        | `/p4-prompter`  |
+| **pioneer**   | gate-check the closure                               | `/p4-pioneer`   |
+| **puppeteer** | register the closure — a `rubric` row + the members' `tiers` (no file) | `/p4-puppeteer` |
 
-The output of orchestration (Puppeteer) feeds a new seed (Prompty) — the recursion applies to building configurations too.
-Capability **profiles** (Minimal → Full) are named, dependency-closed _subsets_ of a plugin's skills, documented in [`Ibiza/plugins/roboto/docs/configurations.md`](Ibiza/plugins/roboto/docs/configurations.md); they are not separate installs.
+The output of `puppeteer` can feed a new `prompty` gate — the recursion applies to compiling closures too.
+**Closures** (minimal → full) are named, dependency-closed _subsets_ of a plugin's skills that the `rubric` gate resolves into — defined by the skills' `metadata.p4.tiers` + the `rubric` rows, not a separate file; they are not separate installs.
 
 ---
 
@@ -151,13 +151,11 @@ Every worked artifact regenerates from a template plus the design docs:
 | Worked artifact                                   | Regenerate from                                                                |
 | ------------------------------------------------- | ------------------------------------------------------------------------------ |
 | `Ibiza/plugins/<plugin>/skills/<name>/SKILL.md`            | `Ibiza/templations/SKILL.md.template` + the skill's `metadata.p4` deltas               |
-| `Ibiza/plugins/<plugin>/docs/fragments.md` (four layers)   | `Ibiza/templations/fragments.md.template`                                              |
-| `Ibiza/plugins/<plugin>/docs/configurations.md` (profiles) | `Ibiza/templations/configurations.md.template` + each skill's `metadata.p4.depends_on` |
 | `Ibiza/plugins/<plugin>/.claude-plugin/plugin.json`        | `Ibiza/templations/plugin.json.template`                                               |
 | `Ibiza/.claude-plugin/marketplace.json`           | `Ibiza/templations/marketplace.json.template`                                          |
 | `Ibiza/plugins/<plugin>/.mcp.json`                          | `Ibiza/templations/mcp.json.template`                                                  |
 
-The dependency closure of any profile is fully derivable from the skills' `metadata.p4.depends_on` plus the layer ids in `Ibiza/plugins/<plugin>/docs/fragments.md` — so a profile can be rebuilt without copying prose.
+Closures and the gate graph are not stored as files — they resolve at runtime from each skill's `metadata.p4` (`tiers` = closure membership, `phases` + `depends_on` = the gate graph) and the `rubric` gate. Nothing to regenerate, nothing to copy.
 
 ---
 
@@ -167,17 +165,16 @@ The dependency closure of any profile is fully derivable from the skills' `metad
 
 - [ ] `Ibiza/plugins/<plugin>/skills/<name>/SKILL.md` with `name` (hyphenated, matches dir, no "claude"/"anthropic") + a WHAT-and-WHEN `description`
 - [ ] `metadata.p4` carries `type`, `phases`, `depends_on` (+ `optional_depends_on`), `interface`, `hooks`, `tiers`
-- [ ] every `depends_on` id resolves to a skill or a P4 layer
+- [ ] every `depends_on` id resolves to a skill or a P4 gate
 - [ ] body under ~5k tokens; depth pushed to `references/`; helpers (if any) in `scripts/`
 - [ ] cross-references to sibling skills use the hyphenated names
 
-**New / changed configuration profile**
+**New / changed closure**
 
-- [ ] YAML block complete (`name`, `fragments`, `extensions`, `use_case`)
-- [ ] "What This Provides" / "What This Does NOT Provide" / "When To Use" accurate
-- [ ] fragment + extension set is dependency-closed
-- [ ] Upgrade / Downgrade paths link to sibling profiles
-- [ ] each included skill's `metadata.p4.tiers` lists this profile
+- [ ] a `rubric` row added/updated in `skills/rubric/SKILL.md` (firing signal → closure name + `fires_when`)
+- [ ] the closure name added to each member skill's `metadata.p4.tiers`
+- [ ] the member set (inverted from `tiers`) is dependency-closed — each member's `depends_on` resolves within it
+- [ ] `identity` + `rubric` stay always-on (not listed as members)
 
 ---
 

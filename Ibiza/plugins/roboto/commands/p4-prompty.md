@@ -1,27 +1,15 @@
 ---
-description: P4 Prompty phase — identify which configuration profile a request needs
+description: P4 prompty stage — score the request and pick the closure it fires into
 argument-hint: "<requirements>"
+arguments: [requirements]
 ---
 
 # /p4-prompty
 
-You are in the **Prompty** (ideation) phase of the P4 build lifecycle.
+The **prompty** stage of the P4 runtime pipeline — read the need.
 
-User requirements: $ARGUMENTS
+User requirements: $requirements
 
-Identify which configuration profile fits, using `docs/configurations.md` as the ladder:
+Run the `rubric` gate (`skills/rubric`) over the request to pick the closure it fires into; the closure's members are the skills whose `metadata.p4.tiers` lists it.
 
-- **minimal** — the base four-lens identity only
-- **standard** — identity + the ideation seed + response templates
-- **verification** — adds VLDS claim-checking
-- **detection** — adds bias-pattern scanning (parallel branch; drops vlds + templates)
-- **full** — everything; both branches unioned + the orchestration lifecycle
-
-Decide by asking:
-
-1. Need audit-formatted output? -> standard or higher
-2. Need claim verification? -> verification or higher
-3. Need bias / error detection? -> detection or higher
-4. Research or high-stakes? -> full
-
-**Output:** the chosen profile name + one line of reasoning.
+**Output:** the chosen closure name + the `rubric` row that fired.

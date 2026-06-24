@@ -157,27 +157,26 @@ orchestration:
 ## 📂 Layout
 
 This repo is a **meta-prompting P4 framework**.
-`Ibiza/` is the framework + plugin marketplace — the build **target**; a (soon-to-start) `src/` builder generates plugins that follow the framework into `Ibiza/plugins/<name>/`.
+`Ibiza/` is the framework + plugin marketplace — the build **target**; a `src/` builder generates plugins that follow the framework into `Ibiza/plugins/<name>/`.
 `roboto` is the first worked plugin.
 
 | Path                                    | What it is                                                                                                            |
-| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| `src/`                                  | _(future)_ the builder that generates plugins into `Ibiza/plugins/`                                                  |
-| `Ibiza/.claude-plugin/marketplace.json` | The marketplace (its root is `Ibiza/`) — lists every plugin under `Ibiza/plugins/`                                   |
+| --------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `src/`                                  | the builder that generates plugins into `Ibiza/plugins/`                                                   |
+| `Ibiza/.claude-plugin/marketplace.json` | The marketplace (its root is `Ibiza/`) — lists every plugin under `Ibiza/plugins/`                                    |
 | `Ibiza/templations/`                    | The blank P4 authoring kit — `SKILL.md.template`, `plugin.json.template`, `mcp.json.template`, `agent.md.template`, … |
-| `Ibiza/plugins/<name>/`                 | One generated plugin per subdirectory (`Ibiza/plugins/roboto/` is the first)                                         |
-| `README.md` · `CONTRIBUTING.md`         | Repo overview and the Skills / Plugins / Connectors authoring spec                                                   |
+| `Ibiza/plugins/<name>/`                 | One generated plugin per subdirectory (`Ibiza/plugins/roboto/` is the first)                                          |
+| `README.md` · `CONTRIBUTING.md`         | Repo overview and the Skills / Plugins / Connectors authoring spec                                                    |
 
 Each plugin under `Ibiza/plugins/` is a standard plugin tree — components are discovered by convention at _its_ root:
 
-| Path (under `Ibiza/plugins/roboto/`) | What it is                                                                                                                                      |
-| ------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| `.claude-plugin/plugin.json`         | The plugin manifest                                                                                                                            |
-| `skills/`                            | The six Roboto reasoning skills as `SKILL.md` files — `identity`, `vlds`, `templates`, `bias-patterns`, `isomorphic-operations`, `sjc-indexer` |
-| `agents/roboto.md`                   | The Full-profile subagent — always loads the four-lens contract                                                                                |
-| `commands/`                          | The P4 build lifecycle as slash commands (`/p4-prompty`, `/p4-prompter`, …)                                                       |
-| `docs/`                              | The instance design layer — `fragments.md` (the four layers) and `configurations.md` (the capability profiles)                                 |
-| `.mcp.json.example`                  | How to add an MCP **connector** (this plugin ships none by default)                                                                            |
+| Path (under `Ibiza/plugins/roboto/`) | What it is                                                                                                                                                 |
+| ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `.claude-plugin/plugin.json`         | The plugin manifest                                                                                                                                        |
+| `skills/`                            | The seven Roboto reasoning skills as `SKILL.md` files — `identity`, `rubric`, `vlds`, `templates`, `bias-patterns`, `isomorphic-operations`, `sjc-indexer` |
+| `agents/roboto.md`                   | The JIT reasoning driver — always-on `identity` contract + `rubric` gate; pulls the other skills on demand                                                 |
+| `commands/`                          | The P4 runtime pipeline as slash commands (`/p4-prompty`, `/p4-prompter`, …)                                                                               |
+| `.mcp.json.example`                  | How to add an MCP **connector** (this plugin ships none by default)                                                                                        |
 
 ---
 
@@ -193,5 +192,5 @@ Add it by local path, then install a plugin:
 
 (A GitHub `owner/repo` add looks for `.claude-plugin/` at the repo root; this marketplace is rooted at `Ibiza/`, matching the local `src/ → Ibiza/` build flow.)
 
-Roboto's six skills auto-trigger by their `description`s; for the full four-lens treatment on _every_ reply, run the `roboto` subagent.
-Build a custom capability profile with the `/p4-*` commands — see [`Ibiza/plugins/roboto/docs/configurations.md`](Ibiza/plugins/roboto/docs/configurations.md).
+Roboto's seven skills auto-trigger by their `description`s; for the full four-lens treatment on _every_ reply, run the `roboto` subagent.
+Compile a custom closure with the `/p4-*` commands — the `rubric` gate (`Ibiza/plugins/roboto/skills/rubric/SKILL.md`) and each skill's `metadata.p4` define them.

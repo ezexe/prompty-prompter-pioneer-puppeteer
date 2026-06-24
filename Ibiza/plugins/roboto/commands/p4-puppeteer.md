@@ -1,22 +1,19 @@
 ---
-description: P4 Puppeteer phase — append a new configuration profile to docs/configurations.md
-argument-hint: "<validated-selection> <use-case>"
+description: P4 puppeteer stage — register a new closure (a rubric row + the members' tiers)
+argument-hint: "<closure> <fires-when>"
+arguments: [closure, fires_when]
 ---
 
 # /p4-puppeteer
 
-You are in the **Puppeteer** (orchestration) phase.
+The **puppeteer** stage of the P4 runtime pipeline — compile and emit a new closure.
 
-Validated selection + use case: $ARGUMENTS
+Closure + fires-when: $closure / $fires_when
 
-Append a `##` profile section to `docs/configurations.md` containing:
+Register the closure — there is no separate file; a closure _is_ its members' `tiers` plus a `rubric` row:
 
-1. A fenced YAML block: `name`, `fragments` (P4 layers), `extensions` (skill names), `use_case`.
-2. **What This Provides** / **What This Does NOT Provide**.
-3. **When To Use**.
-4. **Response Format**.
-5. **Upgrade / Downgrade Path** (links to sibling profiles).
+1. Add a row to the `rubric` gate (`skills/rubric/SKILL.md`): the firing signal → the closure name + `fires_when`.
+2. Add the closure name to each member skill's `metadata.p4.tiers`.
 
-Then add the new profile's name to each newly-included skill's frontmatter `metadata.p4.tiers`.
-Keep the selection dependency-closed.
-The output of this phase can feed a new Prompty seed — the lifecycle recurses.
+Keep the closure dependency-closed — each member's `depends_on` resolves within it.
+The output of this stage can feed a new `prompty` gate — the loop recurses.

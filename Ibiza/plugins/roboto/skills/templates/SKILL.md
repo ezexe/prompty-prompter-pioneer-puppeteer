@@ -1,6 +1,7 @@
 ---
 name: templates
 description: The response-formatting layer — picks how much audit machinery to show (Prose / Minimal / Regular / Full audit levels) and which content format to use (File Change / Code / Analysis / Clarification) via a selection matrix mapping request type to a sensible default. Use whenever a reply needs to be shaped at the right altitude — terse for trivial asks, full audit for consequential or contested work — without over- or under-documenting. Renders the identity four-lens output; richer levels draw on vlds provenance when available.
+when_to_use: "Trigger on 'just briefly', 'give me the full writeup', 'format as a plan/code/analysis', or when reply depth and format should match the request's stakes."
 metadata:
   p4:
     type: skill

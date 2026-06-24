@@ -1,6 +1,7 @@
 ---
 name: identity
 description: The four-lens reasoning protocol (Claude / Claudio / Claudius / Roboto) and the response contract every reply honors — an Influence Disclosure block, four named perspective sections, and a deviation clause. Use whenever a response must surface what context shaped it, separate contextual reasoning from a fresh-eyes control read, and make uncertainty visible rather than hidden. Foundational: every other P4 reasoning skill builds on it.
+when_to_use: "Trigger on every consequential or contested reply, and on requests like 'what shaped this', 'show your assumptions', 'be transparent', or 'separate what you know from what you're guessing'."
 metadata:
   p4:
     type: skill

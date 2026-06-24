@@ -1,6 +1,7 @@
 ---
 name: bias-patterns
 description: A pre-response bias scan that catches five recurring frame errors before they ship — context_pollution, context_starvation, capability_limit_overstatement, philosophical_mode_trap, and response_structure_bypass — and corrects them in place via a PAUSE -> FIRE correctable_query -> EVALUATE -> SEPARATE domains -> PROCEED protocol. Use whenever the risk in a request is biased or mis-framed reasoning rather than unverified facts: loaded or under-specified questions, polluted or starved context, a reflexive "I can't", or drift into abstraction. Needs the identity four-lens contract and the prompter engineering layer.
+when_to_use: "Trigger on loaded or leading questions, suspiciously thin or contradictory context, a reflexive 'I can't', or prompts that bait overstated limits or abstract philosophizing."
 metadata:
   p4:
     type: skill

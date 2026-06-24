@@ -8,8 +8,8 @@ description: [What the skill does AND when Claude should use it — this is the 
 metadata:
   p4:
     type: skill                         # skill | tool | connector (informational; the standard infers type from location)
-    phases: []                          # P4 layers this skill hooks, e.g. [pioneer, puppeteer]
-    depends_on: []                      # skill names and/or P4 layer ids, e.g. [identity, vlds] — the closure must be satisfied
+    phases: []                          # P4 gates this skill hooks, e.g. [pioneer, puppeteer]
+    depends_on: []                      # skill names and/or P4 gate ids, e.g. [identity, vlds] — the closure must be satisfied
     optional_depends_on: []             # enhances the skill but is not required for closure
     interface:
       domains: []                       # knowledge domains this skill covers
@@ -19,7 +19,7 @@ metadata:
       on_prompter: []
       on_pioneer: []
       on_puppeteer: []
-    tiers: []                           # which configuration profiles bundle this skill (see docs/configurations.md)
+    tiers: []                           # which closures include this skill — a closure = the skills whose tiers list it; resolved by skills/rubric (no docs/ file)
 ---
 
 > **Template — delete this note after copying.** Copy this file to `skills/[skill-name]/SKILL.md`

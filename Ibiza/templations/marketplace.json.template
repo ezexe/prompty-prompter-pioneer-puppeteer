@@ -10,7 +10,7 @@
       "name": "[plugin-name]",
       "source": "./",
       "description": "[one-line description]",
-      "version": "0.0.1"
+      "version": "0.0.0"
     }
   ]
 }

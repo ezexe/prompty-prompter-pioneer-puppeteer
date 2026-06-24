@@ -1,6 +1,7 @@
 ---
 name: isomorphic-operations
 description: Names the shared QUERY -> INDEX -> RESULTS -> REFINE -> ITERATE -> ACCUMULATE loop behind three operations that look different but behave identically — web_search, prompt_generation, and artifact_api_calls — and supplies the capability-reframe rule: replace "I cannot X" with "not directly, but indirectly via <operation>" whenever an isomorphic path reaches X. Use when a goal seems blocked by a direct-capability limit, or when an iterative-retrieval task (searching, prompt-building, driving an API) would benefit from one disciplined refine-and-accumulate loop. Needs identity and vlds so results carry provenance through the decision gate.
+when_to_use: "Trigger when about to refuse or say 'not possible', on 'is there a way to', or on iterative search / prompt-building / API-driving tasks needing one refine-and-accumulate loop."
 metadata:
   p4:
     type: skill
