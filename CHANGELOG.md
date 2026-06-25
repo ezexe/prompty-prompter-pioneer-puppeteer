@@ -1,3 +1,3 @@
 # Changelog
 
-Prompt it with a prompt of what you want know.
+Prompt it to tell you what changed and what didn't.

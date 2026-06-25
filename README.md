@@ -8,15 +8,11 @@ _prompts that build prompts to prompter prompts into pioneer prompts that puppet
 
 ## Linear Progression
 
-Standard lifecycle for developing a prompt from concept to automation.
-
 ```
 prompty → prompter → pioneer → puppeteer
 ```
 
 ## Recursive Refinement
-
-The output of orchestration feeds new seeds.
 
 ```
 puppeteer → prompty → prompter → pioneer → puppeteer
@@ -26,8 +22,6 @@ puppeteer → prompty → prompter → pioneer → puppeteer
 
 ## Parallel Exploration
 
-Multiple pioneer experiments from a single prompter; the best results get orchestrated.
-
 ```
                     ┌─ pioneer_a ─┐
 prompty → prompter ─┼─ pioneer_b ─┼─ puppeteer
@@ -35,8 +29,6 @@ prompty → prompter ─┼─ pioneer_b ─┼─ puppeteer
 ```
 
 ## Meta-Prompting
-
-Puppeteers orchestrating puppeteers for emergent prompt evolution.
 
 ```
 puppeteer_a ──┐
@@ -46,6 +38,6 @@ puppeteer_c ──┘
 
 <div align="center">
 
-_"Puppeteer: the final frontier. Were no src/ code is the /src code and after comes before._
+_"Puppeteer... the final frontier. Or just build src/ code in /src code. To go where it has gone before._
 
 </div>
