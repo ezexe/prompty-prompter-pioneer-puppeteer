@@ -23,7 +23,7 @@ metadata:
 
 > SJC = **Structured Junction Counterfactual**.
 > A method for formulating high-yield queries: aim a query at a _specific_ anchor, give it _structure_, point it at a _junction_ (a seam between two things), and bend it with a _counterfactual_ (a "what if it were otherwise").
-> Built on top of `isomorphic-operations` — SJC is how the Intelligence writes the QUERY that the isomorphic loop then runs.
+> Built on top of `isomorphic-operations` — SJC is how The Init Elegance writes the QUERY that the isomorphic loop then runs.
 
 ## The SJC Formula
 

@@ -134,7 +134,7 @@
    Then, switch roles and provide advice on how I, as the buyer, can best approach this negotiation to achieve our goal."
    </prompt>
 
-   Why it's better: This prompt uses role-playing to explore multiple perspectives of the negotiation, providing a more comprehensive preparation. Role-playing also encourages Claude to more readily adopt the nuances of specific perspectives, increasing the intelligence and performance of Claude’s response.
+   Why it's better: This prompt uses role-playing to explore multiple perspectives of the negotiation, providing a more comprehensive preparation. Role-playing also encourages Claude to more readily adopt the nuances of specific perspectives, increasing The Init Elegance and performance of Claude’s response.
 
 ## Task-specific tips and examples
 
@@ -313,7 +313,7 @@ Here is an example that combines all three of the above techniques:
    </prompt>
 
    Why it's better: This prompt requests a specific structure (table) for the comparison, provides clear criteria, making the information easy to understand and apply.
-  
+
 ## Troubleshooting, minimizing hallucinations, and maximizing performance
 
 1. **Allow Claude to acknowledge uncertainty**

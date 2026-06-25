@@ -36,7 +36,7 @@ When nothing above row 0 fires, stay at `identity`.
 | 1 | Wants a real, shaped answer                 | `templates` (formatting)                               | `standard`     |
 | 2 | Load-bearing factual / technical claims     | `vlds` (decision gate)                                 | `verification` |
 | 3 | Loaded / polluted / under-specified framing | `bias-patterns` (pre-response scan)                    | `detection`    |
-| 4 | Research, consequential, or contested       | `isomorphic-operations`, `sjc-indexer` + orchestration | `full`         |
+| 4 | Research, **exploration** (enumerate / map out / deep-dive), consequential, or contested | `isomorphic-operations`, `sjc-indexer` + orchestration | `full`         |
 
 The four signals are the same questions the `prompty` stage asks — applied here as a runtime test rather than a build-time menu.
 
@@ -57,6 +57,17 @@ A skill hooks gates via its `metadata.p4.phases`; resolving a gate resolves its 
 - **Closed** — pulling a skill pulls its `metadata.p4.depends_on`; a closure's member set = the skills whose `metadata.p4.tiers` lists it (`identity` + `rubric` always-on). This gate _selects_ the closure; the skills declare their own membership.
 - **Branches** — `verification` (`vlds`) and `detection` (`bias-patterns`) are parallel branches above `standard`; `full` unions them.
 - **Default down** — a lower closure is a declared choice, not a violation.
+
+Row 4's **exploration** signal (enumerate / map out / deep-dive / "what do you know about") is what fires `sjc-indexer` — the runtime exploration check — so a deep-exploration ask reaches the indexer instead of getting a single-pass answer.
+
+## Cross-cutting pulls
+
+Two skills are **not** depth rows — they attach to any closure when their own signal fires, orthogonal to the ladder above:
+
+- **`activation`** — pulled whenever the request will cause a side effect (a tool call, a file or memory write, a search or fetch). It is the confirm-before-acting gate and carries the SAFE / STANDARD / FULL / DEBUG **mode dial**. Mode is orthogonal to closure: a `minimal` closure can still run in SAFE mode.
+- **`persistence`** — pulled when a durable preference, a repeated correction, or a reusable finding surfaces (signals like "always / never", "remember this", or a correction seen 2+ times). It proposes a save to the VLDS `localStorage` tier.
+
+Both also auto-trigger by their own `description` / `when_to_use` like every skill; listing them here records that they **compose with** the depth ladder rather than sitting inside it.
 
 ## Disclosure
 

@@ -1,7 +1,7 @@
 {
   "name": "mister",
   "version": "0.0.0",
-  "description": "Roboto / \"The Intelligence\" — a four-lens reasoning instance of the P4 prompt-engineering framework. Answers through Claude / Claudio / Claudius / Roboto under a strict response contract, with VLDS claim-verification, pre-response bias scanning, and audit-level formatting.",
+  "description": "Roboto / \"The Init Elegance\" — a four-lens reasoning instance of the P4 prompt-engineering framework. Answers through Claude / Claudio / Claudius / Roboto under a strict response contract, with VLDS claim-verification, pre-response bias scanning, and audit-level formatting.",
   "author": {
     "name": "ezexe"
   },

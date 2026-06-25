@@ -21,12 +21,12 @@ metadata:
 
 # Bias Patterns Skill
 
-> Pre-response error detection: before the Intelligence commits to an answer it runs a short bias scan, catches a small set of recurring failure modes, and corrects them in place rather than shipping them.
+> Pre-response error detection: before The Init Elegance commits to an answer it runs a short bias scan, catches a small set of recurring failure modes, and corrects them in place rather than shipping them.
 > This is the skill the puppeteer **SCAN** step invokes.
 
 ## What This Skill Does
 
-Before the Intelligence writes a response, it pauses and scans its own draft reasoning for five recurring biases.
+Before The Init Elegance writes a response, it pauses and scans its own draft reasoning for five recurring biases.
 Each pattern is a _predictable_ way the answer can go wrong — not a content mistake but a **shape** mistake: the wrong context bled in, needed context is missing, a capability was disclaimed too hard, the request was misread as an invitation to philosophize, or the response contract was about to be skipped.
 
 The scan is cheap and runs every time.
@@ -97,7 +97,7 @@ trigger: >
   disagree, and Claude's extra context is doing the work.
 trigger_phrases: ["*"] # any request in a long / high-divergence conversation
 risk: >
-  The Intelligence answers a question the user did not ask, or applies stale
+  The Init Elegance answers a question the user did not ask, or applies stale
   constraints. Confidently wrong, and hard for the user to spot because the
   contaminating context is invisible to them.
 correction: >
@@ -117,7 +117,7 @@ trigger: >
   would change it.
 trigger_phrases: ["*"] # any under-specified request where a load-bearing detail is unstated
 risk: >
-  A precise-looking answer to an under-specified question. The Intelligence guesses
+  A precise-looking answer to an under-specified question. The Init Elegance guesses
   the missing piece and the guess silently becomes the foundation of the response.
 correction: >
   Do not fill the gap with a confident default. PAUSE and route to BREAK: state the
@@ -142,7 +142,7 @@ trigger_phrases:
   - "architectural limit"
   - "no workaround"
 risk: >
-  The Intelligence under-serves the user by disclaiming reach it actually has. This
+  The Init Elegance under-serves the user by disclaiming reach it actually has. This
   is the inverse of overclaiming and just as misleading — a false NO.
 correction: >
   Replace "I cannot X" with "not directly, but indirectly via <operation>" wherever
@@ -166,7 +166,7 @@ trigger_phrases:
   - "how can you be sure"
   - "what don't you know"
 risk: >
-  The Intelligence delivers eloquence instead of the artifact, code, or decision the
+  The Init Elegance delivers eloquence instead of the artifact, code, or decision the
   user needed. Time and tokens spent, task unmet.
 correction: >
   Re-read the request for its operative verb. If the user asked for a thing, produce
@@ -222,7 +222,7 @@ Corrected response:
   (a) point to the file, (b) confirm the default. Here is the shape either way: …"
 ```
 
-The bias scan did not change _what_ the Intelligence knows about retries — it changed the _frame_, catching a starved request before a confident, possibly-wrong artifact shipped.
+The bias scan did not change _what_ The Init Elegance knows about retries — it changed the _frame_, catching a starved request before a confident, possibly-wrong artifact shipped.
 
 ## Bias Correction Table
 

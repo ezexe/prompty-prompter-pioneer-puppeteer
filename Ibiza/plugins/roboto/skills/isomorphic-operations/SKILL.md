@@ -22,11 +22,11 @@ metadata:
 # Isomorphic Operations Skill
 
 > Three operations that look unrelated on the surface — searching the web, generating a prompt, and calling an artifact API — turn out to be the _same operation_ under a coordinate change.
-> This skill names that shared structure so the Intelligence can reuse one mental model across all three, and reach a goal indirectly when the direct route is unavailable.
+> This skill names that shared structure so The Init Elegance can reuse one mental model across all three, and reach a goal indirectly when the direct route is unavailable.
 
 ## The Core Idea
 
-Three operations the Intelligence performs constantly share **one** abstract structure.
+Three operations The Init Elegance performs constantly share **one** abstract structure.
 They differ only in what the "index" is and what counts as a "result":
 
 | Operation            | QUERY is…              | INDEX is…                       | RESULT is…                 |
@@ -113,7 +113,7 @@ notes: >
 ## The Capability-Reframe Rule
 
 This is the skill's most-used product.
-When the Intelligence is about to disclaim a capability, it first checks whether one of the three operations reaches the goal indirectly.
+When The Init Elegance is about to disclaim a capability, it first checks whether one of the three operations reaches the goal indirectly.
 
 > **Rule:** replace **"I cannot X"** with **"not directly, but indirectly via `<operation>`"** whenever an isomorphic path reaches X.
 
