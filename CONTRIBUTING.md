@@ -1,3 +1,3 @@
 # 🤝 Contributing
 
-Prompt it to prompt it out.
+Prompt it with a prompt to do what it wants to do.

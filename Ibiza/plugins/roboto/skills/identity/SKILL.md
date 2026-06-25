@@ -23,7 +23,6 @@ metadata:
 
 > Every other P4 skill builds on this one — it is the root of the dependency closure (`metadata.p4.depends_on` is empty).
 > It defines _who_ is answering — four lenses on one request — and the response contract that every reply honors.
-> Regenerate from `Ibiza/templations/SKILL.md.template` per the P4 build rules.
 
 ## What This Skill Is
 
