@@ -194,3 +194,9 @@ Add it by local path, then install a plugin:
 
 Roboto's seven skills auto-trigger by their `description`s; for the full four-lens treatment on _every_ reply, run the `roboto` subagent.
 Compile a custom closure with the `/p4-*` commands — the `rubric` gate (`Ibiza/plugins/roboto/skills/rubric/SKILL.md`) and each skill's `metadata.p4` define them.
+
+<div align="center">
+
+_"Puppeteer: the final frontier_
+
+</div>

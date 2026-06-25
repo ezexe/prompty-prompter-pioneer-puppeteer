@@ -143,3 +143,4 @@ experiment/quick
 experiment/__pycache__
 
 .claude/
+.vlds/
