@@ -1,0 +1,11 @@
+{
+  "name": "vlds",
+  "version": "0.0.0",
+  "description": "VLDS — a standalone epistemic decision gate distilled from the P4 framework. Before a load-bearing claim drives an action, route it through VERIFIABLE → VERIFIED → {PROCEED / VERIFY_FIRST / QUALIFY}: no unverified claim drives an action, no unverifiable claim is asserted as fact. Tracks each claim's provenance through a neural-net metaphor and classifies it by storage durability. Portable; no dependency on the Roboto instance.",
+  "author": {
+    "name": "ezexe"
+  },
+  "homepage": "https://github.com/ezexe/prompty-prompter-pioneer-puppeteer/tree/main/Ibiza/plugins/vlds",
+  "repository": "https://github.com/ezexe/prompty-prompter-pioneer-puppeteer",
+  "license": "Apache-2.0"
+}

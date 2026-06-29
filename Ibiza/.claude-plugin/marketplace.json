@@ -14,6 +14,14 @@
       "version": "0.0.0",
       "category": "prompt-engineering",
       "keywords": ["prompt-engineering", "reasoning", "epistemics", "agent", "p4", "roboto"]
+    },
+    {
+      "name": "vlds",
+      "source": "./plugins/vlds",
+      "description": "VLDS — the P4 framework's epistemic decision gate as a standalone, single-skill plugin: verify before you assert, qualify what you can't verify. Routes every load-bearing claim through VERIFIABLE → VERIFIED → PROCEED / VERIFY_FIRST / QUALIFY. Portable; no dependency on the roboto instance.",
+      "version": "0.0.0",
+      "category": "prompt-engineering",
+      "keywords": ["prompt-engineering", "epistemics", "verification", "provenance", "p4", "vlds"]
     }
   ]
 }
