@@ -6,7 +6,7 @@ metadata:
   p4:
     type: skill
     phases: [pioneer, puppeteer]
-    depends_on: [identity, vlds, isomorphic-operations]
+    depends_on: [vlds, isomorphic-operations]
     optional_depends_on: []
     interface:
       domains: [query_formulation, frontier_indexing, counterfactual_reasoning]
@@ -296,5 +296,5 @@ Note how SJC out-performed a flat query ("why is P slow?"): the anchor stopped i
 
 - **isomorphic-operations** (required). SJC does not retrieve on its own — it _formulates_ the high-yield QUERY that the isomorphic loop executes (`junction_explorer` calls the loop). That is why `isomorphic-operations` is in the dependency closure.
 - **vlds** (required). The `synthesizer` routes every claim through the decision gate, so a "high-yield" finding still cannot drive an action unverified; unsupported residue is marked, never fabricated — honoring strip-fake-precision and bounded reconstruction.
-- **identity** (required). Results are reported through the four lenses; Claudius's bounded reconstruction and `unexplained` marking is the same discipline `synthesizer` applies to out-of-bounds findings.
+- **identity** (always-on base). Results are reported through the four lenses; Claudius's bounded reconstruction and `unexplained` marking is the same discipline `synthesizer` applies to out-of-bounds findings.
 - **Pioneer / Puppeteer.** SJC is a pioneer-phase probing method (it explores frontiers and seams); Puppeteer runs the five-component sequence during PLAY/COMPILE when an inquiry warrants a deeper index pass than a single search.

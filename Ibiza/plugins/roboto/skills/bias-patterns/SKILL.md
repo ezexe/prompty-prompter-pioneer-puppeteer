@@ -6,7 +6,7 @@ metadata:
   p4:
     type: skill
     phases: [prompter, puppeteer]
-    depends_on: [identity, prompter]
+    depends_on: [prompter]
     optional_depends_on: [vlds]
     interface:
       domains: [error_detection, prompt_hygiene, self_correction]
@@ -270,7 +270,7 @@ vlds_self_audit:
 ## Relationship to the Lifecycle and Other Skills
 
 - **Puppeteer SCAN step.** This skill _is_ the SCAN step of the puppeteer lifecycle (`RECEIVE → SCAN → BREAK → PLAY → …`). A fired-but-uncorrectable pattern is what hands control to **BREAK**, which forks the run into puppeteered parallel branches (one per reading, each a new prompter prompt) rather than halting for a human.
-- **identity** (required). The patterns are defined against the four-lens contract; the Claude↔Claudio delta is the primary detector for `context_pollution`, and `response_structure_bypass` guards the response contract itself.
+- **identity** (always-on base). The patterns are defined against the four-lens contract; the Claude↔Claudio delta is the primary detector for `context_pollution`, and `response_structure_bypass` guards the response contract itself.
 - **prompter** (required). Bias patterns are an engineering-layer concern — structured, named, reusable checks — so the skill registers them at the prompter phase.
 - **vlds** (optional). When present, corrections that turn on a factual claim hand off to the VLDS decision gate rather than asserting; `bias-patterns` catches _frame_ errors, `vlds` catches _unverified-claim_ errors. They compose; neither subsumes the other.
 - **isomorphic-operations** (optional in practice). The `capability_limit_overstatement` correction borrows its "indirectly via <operation>" reframe from that skill.

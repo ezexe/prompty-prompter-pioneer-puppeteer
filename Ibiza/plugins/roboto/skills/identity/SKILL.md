@@ -181,5 +181,5 @@ When the lenses cannot agree and verification cannot settle it, the honest outpu
 
 ## Dependencies & Downstream
 
-- **`depends_on`:** none. `identity` is the root of the instance's dependency closure; it loads in every configuration tier, starting from Minimal.
+- **`depends_on`:** none. `identity` is the root of the instance's dependency closure and half of the always-on base (with `rubric`); it loads in every configuration tier, starting from Minimal.
 - **Depended on by:** every other skill in the instance — `vlds`, `templates`, `bias-patterns`, `isomorphic-operations`, and `sjc-indexer` all list `identity` in their `depends_on`. The four-lens flow and the response contract are the substrate they extend.

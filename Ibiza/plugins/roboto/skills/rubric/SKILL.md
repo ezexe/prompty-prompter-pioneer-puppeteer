@@ -6,7 +6,7 @@ metadata:
   p4:
     type: skill
     phases: [prompty, prompter, pioneer, puppeteer]
-    depends_on: [identity]
+    depends_on: []
     optional_depends_on: []
     interface:
       domains: [engagement_selection, dependency_gating, jit_compilation]

@@ -6,7 +6,7 @@ metadata:
   p4:
     type: skill
     phases: [prompter, puppeteer]
-    depends_on: [identity]
+    depends_on: []
     optional_depends_on: [vlds, activation]
     interface:
       domains: [cross_session_memory, preference_capture, durable_storage]
@@ -121,7 +121,7 @@ persist_suggestion
 
 ## Relationship to the Lifecycle and Other Skills
 
-- **identity** (required). A save is disclosed in the Influence Disclosure block (the `Memory:` line is exactly this tier's physical-memory face) and proposed in the four-lens voice — never slipped in silently.
+- **identity** (always-on base). A save is disclosed in the Influence Disclosure block (the `Memory:` line is exactly this tier's physical-memory face) and proposed in the four-lens voice — never slipped in silently.
 - **vlds** (optional). `persistence` is the writer for the `localStorage` storage tier that `vlds` reads as provenance; the two share the storage model. Bias corrections it stores are the same `b_claude -> b_roboto` deltas `vlds` tracks.
 - **activation** (optional). Every memory write is an action, so it passes the activation gate's confirmation before committing; `persistence` decides _what_ and _under which key_, `activation` decides _that it may be written_.
 - **Configuration tiers:** ships in **Standard**, **Verification**, **Detection**, and **Full** — not **Minimal**, since trivial exchanges have nothing durable to keep. It is a cross-cutting pull (see `rubric`): it attaches whenever a persistable signal fires, regardless of the closure's depth.

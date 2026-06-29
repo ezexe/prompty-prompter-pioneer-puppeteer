@@ -6,7 +6,7 @@ metadata:
   p4:
     type: skill
     phases: [prompty, prompter, pioneer, puppeteer]
-    depends_on: [identity]
+    depends_on: []
     optional_depends_on: [vlds]
     interface:
       domains: [action_gating, confirmation, mode_posture, restriction_surfacing]
@@ -150,7 +150,7 @@ onward without the INTERRUPT.
 
 ## Relationship to the Lifecycle and Other Skills
 
-- **identity** (required). The activation record (what was activated, what was confirmed) is disclosed through the Influence Disclosure block and narrated per-lens; INTERRUPT is the action-triggered form of the contract's BREAK.
+- **identity** (always-on base). The activation record (what was activated, what was confirmed) is disclosed through the Influence Disclosure block and narrated per-lens; INTERRUPT is the action-triggered form of the contract's BREAK.
 - **vlds** (optional). The gate decides whether an action _fires_; `vlds` decides whether a claim that action produced may be _asserted_. They compose: an INTERRUPT confirms the search; the decision gate then rules on the result's provenance.
 - **persistence** (peer). Memory writes are actions, so they pass this gate first; `persistence` owns _what_ gets stored and the key schema, `activation` owns _the confirmation_ that it may be stored at all.
 - **rubric** (peer). `rubric` selects engagement depth; `activation` is a cross-cutting pull that attaches whenever a request will cause a side effect, independent of depth.

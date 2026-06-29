@@ -6,7 +6,7 @@ metadata:
   p4:
     type: skill
     phases: [pioneer, puppeteer]
-    depends_on: [identity, vlds]
+    depends_on: [vlds]
     optional_depends_on: []
     interface:
       domains: [iterative_retrieval, operation_isomorphism, capability_reframing]
@@ -202,7 +202,7 @@ The `isomorphic_operation` block omits a fixed iteration count by design — "st
 
 ## Relationship to the Lifecycle and Other Skills
 
-- **identity** (required). Results are reported in the four-lens voice; what each lens can reach is exactly what the isomorphism makes explicit.
+- **identity** (always-on base). Results are reported in the four-lens voice; what each lens can reach is exactly what the isomorphism makes explicit.
 - **vlds** (required). The loop produces claims, and claims need provenance: results are weights/sources, the decision gate decides PROCEED / VERIFY_FIRST / QUALIFY. The skill depends on `vlds` so that "indirectly via <op>" never becomes a new way to assert unverified things.
 - **bias-patterns** (peer). Supplies the indirect-route reframe that `capability_limit_overstatement` calls for.
 - **sjc-indexer** (downstream). The SJC indexer builds _on top of_ this skill — it is a specialized way to formulate high-yield QUERYs for the loop, so it depends on `isomorphic-operations`.

@@ -18,4 +18,5 @@ Register the closure — there is no separate file; a closure _is_ its members' 
 2. Add the closure name to each member skill's `metadata.p4.tiers`.
 
 Keep the closure dependency-closed — each member's `depends_on` resolves within it.
+Confirm it with the validator (from the roboto plugin root): `python scripts/p4.py validate` (or `check <closure>`) — it fails if the new closure is not dependency-closed, has a dangling ref, or re-lists the always-on base.
 The output of this stage can feed a new `prompty` gate — the loop recurses.

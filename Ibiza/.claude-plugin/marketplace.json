@@ -8,7 +8,7 @@
   },
   "plugins": [
     {
-      "name": "roboto",
+      "name": "mister",
       "source": "./plugins/roboto",
       "description": "Roboto / \"The Init Elegance\" — the four-lens reasoning instance of the P4 framework: identity, rubric, vlds, templates, bias-patterns, isomorphic-operations, sjc-indexer, activation, and persistence skills plus a roboto subagent.",
       "version": "0.0.0",

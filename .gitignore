@@ -144,3 +144,7 @@ experiment/__pycache__
 
 .claude/
 .vlds/
+
+# Python
+__pycache__/
+*.py[cod]

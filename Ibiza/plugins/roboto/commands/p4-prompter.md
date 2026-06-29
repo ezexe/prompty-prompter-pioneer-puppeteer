@@ -10,8 +10,14 @@ The **prompter** stage of the P4 runtime pipeline — resolve the closure.
 
 Closure to resolve: $closure
 
-1. Resolve the closure's members — the skills whose `metadata.p4.tiers` lists it (`skills/*/SKILL.md`); `identity` + `rubric` are always-on.
-2. Read each member's `metadata.p4.depends_on` and the gate graph in `skills/rubric` for the gate dependencies.
-3. Expand to the full transitive closure. `depends_on` is required; `optional_depends_on` enhances but is not required for closure.
+Run the resolver — it reads each skill's `metadata.p4` and computes the closure, so there is no need to resolve it by hand.
+From the roboto plugin root (`${CLAUDE_PLUGIN_ROOT}` when installed, or `Ibiza/plugins/roboto/` in the source repo), run:
 
-**Output:** the resolved skills + P4 gates, `dependencies_satisfied` (true/false), and any `missing_dependencies`.
+```sh
+python scripts/p4.py resolve $closure
+```
+
+It prints the closure's members (`identity` + `rubric` are always-on), the skills pulled by tier, the active P4 gates, and `dependencies_satisfied` with any `missing_dependencies`.
+How it resolves: members = the skills whose `metadata.p4.tiers` lists the closure; `depends_on` is two id-spaces (skill names + P4 gate ids); `optional_depends_on` enhances but is not required for closure.
+
+**Output:** the resolver's report.

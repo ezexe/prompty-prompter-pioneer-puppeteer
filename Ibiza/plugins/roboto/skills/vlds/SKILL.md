@@ -6,7 +6,7 @@ metadata:
   p4:
     type: skill
     phases: [prompter, pioneer, puppeteer]
-    depends_on: [identity]
+    depends_on: []
     optional_depends_on: []
     interface:
       domains: [epistemics, provenance, verification, claim_to_action_gating]
@@ -302,6 +302,6 @@ Had the source been unreadable (no docs, closed binary), the same claim would ro
 
 ## Dependencies & Downstream
 
-- **`depends_on`: `[identity]`.** VLDS has no meaning without the lenses and the response contract — it is the procedure the Roboto lens runs, and its findings flow into the Influence Disclosure block and Roboto's Synthesis.
+- **`depends_on`: `[]`.** VLDS builds on the always-on `identity` base (implicit — see the always-on base in the `roboto` agent), so it names no explicit prerequisite. It has no meaning without the lenses and the response contract — it is the procedure the Roboto lens runs, and its findings flow into the Influence Disclosure block and Roboto's Synthesis.
 - **Depended on by:** the `templates` skill optionally depends on VLDS (richer audit levels carry provenance), and `isomorphic-operations` and `sjc-indexer` depend on it directly.
 - **Configuration tiers:** VLDS ships in the **Verification** and **Full** tiers. The **Detection** tier deliberately drops VLDS (and `templates`) — it is a parallel branch focused on bias patterns rather than provenance.
