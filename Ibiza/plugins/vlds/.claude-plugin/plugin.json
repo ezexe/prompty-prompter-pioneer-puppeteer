@@ -1,7 +1,7 @@
 {
   "name": "vlds",
   "version": "0.0.0",
-  "description": "VLDS — a standalone epistemic decision gate distilled from the P4 framework. Before a load-bearing claim drives an action, route it through VERIFIABLE → VERIFIED → {PROCEED / VERIFY_FIRST / QUALIFY}: no unverified claim drives an action, no unverifiable claim is asserted as fact. Tracks each claim's provenance through a neural-net metaphor and classifies it by storage durability. Portable; no dependency on the Roboto instance.",
+  "description": "VLDS — a standalone, runtime epistemic layer distilled from the P4 framework: a user-controlled dashboard for a model's own epistemics. Two instruments. The gate routes a load-bearing claim through VERIFIABLE → VERIFIED → CONFIRMED / PENDING / HEDGED, so an action proceeds only on a verified claim and an unverifiable one is stated with its uncertainty attached; it tracks each claim's provenance through a neural-net model and classifies it by storage durability. The guide loop disciplines the need behind the claim — asking when it must, reusing what the user already configured, and recording both to an auditable ledger. Portable; no dependency on the Roboto instance.",
   "author": {
     "name": "ezexe"
   },

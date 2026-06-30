@@ -30,6 +30,21 @@ The first control on the dashboard is the decision gate ([`skills/gate`](skills/
 
 Status is provisional — it moves as evidence does. The gate also surfaces _reasoning_ biases (agreement, defending a prior, "it sounds right") as offsets with no weight, to be stripped.
 
+## Instrument #2: the guide loop
+
+The second control is the guide loop ([`skills/guide`](skills/guide/SKILL.md)). Where the gate disciplines a _claim_, the guide disciplines the _need_ behind it — and it is how the dashboard fills itself in.
+
+It runs one step earlier than the gate, at intake. A need is keyed by **(need-shape + claim-kind)** and looked up against the user's standing configuration:
+
+- **hit** — the user already settled this; apply the rule and proceed without asking.
+- **miss** — surface it _once_: ask if the intent is ambiguous, teach if a concept is missing, or offer to persist a preference.
+
+Two stores make it accountable. The **index** holds the decided rules; the **ledger** records _everything the loop did_ — every ask, and every silent reuse together with the categorization that justified it. Because a silent reuse is an inference about sameness, and an inference can be wrong, logging it is what makes a wrong match recoverable. The user shapes the dashboard from the ledger after the fact — **promoting** a logged moment into a rule, or **correcting** a mis-matched key.
+
+It is densest at intake and fades as the configuration fills: early, most needs miss and the loop asks often; as rules accumulate, misses become hits and the asking quiets on its own.
+
+> The gate hands the user the lever on a claim; the guide hands them the lever on how their needs are handled — and keeps the receipts.
+
 ## What it's an instance of
 
 The design isn't novel for novelty's sake — it's established engineering applied to knowledge:
@@ -38,6 +53,7 @@ The design isn't novel for novelty's sake — it's established engineering appli
 - **Null Object** — `HEDGED` is the explicit, safely-handled "unknown," not a crash or a silent gap.
 - **Event Sourcing** — the provenance trail records _how_ a claim came to be known (epistemology), not just the conclusion (ontology).
 - **Validation pipeline** — `CONFIRMED`-before-act is "validate before you run it."
+- **Single-point assessment** (criteria and descriptors, no grading scale) — the guide loop's index is the target column, its ledger the open margin for what each reuse actually did; the gate supplies the rating scale (`CONFIRMED / PENDING / HEDGED`) the single-point form omits — so the two instruments hold the two halves of one assessment method.
 
 ## The honest limit
 
@@ -45,11 +61,10 @@ A standing check **raises the floor** — it does not deliver certainty. Self-ra
 
 ## Roadmap
 
-The gate is instrument #1. Two more complete the dashboard:
+The gate (#1) and the guide loop (#2) are built. One more completes the dashboard:
 
-- **#2 — the guide loop.** Once a claim is _known_, a second question follows: does it serve the user's ask right now, or is it a moment to **teach** (onboard) or **configure** ("want me to remember/enforce this?"). Progressive, like first-run tooltips — heavy at first, fading as the user configures; and bidirectional — the model guides, the user configures. This is how a user is onboarded into operating the dashboard, and how it gets filled in: surface a candidate → user confirms → persisted prompt → refined behavior. ("What the user wants right now" is itself a claim — usually `PENDING`, so the honest move is to _ask_; the guide loop runs the gate on intent.)
 - **#3 — the independent checker.** The certainty a lone instrument can't deliver needs an outside eye. Its architecture is the **Blackboard Pattern**: several independent knowledge sources posting to a shared board and converging on a picture no single one holds — the second perspective the gate structurally cannot be.
 
 ---
 
-_Install:_ `/plugin marketplace add ./Ibiza` then `/plugin install vlds@p4-marketplace`. The gate triggers on its own when a load-bearing claim is in play, or invoke it directly with `/vlds:gate <claim>`.
+_Install:_ `/plugin marketplace add ./Ibiza` then `/plugin install vlds@p4-marketplace`. The instruments trigger on their own — the gate when a load-bearing claim is in play, the guide at intake — or invoke them directly: `/vlds:gate <claim>`, `/vlds:guide <need>`.
