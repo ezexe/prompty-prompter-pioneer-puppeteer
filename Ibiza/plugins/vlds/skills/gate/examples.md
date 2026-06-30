@@ -2,7 +2,7 @@
 
 Worked traces of the procedure in [SKILL.md](SKILL.md), end to end; see [reference.md](reference.md) for the vocabulary used below (weights / biases / activations, storage tiers).
 
-## Example: VERIFY_FIRST — a checkable claim that hasn't been checked
+## Example: PENDING — a checkable claim that hasn't been checked
 
 ```text
 Claim under test: "The library's `parse()` returns null on malformed input."
@@ -15,13 +15,13 @@ VLDS analysis
   Verifiable?  yes — the source/docs could be read
   Verified?   no  — they have not been read this turn
 
-Decision gate → VERIFY_FIRST  (state: LOCKED)
-  Action "tell the user to rely on null checks" is locked until the behavior is verified against an authoritative source (a DataStore-tier read of the docs/source).
+Decision gate → PENDING
+  Action "tell the user to rely on null checks" stays PENDING until the behavior is verified against an authoritative source (a DataStore-tier read of the docs/source).
 ```
 
-Had the source been unreadable (no docs, closed binary), the same claim would route to **QUALIFY (QUALIFIED)**: you would state "this _appears_ to return null on malformed input, but that could not be verified," rather than asserting it.
+Had the source been unreadable (no docs, closed binary), the same claim would route to **HEDGED**: you would state "this _appears_ to return null on malformed input, but that could not be verified," rather than asserting it.
 
-## Example: QUALIFY — a claim that cannot be checked
+## Example: HEDGED — a claim that cannot be checked
 
 ```text
 Claim under test: "This architecture follows best practices."
@@ -34,28 +34,28 @@ VLDS analysis
   Verifiable?  no — "best practice" is a subjective judgment, not a fact
   Uncertainty class: unknowable (no tool resolves it)
 
-Decision gate → QUALIFY  (state: QUALIFIED)
+Decision gate → HEDGED
   Stated with its uncertainty attached, as a qualified claim: "Based on common patterns, this architecture appears to follow several widely used conventions — though 'best practice' is a judgment call, not something I can verify."
 ```
 
-A QUALIFIED claim is kept and surfaced with the hedge intact. The gate's job here is to keep a subjective judgment labeled as a judgment rather than let it harden into a flat assertion.
+A HEDGED claim is kept and surfaced with its uncertainty intact. The gate's job here is to keep a subjective judgment labeled as a judgment rather than let it harden into a flat assertion.
 
 ## Example: Mixed provenance — gate each claim independently
 
-A real answer rarely rests on one claim. The gate runs **per claim**, so a single response can assert, hedge, and lock at the same time. One answer recommending TypeScript:
+A real answer rarely rests on one claim. The gate runs **per claim**, so a single response can assert, hold, and hedge at the same time. One answer recommending TypeScript:
 
 ```text
 Claim 1: "TypeScript provides type safety."
   source_type: retrieval (read from the docs this turn) · verifiable + verified
-  → PROCEED (FULL)        — assert it plainly
+  → CONFIRMED — assert it plainly
 
 Claim 2: "TypeScript improves developer experience."
   source_type: inference · verifiable? no (subjective)
-  → QUALIFY (QUALIFIED)   — state as opinion: "many developers find that…"
+  → HEDGED    — state as opinion: "many developers find that…"
 
 Claim 3: "TypeScript is the industry standard."
   source_type: training · verifiable but not verified this turn
-  → VERIFY_FIRST (LOCKED) — check adoption data before including it
+  → PENDING   — check adoption data before including it
 ```
 
 Assemble the response from the survivors — assert claim 1, hedge claim 2, and either verify or drop claim 3.

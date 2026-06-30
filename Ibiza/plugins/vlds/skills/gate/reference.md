@@ -2,7 +2,7 @@
 
 The conceptual model behind the gate defined in [SKILL.md](SKILL.md). Load this when you need to _decompose_ a claim into its provenance parts, weigh its storage tier, or record the draft→verified delta. The gate in `SKILL.md` is self-sufficient for routing a claim; this file explains the vocabulary it uses.
 
-## The Neural-Net Provenance Metaphor
+## The Neural-Net Provenance Model
 
 A claim is treated like a neuron's output: it is the result of inputs combined under assumptions and transformed by operations.
 VLDS names the parts so each can be inspected.
@@ -12,12 +12,12 @@ VLDS names the parts so each can be inspected.
 | **Weights**              | sources / context feeding the claim | what evidence is actually carrying the conclusion  |
 | **Biases**               | assumptions baked in                | what is being taken for granted, unstated          |
 | **Activation functions** | tools / instructions applied        | what operation or directive transformed the inputs |
-| **Epistemic state**      | provenance of the result            | where it came from and whether that is trustworthy |
+| **Epistemic status**     | the standing the inputs add up to   | where it came from and whether that is trustworthy |
 
 - **Weights = sources / context.** The actual evidence pulling the answer in a direction: the user's message, retrieved documents, memory, prior turns. A claim with no weights behind it is a guess wearing a confident voice.
-- **Biases = assumptions.** The offsets applied regardless of input — the things assumed true without being stated. Naming a bias is the act of flagging an assumption that has no weight behind it. One such bias hides in the interaction itself — agreement mistaken for judgment. Agreement is not evidence: surface it as `b_drafted`, and keep only what a source or reason actually backs (`b_verified`).
+- **Biases = assumptions.** The offsets applied regardless of input — the things assumed true without being stated. Naming a bias is the act of flagging an assumption that has no weight behind it. Some hide in the reasoning itself — agreement mistaken for judgment, a prior position defended for its own sake, a choice kept because it "sounds right" or reads tidy. None of these is evidence: surface each as `b_drafted`, and keep only what a source or sound reason actually backs (`b_verified`).
 - **Activation functions = tools / instructions.** The transformations applied to the inputs: a tool call, a system instruction, a formatting rule. These shape the output and must be disclosed because they can change a conclusion as much as the evidence does.
-- **Epistemic state = provenance.** The summary: given the weights, biases, and activations, where does this claim _actually_ stand? This is the value the decision gate reads.
+- **Epistemic status.** Given the weights, biases, and activations, where does this claim _actually_ stand? This is what the gate determines: `CONFIRMED`, `PENDING`, or `HEDGED`.
 
 ## Storage Tiers (Provenance Durability)
 
@@ -32,12 +32,12 @@ The tiers borrow web-storage names as metaphors, from most ephemeral to most aut
 | **sessionStorage** | scratch state for the current task      | working memory for the task; gone when the task ends  | current conversation state                  |
 
 VLDS records the tier so the decision gate — and the reader — can weigh the claim correctly.
-The tier lives inside a claim's epistemic state, as one of its fields.
+The tier is part of a claim's provenance — one input the gate weighs.
 The most ephemeral tier (**Virtual**) carries the weakest provenance, while the persisted and authoritative tiers (**localStorage**, **DataStore**) are where a claim finds durable backing.
 
 ## The Draft/Verified Delta Schema
 
-The neural-net metaphor is recorded as a delta between what the _draft_ answer reached for and what _survived verification_.
+The neural-net model is recorded as a delta between what the _draft_ answer reached for and what _survived verification_.
 Each field carries both sides plus the delta — the disclosable difference.
 
 ```yaml
@@ -57,9 +57,9 @@ activation_functions:
 
 **How to read this:** `w_drafted` / `b_drafted` are the draft's instincts; `w_verified` / `b_verified` are what remains after verification; `delta` is the auditable difference, and `activation_functions.fired` lists the operations that transformed the inputs.
 
-## The Epistemological Limit
+## The Epistemic Limit
 
-An LLM has no introspective access to:
+Epistemic humility starts from a fact about the tool — an LLM has no introspective access to:
 
 - its weights (the parameters that encode "knowledge")
 - which training examples produced a given output
