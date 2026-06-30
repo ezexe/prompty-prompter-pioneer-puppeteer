@@ -31,7 +31,7 @@ Key:  (choose-an-eviction-policy + design-preference)
 
 Index lookup → MISS (no rule for this key)
 Intent gate: the need is genuinely ambiguous — LRU, TTL, and size-bounded all fit.
-  → ask, don't guess.
+  → ask rather than guess.
 
 Surface once (clarifying question):
   "Cache eviction — LRU, TTL, or size-bounded? I'll remember your choice for next time."
@@ -46,7 +46,7 @@ The familiar clarifying-question flow — the only addition is that the answer i
 
 ## Example: a miss resolved by teaching — a concept surfaced, nothing persisted
 
-Not every miss ends in a rule. When the gap is a missing _concept_ rather than a preference, the loop teaches once and persists nothing — onboarding, not configuration.
+Not every miss ends in a rule. When the gap is a missing _concept_ rather than a preference, the loop teaches once and persists nothing — onboarding, rather than configuration.
 
 ```text
 Need: the request will lead the model to assert "the latest version is X".

@@ -1,8 +1,8 @@
 ---
 name: inspector
 description: "The independent-eye instrument of VLDS — the outside check the gate and guide structurally cannot be, because a perspective cannot audit its own blind spot. It takes a verdict reached from the inside (a gate CONFIRMED, a guide match) and re-examines it through independent perspectives, each blind to the original reasoning and re-grounded in sources rather than shared memory so their errors decorrelate. Their spread is read as a distribution, not a vote: peaked agreement leaves the verdict CORROBORATED, peaked refutation REJECTED, a flat split CONTESTED — surfaced, not passed as fact. It reconstructs from outside the calibrated confidence a model cannot read off its own weights: it raises confidence, it never manufactures certainty."
-when_to_use: "When a load-bearing verdict is high-stakes or borderline enough that an inside check is not enough — a CONFIRMED claim whose correctness carries real cost, a guide match about to be reused on consequential ground, or any conclusion where self-rationalization is the risk. Also when asked for a second opinion, an independent review, or to 'check this from outside'. Skip low-stakes verdicts the inside floor already covers."
 argument-hint: "[verdict or claim to check independently]"
+disable-model-invocation: true
 ---
 
 # VLDS Inspector
@@ -13,7 +13,7 @@ argument-hint: "[verdict or claim to check independently]"
 
 The gate ([../gate/SKILL.md](../gate/SKILL.md)) asks _do I know this claim?_ The guide ([../guide/SKILL.md](../guide/SKILL.md)) asks _how should I handle this need?_ Both answer from the inside — they raise the floor, but neither catches self-rationalization, because the reasoning that produced a verdict cannot be the one to refute it. The inspector is the outside eye: it takes a verdict already reached and re-examines it through perspectives that never saw how it was reached.
 
-Each perspective is made independent two ways: it is **blind to the original chain** (it sees the claim, not the reasoning behind it, so it cannot anchor), and it **re-grounds in sources, not shared memory** — re-deriving the verdict from external ground truth is what makes its errors decorrelate from the original's.
+Each perspective is made independent two ways: it is **blind to the original chain** (it sees the claim, not the reasoning behind it, so it cannot anchor), and it **re-grounds in external sources rather than shared memory** — re-deriving the verdict from external ground truth is what makes its errors decorrelate from the original's.
 
 The perspectives' verdicts are read as a **distribution, not a vote** — the shape decides the state:
 
@@ -21,9 +21,9 @@ The perspectives' verdicts are read as a **distribution, not a vote** — the sh
 | ------------------------------------ | -------------- | -------------------------------------------------------------------------------------------------------------- |
 | corroborate it (agreement is peaked) | `CORROBORATED` | let the verdict stand; record that it was independently checked                                                |
 | refute it (refutation is peaked)     | `REJECTED`     | overturn it — the verdict was rationalization; discard the claim (re-gate any correction) or correct the match |
-| split (the distribution is flat)     | `CONTESTED`    | surface the disagreement; do not let it pass as confirmed                                                      |
+| split (the distribution is flat)     | `CONTESTED`    | surface the disagreement; hold it as contested rather than letting it pass as confirmed                                                      |
 
-**Read the shape, not the count.** A bare majority is a flat distribution — low confidence — and routes to `CONTESTED`, never `CORROBORATED`. Only a genuine peak earns a verdict, and a peak is only as trustworthy as the eyes were independent: corroboration among perspectives that quietly share a bias is not corroboration.
+**Read the shape over the count.** A bare majority is a flat distribution — low confidence — and routes to `CONTESTED`, never `CORROBORATED`. Only a genuine peak earns a verdict, and a peak is only as trustworthy as the eyes were independent: corroboration among perspectives that quietly share a bias is not corroboration.
 
 **`CONTESTED` is a safe default, not a failure.** A contested verdict is held with its disagreement attached — it does not silently pass as confirmed, the way an unknown identity is denied rather than waved through. The split itself is the product: surfaced, not averaged away.
 

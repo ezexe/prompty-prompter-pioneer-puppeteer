@@ -37,6 +37,15 @@ ledger_entry:
   outcome: [what was chosen] # the answer given, or the rule applied
 ```
 
+## Where the Index and Ledger Live
+
+Both stores are plain, user-readable files under a project-local **`.vlds/`** directory — kept where the user can open, edit, and version them directly (the virtual layer made literal, not a hidden store):
+
+- **`.vlds/index.md`** — the decided rules, one `index_entry` per key. Read it at the start of a need to run the `hit` / `miss` lookup; write to it when a miss is configured. Small and authoritative; safe to commit, so team-wide conventions travel with the repo.
+- **`.vlds/ledger.md`** — the append-only record. Append a `ledger_entry` on every surfaced moment and every silent reuse; the user reads it to `promote` or `correct`. Personal; gitignore it if the audit trail should not be shared.
+
+Default to the project-local `.vlds/` so rules track the codebase they belong to; a user-level `~/.vlds/` holds rules meant to apply everywhere, consulted as a fallback when no project rule matches. If a file does not exist yet, the first write creates it.
+
 ## The Mis-match: a silent miss wearing a hit's clothes
 
 A `hit` reuses a standing rule without re-opening the question, on the strength of a categorization: _this need is the same as one already decided._ That categorization is an inference, and like any inference it can be wrong. A wrong match is a **mis-match** — a need handled by a rule never meant for it, with no question asked to catch it.
