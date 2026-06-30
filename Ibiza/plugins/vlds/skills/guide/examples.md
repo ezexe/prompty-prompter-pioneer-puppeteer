@@ -55,9 +55,7 @@ Key:  (assert-a-version-fact + version-claim)
 Index lookup → MISS — and the gap is a missing concept, not a preference to set.
 
 Surface once (teach):
-  "Heads up — I treat 'the latest version is X' as a checkable claim, so I'll verify it
-   before stating it rather than asserting from memory. Nothing to set; tell me to act
-   natural on version facts if you'd rather I move faster."
+  "Heads up — I treat 'the latest version is X' as a checkable claim, so I'll verify it before stating it rather than asserting from memory. Nothing to set; tell me to act natural on version facts if you'd rather I move faster."
 
 Record:
   index  ← (unchanged — teaching persists no rule)
@@ -102,14 +100,11 @@ The match was an inference — "overwrite = destructive" — that the user did n
 ## Example: configure-on-reflection — promoting a logged moment
 
 ```text
-Across a session the loop three times wrote lowercase error messages without
-being asked, matching a style it had inferred (a silent reuse each time, all logged).
+Across a session the loop three times wrote lowercase error messages without being asked, matching a style it had inferred (a silent reuse each time, all logged).
 
 Reviewing the ledger, the user promotes it:
   ledger (event: reused, ×3)
-    → index { key: (style-error-messages + formatting-preference),
-              decision: rule,
-              directive: "error messages lowercase, no trailing period" }
+    → index { key: (style-error-messages + formatting-preference), decision: rule, directive: "error messages lowercase, no trailing period" }
 ```
 
 A preference the loop had been inferring is lifted into an explicit rule — the dashboard filled from the audit trail, after the fact, with no in-the-moment configuration.
