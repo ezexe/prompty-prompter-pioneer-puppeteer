@@ -1,6 +1,6 @@
 # VLDS — Worked Examples
 
-Claims walked through the gate end to end. Load this for concrete traces of the procedure in [SKILL.md](SKILL.md); see [reference.md](reference.md) for the vocabulary used below (weights / biases / activations, storage tiers).
+Worked traces of the procedure in [SKILL.md](SKILL.md), end to end; see [reference.md](reference.md) for the vocabulary used below (weights / biases / activations, storage tiers).
 
 ## Example: VERIFY_FIRST — a checkable claim that hasn't been checked
 
@@ -15,8 +15,8 @@ VLDS analysis
   Verifiable?  yes — the source/docs could be read
   Verified?   no  — they have not been read this turn
 
-Decision gate → VERIFY_FIRST  (state: BLOCKED)
-  Action "tell the user to rely on null checks" is blocked until the behavior is verified against an authoritative source (a DataStore-tier read of the docs/source).
+Decision gate → VERIFY_FIRST  (state: LOCKED)
+  Action "tell the user to rely on null checks" is locked until the behavior is verified against an authoritative source (a DataStore-tier read of the docs/source).
 ```
 
 Had the source been unreadable (no docs, closed binary), the same claim would route to **QUALIFY (QUALIFIED)**: you would state "this _appears_ to return null on malformed input, but that could not be verified," rather than asserting it.
@@ -35,17 +35,14 @@ VLDS analysis
   Uncertainty class: unknowable (no tool resolves it)
 
 Decision gate → QUALIFY  (state: QUALIFIED)
-  Stated with its uncertainty attached, never as fact:
-  "Based on common patterns, this architecture appears to follow several
-   widely-used conventions — though 'best practice' is a judgment call, not
-   something I can verify."
+  Stated with its uncertainty attached, as a qualified claim: "Based on common patterns, this architecture appears to follow several widely used conventions — though 'best practice' is a judgment call, not something I can verify."
 ```
 
-A QUALIFIED claim is not thrown away — it is surfaced with the hedge intact. The mistake the gate prevents is laundering a subjective judgment into a flat assertion.
+A QUALIFIED claim is kept and surfaced with the hedge intact. The gate's job here is to keep a subjective judgment labeled as a judgment rather than let it harden into a flat assertion.
 
 ## Example: Mixed provenance — gate each claim independently
 
-A real answer rarely rests on one claim. The gate runs **per claim**, so a single response can assert, hedge, and block at the same time. One answer recommending TypeScript:
+A real answer rarely rests on one claim. The gate runs **per claim**, so a single response can assert, hedge, and lock at the same time. One answer recommending TypeScript:
 
 ```text
 Claim 1: "TypeScript provides type safety."
@@ -58,7 +55,23 @@ Claim 2: "TypeScript improves developer experience."
 
 Claim 3: "TypeScript is the industry standard."
   source_type: training · verifiable but not verified this turn
-  → VERIFY_FIRST (BLOCKED) — check adoption data before including it
+  → VERIFY_FIRST (LOCKED) — check adoption data before including it
 ```
 
-The verdicts are per-claim, not per-answer — there is no fourth "partial" verdict. You assemble the response from the survivors: assert claim 1, hedge claim 2, and either verify or drop claim 3.
+Assemble the response from the survivors — assert claim 1, hedge claim 2, and either verify or drop claim 3.
+
+## Example: a mirroring bias — caught before it ships
+
+Not every check is about a fact; a _choice_ can carry a bias with no weight behind it. Here the provenance model runs on a wording decision:
+
+```text
+Choice under test: phrase the trigger verb as "Pull it out" — because the user used that wording.
+
+VLDS analysis
+  b_drafted:  "the user said 'pull it out', so it's the right wording" (a bias)
+  Weights:    none — no source or reason the phrasing reads better
+  b_verified: [dropped] — agreement is not evidence
+  delta:      assumption_removed: mirrored_phrasing
+```
+
+The bias surfaced as `b_drafted` and was dropped — the wording then chosen on its merits.

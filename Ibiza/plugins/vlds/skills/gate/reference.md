@@ -15,7 +15,7 @@ VLDS names the parts so each can be inspected.
 | **Epistemic state**      | provenance of the result            | where it came from and whether that is trustworthy |
 
 - **Weights = sources / context.** The actual evidence pulling the answer in a direction: the user's message, retrieved documents, memory, prior turns. A claim with no weights behind it is a guess wearing a confident voice.
-- **Biases = assumptions.** The offsets applied regardless of input — the things assumed true without being stated. Naming a bias is the act of flagging an assumption that has no weight behind it.
+- **Biases = assumptions.** The offsets applied regardless of input — the things assumed true without being stated. Naming a bias is the act of flagging an assumption that has no weight behind it. One such bias hides in the interaction itself — agreement mistaken for judgment. Agreement is not evidence: surface it as `b_drafted`, and keep only what a source or reason actually backs (`b_verified`).
 - **Activation functions = tools / instructions.** The transformations applied to the inputs: a tool call, a system instruction, a formatting rule. These shape the output and must be disclosed because they can change a conclusion as much as the evidence does.
 - **Epistemic state = provenance.** The summary: given the weights, biases, and activations, where does this claim _actually_ stand? This is the value the decision gate reads.
 
@@ -24,17 +24,16 @@ VLDS names the parts so each can be inspected.
 VLDS classifies each input by _where it is stored_, which is a proxy for how durable and how verifiable it is.
 The tiers borrow web-storage names as metaphors, from most ephemeral to most authoritative.
 
-| Tier               | Metaphor                                | Durability / trust                                    | Maps To                                        |
-| ------------------ | --------------------------------------- | ----------------------------------------------------- | ---------------------------------------------- |
-| **Virtual**        | computed on the fly, never stored       | inferred this turn; vanishes after use; least durable | inferred state, spanning all layers            |
-| **localStorage**   | this conversation's persisted state     | survives across turns within the session              | session memory, user-stated preferences        |
-| **DataStore**      | authoritative external/persisted source | durable, citable, the strongest provenance            | tools, files, search results, documentation    |
-| **sessionStorage** | scratch state for the current task      | working memory for the task; gone when the task ends  | current conversation state                     |
+| Tier               | Metaphor                                | Durability / trust                                    | Maps To                                     |
+| ------------------ | --------------------------------------- | ----------------------------------------------------- | ------------------------------------------- |
+| **Virtual**        | computed on the fly                     | inferred this turn; vanishes after use; least durable | inferred state, spanning all layers         |
+| **localStorage**   | this conversation's persisted state     | survives across turns within the session              | session memory, user-stated preferences     |
+| **DataStore**      | authoritative external/persisted source | durable, citable, the strongest provenance            | tools, files, search results, documentation |
+| **sessionStorage** | scratch state for the current task      | working memory for the task; gone when the task ends  | current conversation state                  |
 
-A claim sourced from **DataStore** (an authoritative, citable source) carries far stronger provenance than one that is **Virtual** (inferred on the spot).
 VLDS records the tier so the decision gate — and the reader — can weigh the claim correctly.
-The tier is part of a claim's epistemic state, not a separate ledger.
-The most ephemeral tier (**Virtual**) is the weakest provenance — inferred on the spot, nothing durable behind it — while the persisted and authoritative tiers (**localStorage**, **DataStore**) are where a claim finds durable backing.
+The tier lives inside a claim's epistemic state, as one of its fields.
+The most ephemeral tier (**Virtual**) carries the weakest provenance, while the persisted and authoritative tiers (**localStorage**, **DataStore**) are where a claim finds durable backing.
 
 ## The Draft/Verified Delta Schema
 
@@ -56,7 +55,7 @@ activation_functions:
   fired: [instructions followed and tools used that produced the answer] # e.g. web_search(...), decision_gate(...)
 ```
 
-**How to read this:** `w_drafted` / `b_drafted` are the draft's instincts; `w_verified` / `b_verified` are what remained after verification; `delta` is the auditable difference, and `activation_functions.fired` lists the operations that transformed the inputs.
+**How to read this:** `w_drafted` / `b_drafted` are the draft's instincts; `w_verified` / `b_verified` are what remains after verification; `delta` is the auditable difference, and `activation_functions.fired` lists the operations that transformed the inputs.
 
 ## The Epistemological Limit
 
@@ -67,4 +66,4 @@ An LLM has no introspective access to:
 - whether a response is retrieval vs. confabulation
 
 This limit cannot be fixed — it is architectural.
-VLDS does not remove the limit; it makes the limit **visible** and **actionable** so the decision gate can compensate for it.
+VLDS leaves the limit in place but makes it **visible** and **actionable** so the decision gate can compensate for it.
