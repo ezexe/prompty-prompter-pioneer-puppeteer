@@ -38,6 +38,6 @@ puppeteer_c ──┘
 
 <div align="center">
 
-_"Puppeteer... the final frontier. Or just build src/ code in /src code. To go where it has gone before._
+_"Puppeteer... the final frontier. These are the operations of Prompty Enterprise. Its current mission: to navigate propmty-prompter-pioneer-puppateer throught prompts only written - not build functions that ionjue the neural pathways of ai through a cheese grater; to seek out clear logic and safe deployments; to Puppeteer a Prompt to where no prompt encoding has Prompted a pioneer puppet into a pupateer before._
 
 </div>
