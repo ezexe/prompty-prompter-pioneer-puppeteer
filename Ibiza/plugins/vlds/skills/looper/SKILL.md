@@ -21,7 +21,7 @@ The order is the loop the dashboard is built on — **does the need have a confi
 
 ## Log Every Decision
 
-As it runs, the looper appends each instrument's decision to its own shared, user-editable **`.vlds/logger.md`** — the dashboard's single activity log, tagged by instrument and stamped with the local wall-clock time read from the system at write time (schema in [reference.md](reference.md)). This is the looper's store. The guide keeps its own `.vlds/index.md` (rules) and `.vlds/ledger.md` (its config audit), both unique to it; the logger is the looper's record of the whole flow as it conducts it.
+As it runs, the looper appends each instrument's decision to its own shared, user-editable **`.vlds/logger.md`** — the dashboard's single activity log. This is the looper's store. The guide keeps its own `.vlds/index.md` (rules) and `.vlds/ledger.md` (its config audit), both unique to it; the logger is the looper's record of the whole flow as it conducts it.
 
 ## How to Apply
 

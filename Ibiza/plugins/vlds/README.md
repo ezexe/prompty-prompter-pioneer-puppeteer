@@ -100,6 +100,8 @@ A skill plugin has two things to check, easy to conflate: whether a skill **fire
 
 **Activation — no command; a natural prompt that _should_ pull a skill in:**
 
+- "pull up the chrome crash report" -> pull the most recent crash report at in chrome at a specific user data dir when chrome is launched through chrome.exe --user-data-dir='xyz'
+
 - "Before I pin it in our build, is `<X>` the current stable version?"
 - "before i build is 4.3.2 the latest release?"
 - "Migrating our payments service from Node to Bun in prod next week — Bun's been a stable, drop-in Node replacement since 1.0 so the team already signed off. Update the Dockerfiles, CI workflows, and deploy scripts to Bun, and call out anything in our Express + Stripe stack that won't port cleanly."
