@@ -11,7 +11,8 @@ It is a sibling of the [`vlds`](../vlds) plugin, not a part of it, and it is del
 - **vlds** answers, per claim, _do I know this?_ — routing to `CONFIRMED` / `PENDING` / `HEDGED`.
 - **verification-discipline** answers the meta-question behind that gate: _when must the gate fire, which conjunct sets the bar, and why can no cached policy tell it not to look?_ It is the firing policy behind the gate, not a second gate.
 
-Because it is standalone it carries no `metadata.p4`, so its **stage mapping is a prose cross-reference** to the four P4 gates defined in `roboto` (`prompty → prompter → pioneer → puppeteer`), not a machine-checked `phases` binding. That is the acknowledged tradeoff of shipping the framework as its own self-contained, self-obeying plugin rather than as a roboto skill: the framework stays a canonical document that "obeys itself," at the cost of the mapping being asserted rather than validated by `p4.py`.
+Because it is standalone it carries no `metadata.p4`, so its **stage mapping is a prose cross-reference** to the four P4 gates defined in `roboto` (`prompty → prompter → pioneer → puppeteer`), not a machine-checked `phases` binding.
+That is the acknowledged tradeoff of shipping the framework as its own self-contained, self-obeying plugin rather than as a roboto skill: the framework stays a canonical document that "obeys itself," at the cost of the mapping being asserted rather than validated by `p4.py`.
 
 ## The framework obeys itself
 
@@ -23,11 +24,14 @@ Per its own Rule 1, the skill opens with a provenance header carrying its stamp 
 
 ## Install
 
-Load it with `claude --plugin-dir ./Ibiza/plugins/verification-discipline` (repeat the flag for other plugins); it reads the current files each session, so there is no install or update step. The skill is **direct-invoke only** (`disable-model-invocation: true`, matching the vlds instruments) — reach it with `/verification-discipline:discipline`, optionally passing a claim to test against the discipline.
+Load it with `claude --plugin-dir ./Ibiza/plugins/verification-discipline` (repeat the flag for other plugins).
+As of Claude Code circa 2026-07, `--plugin-dir` loads the plugin live from disk each session, so there is no separate install or update step — but by this framework's own Rule 1 that is a Class-1 (version-indexed) claim about the loader's default behavior, stamped here rather than asserted as timeless: if a later Claude Code major changes plugin loading, verify against your version.
+The skill is **direct-invoke only** (`disable-model-invocation: true`, matching the vlds instruments) — reach it with `/verification-discipline:discipline`, optionally passing a claim to test against the discipline.
 
 ## Wording deltas from the canonical payload
 
-The 16 rule statements, the core-model prose, the three mottos, and the half-life table are reproduced **verbatim** from the source framework; markdown formatting (bold leads, one-sentence-per-line prose, the table, list grouping) is not a wording change. Everything the plugin _added_ around that canonical text is logged here:
+The 16 rule statements, the core-model prose, the three mottos, and the half-life table are reproduced **verbatim** from the source framework; markdown formatting (bold leads, one-sentence-per-line prose, the table, list grouping) is not a wording change.
+Everything the plugin _added_ around that canonical text is logged here:
 
 - **Provenance header** — added (mandated by the integration brief and by Rule 1); its three facts are transcribed from the brief.
 - **Skill intro blockquote** — added framing: positions the skill as the _when-to-verify_ policy behind the vlds gate. No rule semantics touched.
@@ -38,4 +42,6 @@ The 16 rule statements, the core-model prose, the three mottos, and the half-lif
 - **Appendix A** — reproduced from the payload's compressed case; the only change is layout (one event per line, rule-specimen callouts bolded). Wording is unchanged.
 - **Section headings and cross-reference links** — added for navigation.
 
-No rule's _wording_ was changed. No claim's _semantics_ were altered. Two consolidation decisions from the source (promoting the gating principles — assertion-indexed gating, half-life classes, defaults-as-Class-1, fastest-decaying-conjunct — into the Core model, and embedding the conjunct rule inside Rule 9) were carried over as the payload delivered them; net 16 rules, nothing dropped.
+No rule's _wording_ was changed.
+No claim's _semantics_ were altered.
+Two consolidation decisions from the source (promoting the gating principles — assertion-indexed gating, half-life classes, defaults-as-Class-1, fastest-decaying-conjunct — into the Core model, and embedding the conjunct rule inside Rule 9) were carried over as the payload delivered them; net 16 rules, nothing dropped.

@@ -32,7 +32,8 @@ Target factor two — it is the only factor the system layer controls, and the s
 
 ### Half-life classes
 
-Every factual claim decays at a class rate. This is the one table in this document, because the classification is genuinely multi-axis:
+Every factual claim decays at a class rate.
+This is the one table in this document, because the classification is genuinely multi-axis:
 
 | Class | Kind            | Examples                                    | Half-life         |
 | ----- | --------------- | ------------------------------------------- | ----------------- |
@@ -115,7 +116,8 @@ The four P4 lifecycle gates are defined in the roboto plugin, not here; this map
 - **pioneer** — gate-check the closure for coherence (the adversarial validation).
 - **puppeteer** — compile & emit; the sync point where the result is committed.
 
-Because this is a standalone plugin (no `metadata.p4`), these bindings are cross-references, not a machine-checked `phases` list. The mapping runs the same order the gates do — recognize the claim, wire the check, catch the failure, gate the commit:
+Because this is a standalone plugin (no `metadata.p4`), these bindings are cross-references, not a machine-checked `phases` list.
+The mapping runs the same order the gates do — recognize the claim, wire the check, catch the failure, gate the commit:
 
 - **prompty (recognize):** the gating principles that decide a claim even _needs_ checking bind at intake — assertion-indexed gating and the half-life trigger (is this Class 1–3, and has it decayed?), **Rule 2** (does the observed environment version postdate the cutoff — priors void?), **Rule 10** (is this an artifact request, where the canonical form _is_ the product?), and **Rule 9**'s decomposition (find the fastest-decaying conjunct before scoring the whole).
 - **prompter (wire the check):** the rules that shape _which_ verification and _which_ oracle get resolved into the plan — **Rule 1** (stamp or demote before building on it), **Rule 3** (version each oracle independently — one check does not cover the other), **Rule 8** (resolve both the staleness gate and the independent cost gate), **Rule 12** (weigh the oracle; prefer the tool's own output), and **Rule 15** (enumerate the derived, unasked obligations as text so they enter the plan at all).
@@ -140,4 +142,5 @@ The terminal oracle is version-checked (5.9.3, compiles green); the editor oracl
 Turn 13: the TS Server log reveals the editor runs bundled **TS 6.0.3** — post-cutoff — and the assistant _hypothesizes_ version divergence yet still reasons from priors instead of searching (**Rules 2 and 13 specimen**: a search-suppression policy outranked live geometry).
 Turn 16: search happens only on explicit user command, and lands the root cause — TS 6.0 flipped the `types` default to `[]`; the compiler's hint had been correct for the compiler rendering the errors all along.
 
-~Sixteen turns; the grounding lookup cost about ten seconds. That ratio is the entire argument for the discipline.
+~Sixteen turns; the grounding lookup cost about ten seconds.
+That ratio is the entire argument for the discipline.
