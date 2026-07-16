@@ -23,11 +23,12 @@ Like its sibling it is standalone (no `metadata.p4`), so its **stage mapping is 
 Verification-discipline is doctrine consulted at research time; emission-discipline's rules are trigger-phrased to fire _mid-generation_, so the gate must be resident while code is being produced.
 As of Claude Code circa 2026-07 (Class-1 claims by verification-discipline's Rule 1 — verify against your version): skill residency is per-runtime, and skill triggering keys on task formality — which this framework's own Rule 12 forbids as a gate input, so a skill cannot be the primary vehicle for its own payload.
 **Always-resident text is primary; skills are secondary everywhere.**
+For Claude Code the plugin delivers the primary itself: a `SessionStart` hook ([`hooks/hooks.json`](hooks/hooks.json)) injects [`hooks/emission-gate.md`](hooks/emission-gate.md) — the one-sentence forms plus the trigger table — into context at the start of every session, so a user-level install is resident in every repo on the machine with nothing pasted anywhere (stdout injection per Claude Code circa 2026-07; verify against your version).
 The full residency map — which surface is primary and which is secondary, per runtime — is recorded in the [doctrine doc](skills/discipline/SKILL.md#residency-map--how-the-gate-stays-resident), and the deployables are versioned here:
 
-- the wrapper skill, [`skills/p4-emission-discipline/SKILL.md`](skills/p4-emission-discipline/SKILL.md) — copy the directory to `~/.claude/skills/p4-emission-discipline/` for user-level Claude Code residency, or install it as a claude.ai profile skill;
-- the userStyle block, [`residency/claude-ai-userstyle.md`](residency/claude-ai-userstyle.md) — paste into a claude.ai userStyle for the always-resident primary in that runtime;
-- the Claude Code primary is the trigger table itself — paste the doctrine doc's [trigger table](skills/discipline/SKILL.md#trigger-table-working-context-form) into `~/.claude/CLAUDE.md` as a standing block.
+- the standing block, [`hooks/emission-gate.md`](hooks/emission-gate.md) — injected automatically by the installed plugin; without the plugin, paste the doctrine doc's [trigger table](skills/discipline/SKILL.md#trigger-table-working-context-form) into `~/.claude/CLAUDE.md` by hand for the same residency;
+- the wrapper skill, [`skills/p4-emission-discipline/SKILL.md`](skills/p4-emission-discipline/SKILL.md) — ships with the plugin; copy the directory to `~/.claude/skills/p4-emission-discipline/` only if you want the skill without the plugin, or install it as a claude.ai profile skill;
+- the userStyle block, [`residency/claude-ai-userstyle.md`](residency/claude-ai-userstyle.md) — paste into a claude.ai userStyle: no plugin or hook reaches that runtime, so this stays a manual step.
 
 ## The framework obeys itself
 
@@ -39,7 +40,8 @@ Per its sibling's Rule 1, the skill opens with a provenance header carrying its 
 
 ## Install
 
-Load it with `claude --plugin-dir ./Ibiza/plugins/emission-discipline` (repeat the flag for other plugins).
+For the machine-wide install the residency map assumes, add the marketplace and install at user level — `/plugin marketplace add <path-or-url-of>/Ibiza` then `/plugin install emission-discipline@p4-marketplace` — which activates the `SessionStart` hook in every repo.
+For a single session, load it with `claude --plugin-dir ./Ibiza/plugins/emission-discipline` (repeat the flag for other plugins).
 As of Claude Code circa 2026-07, `--plugin-dir` loads the plugin live from disk each session, so there is no separate install or update step — but by the sibling framework's Rule 1 that is a Class-1 (version-indexed) claim about the loader's default behavior, stamped here rather than asserted as timeless: if a later Claude Code major changes plugin loading, verify against your version.
 The doctrine skill is **direct-invoke only** (`disable-model-invocation: true`, matching verification-discipline) — reach it with `/emission-discipline:discipline`, optionally passing an emission to test against the discipline.
 The wrapper skill is deliberately **model-invocable** — being consulted before fences is its entire job — but per the residency map it undertriggers on casual turns, which is exactly why it is the secondary vehicle in every runtime.
@@ -60,6 +62,7 @@ Everything the plugin _added_ around or changed in that canonical text is logged
 - **Cross-reference links** (verification-discipline sections, roboto commands, the wrapper, the residency file) — added for navigation.
 - **Wrapper skill** — installed as supplied by the brief with **one correction**: its closing pointer read "defect classes (A–F)" while the doctrine it points to defines classes A–G; the count was a fossil from before the same-session Class G amendment, and shipping it knowingly would violate the framework's own Rules 4 and 5. One token changed: `(A–F)` → `(A–G)`. Nothing else in the wrapper was touched — including its `p4-`prefixed sibling names, which are the framework's portable names rather than this repo's directory names.
 - **claude.ai userStyle block** — versioned verbatim inside a fence at [`residency/claude-ai-userstyle.md`](residency/claude-ai-userstyle.md); only the file's preamble (what it is, where to paste it) is added.
+- **SessionStart hook** — added after integration (not in the brief, which predates it): `hooks/hooks.json` plus `hooks/emission-gate.md` (the two one-sentence forms and the trigger table, both verbatim, plus a one-line pointer). It promotes the installed plugin to the Claude Code primary vehicle; the residency map and its stamped claim count were amended accordingly, and the brief's CLAUDE.md-paste primary was demoted to the no-plugin alternative.
 - **Reciprocal cross-reference** — one line added to [verification-discipline's SKILL.md](../verification-discipline/skills/discipline/SKILL.md#epistemic-vs-consequential-actions) pointing here for the release-side rules, and logged in that plugin's own delta log.
 
 No rule's _wording_ was changed.

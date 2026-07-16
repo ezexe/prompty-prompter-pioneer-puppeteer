@@ -19,7 +19,7 @@ disable-model-invocation: true
 - **Authored without access to this repo:** every assumption the source brief made about structure, naming, or stage semantics was hypothesis, not fact; the [stage mapping](#stage-mapping--the-rules-against-the-p4-gates) below is derived from this repo's own gate definitions, not from the brief's guesses.
 - **Review triggers (any one fires a re-read):** Claude Code changes skill loading or triggering semantics (this voids the [residency map](#residency-map--how-the-gate-stays-resident)); six months elapse from the derived date; or any rule fires incorrectly in practice.
 
-The only tool-behavior claims in this document are the two Claude Code residency facts in the [residency map](#residency-map--how-the-gate-stays-resident), stamped there (Claude Code circa 2026-07); no other unstamped tool claim is added.
+The only tool-behavior claims in this document are the three Claude Code residency facts in the [residency map](#residency-map--how-the-gate-stays-resident), stamped there (Claude Code circa 2026-07); no other unstamped tool claim is added.
 
 ## Core model
 
@@ -168,22 +168,23 @@ Because this is a standalone plugin (no `metadata.p4`), these bindings are cross
 ## Residency map — how the gate stays resident
 
 [Verification-discipline](../../../verification-discipline/skills/discipline/SKILL.md) is doctrine consulted at research time; this framework is different in kind: its rules are trigger-phrased to fire _mid-generation_, so the gate must be _resident_ while code is being produced.
-Two facts constrain deployment — both are tool-behavior claims about **Claude Code circa 2026-07**, Class 1 by [verification-discipline's Rule 1](../../../verification-discipline/skills/discipline/SKILL.md#group-a--staleness--the-fault-tree), stamped here rather than asserted as timeless:
+Three facts constrain deployment — all are tool-behavior claims about **Claude Code circa 2026-07**, Class 1 by [verification-discipline's Rule 1](../../../verification-discipline/skills/discipline/SKILL.md#group-a--staleness--the-fault-tree), stamped here rather than asserted as timeless:
 
 - **Residency is per-runtime.** A project-level `.claude/skills/` entry in this docs repo is resident only for Claude Code sessions _in this repo_ — where almost no code generation happens.
 - **Skills are consult-on-trigger, and triggering keys on task formality** — casual turns often skip them. Rule 12 forbids exactly that keying, so a skill cannot be the primary vehicle for its own payload.
+- **A plugin `SessionStart` hook's stdout is injected into context at the start of every session** — which lets a user-installed plugin carry always-resident text, closing the gap the first two facts open.
 
 **Always-resident text is primary; skills are secondary everywhere:**
 
-| Runtime                            | Vehicle                                    | What                                                                                                                                                          |
-| ---------------------------------- | ------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Claude Code, all repos (primary)   | `~/.claude/CLAUDE.md`                      | the [trigger table](#trigger-table-working-context-form) pasted in as a standing block — always in context, immune to undertriggering                             |
-| Claude Code, all repos (secondary) | `~/.claude/skills/p4-emission-discipline/` | the [wrapper skill](../p4-emission-discipline/SKILL.md), installed user-level (not project-level)                                                                |
-| claude.ai chat (primary)           | userStyle                                  | the standing block versioned at [`residency/claude-ai-userstyle.md`](../../residency/claude-ai-userstyle.md) — the only always-resident surface in that runtime |
-| claude.ai chat (secondary)         | profile skill                              | the same wrapper, installed as a profile skill                                                                                                                   |
-| this repo                          | plugin skill                               | the wrapper ships in this plugin because P4 distributes the framework as a plugin; it adds nothing for sessions in this docs repo itself                          |
+| Runtime                              | Vehicle                                    | What                                                                                                                                                          |
+| ------------------------------------ | ------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Claude Code, all repos (primary)     | this plugin, installed user-level           | the [`hooks/emission-gate.md`](../../hooks/emission-gate.md) standing block, injected by the plugin's `SessionStart` hook — always in context, immune to undertriggering |
+| Claude Code, no plugin (alternative) | `~/.claude/CLAUDE.md`                      | the [trigger table](#trigger-table-working-context-form) pasted in as a standing block — same residency, maintained by hand                                       |
+| Claude Code, all repos (secondary)   | the [wrapper skill](../p4-emission-discipline/SKILL.md) | installed with the plugin, or copied to `~/.claude/skills/p4-emission-discipline/` without it                                                        |
+| claude.ai chat (primary)             | userStyle                                  | the standing block versioned at [`residency/claude-ai-userstyle.md`](../../residency/claude-ai-userstyle.md) — the only always-resident surface in that runtime; no plugin or hook reaches this runtime |
+| claude.ai chat (secondary)           | profile skill                              | the same wrapper, installed as a profile skill                                                                                                                   |
 
-If a later Claude Code changes plugin loading or skill triggering, both constraining facts expire and this map must be re-derived — that is the first review trigger in the [provenance header](#provenance-this-framework-obeys-itself).
+If a later Claude Code changes plugin loading, skill triggering, or hook semantics, the constraining facts expire and this map must be re-derived — that is the first review trigger in the [provenance header](#provenance-this-framework-obeys-itself).
 
 ## Appendix A — case study (source session, 2026-07-16)
 
