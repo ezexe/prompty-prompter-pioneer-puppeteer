@@ -20,5 +20,6 @@ Mandate form: **what is pasted is the territory, what is withheld is a wall — 
 | R13 | entity appears as call-only in the working doc | interface fixed, body off-limits — current paste is the current map |
 | R14 | user commands progress past an unanswered deferral | deferral stands: minimal branch by default, maximal offered in prose |
 | R15 | mandate seems to require crossing a boundary | stop; the impossibility + permit request is the deliverable |
+| R16 | citing a rule to withhold requested work | verify the boundary still stands — adoption spends decisions; a dissolved boundary excuses nothing |
 
 Full rules, defect classes, and case study: the `discipline` skill of the `emission-discipline` plugin.

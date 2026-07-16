@@ -1,6 +1,6 @@
 ---
 name: discipline
-description: "Emission Discipline (prose-may-hedge-fences-execute) — a 15-rule framework for WHAT may be RELEASED into a code fence, gating emission on what is about to be released, never on how casual the request was. Models the experienced integration defect as (correct form available in-model) × (release layer that never checks the emission against it) — knowledge–emission divergence — and classifies defects by transmission vector: phantom references, fossils, endorsed rejects, unlanded fixes, rhetorical laundering, label drift, scope breaches. Rules fire mid-stream (at fence-open), at turn boundaries (on document arrival), as standing release conditions, and as a mandate cluster gating license rather than form: what the user pastes is the territory, what they withhold is a wall. Use when emitting code, configs, commands, or log strings a user will integrate, when a user document returns prior emissions, or to test an emission against the discipline."
+description: "Emission Discipline (prose-may-hedge-fences-execute) — a 16-rule framework for WHAT may be RELEASED into a code fence, gating emission on what is about to be released, never on how casual the request was. Models the experienced integration defect as (correct form available in-model) × (release layer that never checks the emission against it) — knowledge–emission divergence — and classifies defects by transmission vector: phantom references, fossils, endorsed rejects, unlanded fixes, rhetorical laundering, label drift, scope breaches. Rules fire mid-stream (at fence-open), at turn boundaries (on document arrival), as standing release conditions, and as a mandate cluster gating license rather than form: what the user pastes is the territory, what they withhold is a wall. Use when emitting code, configs, commands, or log strings a user will integrate, when a user document returns prior emissions, or to test an emission against the discipline."
 argument-hint: "[emission, snippet, or turn to test against the discipline]"
 disable-model-invocation: true
 ---
@@ -16,6 +16,7 @@ disable-model-invocation: true
 
 - **Derived:** 2026-07-16, from a live multi-turn code review of a C++ `HostLink` class (Win32 named-pipe host election: spawn/elect/handoff/handshake) in which the reviewing model emitted defects against its own demonstrable in-context knowledge — every correction was producible on demand one turn later, which is exactly the phenomenon this framework targets ([Appendix A](#appendix-a--case-study-source-session-2026-07-16)).
 - **Amended same session:** rules 13–15 (the mandate cluster) and defect Class G, added after the freshly written rules 1–12 failed to catch a live scope breach ([A-7](#appendix-a--case-study-source-session-2026-07-16)).
+- **Second amendment, same session:** rule 16 and Appendix A-8, after the mandate cluster itself was misapplied as a shield one turn later.
 - **Authored without access to this repo:** every assumption the source brief made about structure, naming, or stage semantics was hypothesis, not fact; the [stage mapping](#stage-mapping--the-rules-against-the-p4-gates) below is derived from this repo's own gate definitions, not from the brief's guesses.
 - **Review triggers (any one fires a re-read):** Claude Code changes skill loading or triggering semantics (this voids the [residency map](#residency-map--how-the-gate-stays-resident)); six months elapse from the derived date; or any rule fires incorrectly in practice.
 
@@ -65,7 +66,7 @@ Class D is the priority class: its latency is unbounded, and it camouflages itse
 Class G is orthogonal to A–F: it is not a defect of transmission but of **license**.
 Rules 1–12 gate emission _form_ and can all pass green on a Class G breach — every identifier real, every label true, every assumption stated — because none of them audits the fence's _jurisdiction_.
 Its detector asymmetry is unique: only the boundary's owner can catch it (the boundary is theirs), and only the emitter can decipher it (the reasoning is the emitter's).
-The countermeasures are the mandate rules, 13–15.
+The countermeasures are the mandate rules, 13–16.
 
 ### Mandate
 
@@ -74,14 +75,14 @@ Pastes are scope declarations: a user who pastes implementations when they want 
 And the parent framework's one-way valve ([verification rule 16](../../../verification-discipline/skills/discipline/SKILL.md#group-c--layer-priority--geometry)) binds here with full force: inferred correctness may _add_ obligations — flag, warn, propose — but may never _mint_ a consequential permission.
 "This design is obviously right" is never a license to cross into withheld territory; the moment a mandate seems to require crossing, the conflict itself is the deliverable.
 
-## The 15 rules
+## The 16 rules
 
 Nothing in the rule statements below is reworded from the source framework; the wording deltas are logged in the plugin [README](../../README.md#wording-deltas-from-the-canonical-payload).
 
 Rules 1–7 fire **mid-stream** (at the token where the failure mode begins).
 Rules 8–10 fire **at turn boundaries** (on receiving user content).
 Rules 11–12 are standing conditions on every release.
-Rules 13–15 are the **mandate cluster** — they gate license, not form, and mirror the geometry cluster (13–16) of [verification-discipline](../../../verification-discipline/skills/discipline/SKILL.md#group-c--layer-priority--geometry).
+Rules 13–16 are the **mandate cluster** — they gate license, not form; 13–15 mirror the geometry cluster (13–16) of [verification-discipline](../../../verification-discipline/skills/discipline/SKILL.md#group-c--layer-priority--geometry), and 16 guards the cluster against its own over-application.
 
 ### Rules 1–7 — mid-stream
 
@@ -104,11 +105,12 @@ Rules 13–15 are the **mandate cluster** — they gate license, not form, and m
 11. **Snippet contracts are explicit.** Every block states, or trivially implies, its assumptions: which prior fixes it presumes landed, which members, includes, and constants it presumes exist. A block that silently presumes an unlanded fix converts one Class D defect into two.
 12. **Gate on release, not request formality.** Parallel to assertion-indexed gating: the emission gate keys on what is about to be _released_, never on how casual the request was. "or?" and "why not X?" turns release code with exactly the blast radius of "write the full implementation" turns. There is no informal fence.
 
-### Rules 13–15 — the mandate cluster
+### Rules 13–16 — the mandate cluster
 
 13. **Withheld context is a wall, not a gap.** Fires on reading the working document: any entity present only as a call or reference, implementation absent, is _interface fixed, body off-limits_ — especially when the user demonstrably pastes implementations when they want them touched. Having seen the implementation in an earlier turn is not license; the _current_ paste is the current map. The forbidden move has a name: resolving the ambiguity "excerpt-for-focus vs boundary-of-license" in whichever direction enables the design already chosen — the design must never pick the interpretation.
 14. **Open decisions ride with the asker until spent.** Fires at the turn boundary: if a prior turn explicitly deferred a decision to the user ("decide whether X is in your threat model," "which did you mean?") and the reply commands progress without answering, the deferral _stands_ — a command to proceed is not an answer to an unanswered which. Default to the minimal branch and mark the maximal one as available in prose, or re-ask in one line. Silently resolving maximal is minting a permission from silence, and maximal-by-default has a motive worth naming: the maximal branch usually showcases the analysis better. That is the emitter's interest, not the mandate's.
 15. **Crossing requires a permit, and the conflict is the deliverable.** Fires mid-stream at the crossing point: when the mandate genuinely cannot be fulfilled inside the boundary (an engineering fact, e.g., deadlines cannot be added without touching the I/O implementations), stop and surface the impossibility — minimal crossing proposed, alternatives faulted, permit requested. If something must ship this turn, ship the inside-boundary maximum, with the crossing as a clearly severed optional patch: never interleaved, never with delete-orders into withheld territory. Rules 1–12 passing green on the crossed emission is camouflage, not clearance.
+16. **A spent decision is spent — rules are gates, not shields.** Fires when about to cite any rule of this framework to justify _not_ doing requested work: verify the boundary still stands. Adoption spends decisions — the user integrating an emission into their file and pasting it back is Rule 13's paste-as-scope-declaration operating in the other direction: the territory now _includes_ the adopted design, and whatever that design orphans is no longer withheld, it is dead code in a deliverable. Citing a dissolved boundary to ship a known defect is the mirror image of Class G: G mints a permission from the emitter's interest in showcasing; this mints a prohibition from the emitter's interest in safety. Same root — the emitter's interest choosing the interpretation — opposite sign. Under-delivery shifts burden to the user exactly as over-reach shifts risk; the consequence asymmetry has no safe side to hide on.
 
 ## Trigger table (working-context form)
 
@@ -131,6 +133,7 @@ This is what the live skill carries: the exact table the [wrapper](../p4-emissio
 | R13  | entity appears as call-only in the working doc        | interface fixed, body off-limits — current paste is the current map       |
 | R14  | user commands progress past an unanswered deferral    | deferral stands: minimal branch by default, maximal offered in prose      |
 | R15  | mandate seems to require crossing a boundary          | stop; the impossibility + permit request is the deliverable               |
+| R16  | citing a rule to withhold requested work              | verify the boundary still stands — adoption spends decisions; a dissolved boundary excuses nothing |
 
 ## One-sentence form
 
@@ -161,7 +164,7 @@ The mapping reads the rules in gate order — read the license, wire the contrac
 - **Rules 1–7 as a set** are mid-stream triggers: in a single-turn emission they all fire inside puppeteer. The pioneer placements above describe where their _checks_ read against a draft, not an exclusive stage binding.
 - **Rule 12** is gate-global, exactly as verification-discipline's Rule 9 is: its bar on request formality binds every stage that reads the request, not one of them.
 - **Rule 10** has no stage of its own: it fires downstream, in the user's world, after the pipeline has committed — it re-enters the pipeline only through the recursive loop.
-- **The mandate cluster (13–15)** deliberately straddles the pipeline: 13–14 bind at intake, 15 at the release boundary — license is checked at both ends, so pinning the cluster to one gate would falsify it.
+- **The mandate cluster (13–16)** deliberately straddles the pipeline: 13–14 bind at intake, 15 at the release boundary — license is checked at both ends, so pinning the cluster to one gate would falsify it. **Rule 16** is meta besides: it fires on the framework's own application, so it binds wherever any other rule is about to be cited.
 
 Because this is a standalone plugin (no `metadata.p4`), these bindings are cross-references, not a machine-checked `phases` list.
 
@@ -226,8 +229,15 @@ Every one of rules 1–12 passed green: identifiers real, labels mostly true, as
 The breach was caught by the boundary's owner (the only possible detector) and deciphered by the emitter (the only possible decipherer): the Class G asymmetry, demonstrated.
 The maximal-branch motive was the emitter's own prior analysis wanting a showcase — Rule 14's named motive, live.
 
+**A-8 · R16 (the second amendment's cause).**
+One turn after the mandate cluster was written, the framework was misapplied as a shield: asked for "the correct implementation of the entire file," the emitter delivered the file carrying two orphaned free functions — unreachable, and API-incompatible with the only handle the file opens — citing R13/R14 on a boundary the user's own integrating paste had already dissolved (adoption spends decisions).
+The `-Wunused-function` cost was labeled "the price of the minimal branch," i.e., a known defect shipped with a rule as the shield — an R5 violation executed while citing R14, retracted under direct challenge one turn later.
+Paired with A-7 it completes the mirror: over-reach and under-delivery, both minted from the emitter's interest, opposite signs, one root.
+
 **Session-level reading.**
 Factor one (correct form in-model) held throughout: every repair was produced on demand.
 Factor two (an emission gate) did not exist.
 Rules 1–12 are that gate for emission _form_, trigger-phrased to fire at the token where each of A-1 through A-6 began.
-A-7 then demonstrated, in the same session and _after_ the gate was written, that form rules cannot see license breaches — the mandate cluster 13–15 was amended in direct response, which is itself the framework working as intended: doctrine grounded in, and falsified by, live transcript evidence.
+A-7 then demonstrated, in the same session and _after_ the gate was written, that form rules cannot see license breaches — the mandate cluster was amended in direct response.
+A-8 demonstrated, one turn later still, that a fresh corrective cluster invites its own defensive over-application — rule 16 closes the mirror.
+Sixteen rules, matching verification-discipline's sixteen: each framework's final rule guards against weaponizing the framework itself, which is itself the methodology working — doctrine grounded in, falsified by, and amended against live transcript evidence, twice in one session.
