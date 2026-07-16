@@ -55,6 +55,7 @@ Query-indexed gating ("technical question → never search") is the root defect:
 Epistemic actions — search, fetch, read, re-derive — are cheap, reversible, and information-positive.
 Consequential actions — deliverables, state changes, anything with a blast radius — are not.
 Layer priority (Rule 13) is scoped to the consequential class only.
+The consequential side of this split has its own framework: [`emission-discipline`](../../../emission-discipline/skills/discipline/SKILL.md) gates what crosses into a code fence — the release-side twin of this document.
 
 ### The three asymmetries
 

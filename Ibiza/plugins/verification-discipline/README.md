@@ -41,6 +41,7 @@ Everything the plugin _added_ around that canonical text is logged here:
 - **Stage mapping** — added in full: this section is a proposal, not part of the canonical payload. P4 gate semantics are derived from the roboto plugin, not from the source framework.
 - **Appendix A** — reproduced from the payload's compressed case; the only change is layout (one event per line, rule-specimen callouts bolded). Wording is unchanged.
 - **Section headings and cross-reference links** — added for navigation.
+- **Emission-discipline cross-reference** — one line added (2026-07-16) under "Epistemic vs consequential actions" pointing to the sibling [`emission-discipline`](../emission-discipline) plugin, which gates the consequential side of that split (what may be _released_ into a code fence). No rule semantics touched.
 
 No rule's _wording_ was changed.
 No claim's _semantics_ were altered.
