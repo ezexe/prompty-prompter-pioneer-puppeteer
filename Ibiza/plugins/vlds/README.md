@@ -18,7 +18,7 @@ Two things to set it apart from:
 - **Distinct from `memory_user_edits`.** That adds new external facts; VLDS reconfigures access to what is _already there_.
 - **Distinct from retraining.** Weights stay fixed; behavior is steered at inference and is reversible. What changes is _epistemic_ (how the model behaves); what stays fixed is _ontological_ (what the model is).
 
-The dashboard is three instruments, each asking one question — the **gate**: _do I actually know this claim?_; the **guide**: _has this need been configured, or must I ask?_; the **inspector**: _would an outside eye agree?_ — each refusing, at its own point, to treat an inference as fact. You invoke the three directly; a fourth skill, the **looper**, is what surfaces on its own and runs them as one loop.
+The dashboard is four instruments, each asking one question — the **gate**: _do I actually know this claim?_; the **guide**: _has this need been configured, or must I ask?_; the **inspector**: _would an outside eye agree?_; the **gc**: _is what I stored still alive?_ — each refusing, at its own point, to treat an inference as fact. You invoke the four directly; a fifth skill, the **looper**, is what surfaces on its own and runs them as one loop.
 
 ## Instrument #1: the gate
 
@@ -61,11 +61,30 @@ It reconstructs, from outside, the calibrated confidence a model cannot read off
 
 > The eye the model cannot turn on itself, supplied from outside — and honest that even from outside it is only partly independent.
 
+## Instrument #4: the collector
+
+The fourth control is the garbage collector ([`skills/gc`](skills/gc/SKILL.md)) — the liveness instrument for what the model **stores**: memories, configured rules, plan-doc rulings, session-summary carryovers, and the oldest store of all, training data.
+The first three instruments discipline the present tense; the gc disciplines the past — because a decision the user retracted, a directive whose justifying causes were long since fixed, or a versioned fact from training keeps steering sessions until something re-traces it.
+
+It is a real collector, not a metaphor: liveness = an unbroken provenance chain to a live root (a standing user ruling, a currently-verifiable world); a user retraction is a _free_; applying a freed rule is a _use-after-free_; a directive nothing ever re-traces is a _leak_. Every item under collection gets a mark:
+
+| Mark            | Meaning                          | Sweep                                    |
+| --------------- | -------------------------------- | ---------------------------------------- |
+| `LIVE`          | provenance intact to a live root | apply freely                             |
+| `STALE`         | the world moved on               | rewrite to the current fact, or delete   |
+| `FREED-RESIDUE` | derives from a disposed decision | sweep transitively + tombstone           |
+| `UNOWNED`       | no user ruling at its root       | surface as OPEN; never apply as settled  |
+
+Sweeps compact rather than erase — the durable lesson survives, the dead directive dies — and every free lands in the gc's own store, **`.vlds/tombstones.md`**: reversible, user-auditable, and a standing mask against re-learning the same garbage from the same training prior.
+The highest-risk objects are **avoidance rules** — a rule that prevents an action is never falsified by use, because it prevents the very runs that would falsify it — so seniority is not liveness, and they are traced proactively at every recall.
+
+> The other instruments ask what is known; the collector asks what stored knowledge still has the right to steer.
+
 ## The looper: what runs the loop
 
-The three instruments are single-purpose primitives, set to **direct-invoke only** (`/vlds:gate`, `/vlds:guide`, `/vlds:inspector`). They stay direct-invoke only — because Claude Code skills are selected one at a time and can neither co-fire nor hand off to one another, so a request needing all three can't assemble the loop on its own.
+The four instruments are single-purpose primitives, set to **direct-invoke only** (`/vlds:gate`, `/vlds:guide`, `/vlds:gc`, `/vlds:inspector`). They stay direct-invoke only — because Claude Code skills are selected one at a time and can neither co-fire nor hand off to one another, so a request needing all of them can't assemble the loop on its own.
 
-The **looper** ([`skills/looper`](skills/looper/SKILL.md)) is the fix: the one skill that surfaces on its own, on the union of the three triggers. On a load-bearing request it runs them in order — guide the need, gate each claim, inspect the high-stakes verdict — and logs every decision to its own shared, user-editable **`.vlds/logger.md`**. It owns the order and the log, leaving the mechanisms to each instrument: each step applies the instrument's own procedure.
+The **looper** ([`skills/looper`](skills/looper/SKILL.md)) is the fix: the one skill that surfaces on its own, on the union of the four triggers. On a load-bearing request it runs them in order — guide the need, collect the recalled state, gate each claim, inspect the high-stakes verdict — and logs every decision to its own shared, user-editable **`.vlds/logger.md`**. It owns the order and the log, leaving the mechanisms to each instrument: each step applies the instrument's own procedure.
 
 > Three instruments you reach for; one looper that reaches for them.
 
@@ -79,6 +98,7 @@ The design is established engineering applied to knowledge:
 - **Validation pipeline** — `CONFIRMED`-before-act is "validate before you run it."
 - **Single-point assessment** (criteria and descriptors, no grading scale) — the guide loop's index is the target column, its ledger the open margin for what each reuse actually did; the gate supplies the rating scale (`CONFIRMED / PENDING / HEDGED`) the single-point form omits — so the two instruments hold the two halves of one assessment method.
 - **Blackboard pattern** — the inspector's independent perspectives post to a shared board and converge on a verdict no single one holds; it borrows retrieval grounding (RAG) to make each eye independent, a softmax read from outside to weigh their spread, and a conformal set that widens with disagreement to report it.
+- **Tracing garbage collection** — the gc is the classic algorithm applied to belief state: liveness = reachability from live roots (standing rulings, the verifiable world), a retraction = a free, mark-and-sweep with compaction (the lesson survives, the directive dies), tombstones against re-allocation, and generations (session context / persisted stores / training data — the oldest generation is permanently allocated and can only be masked).
 
 ## The honest limit
 
@@ -86,7 +106,7 @@ A standing check **raises the floor** — it does not deliver certainty. Self-ra
 
 ## Install
 
-Load it with `claude --plugin-dir ./Ibiza/plugins/vlds` (repeat the flag for other plugins); it reads the current files each session, so there's no install or update step. The **looper** surfaces on its own on any load-bearing request and runs the loop; the three instruments are invoked directly — `/vlds:gate <claim>`, `/vlds:guide <need>`, `/vlds:inspector <verdict>` — or `/vlds:looper <request>` to run the whole flow explicitly.
+Load it with `claude --plugin-dir ./Ibiza/plugins/vlds` (repeat the flag for other plugins); it reads the current files each session, so there's no install or update step. The **looper** surfaces on its own on any load-bearing request and runs the loop; the four instruments are invoked directly — `/vlds:gate <claim>`, `/vlds:guide <need>`, `/vlds:gc <stored item | full>`, `/vlds:inspector <verdict>` — or `/vlds:looper <request>` to run the whole flow explicitly.
 
 ## Try it
 
@@ -96,6 +116,7 @@ A skill plugin has two things to check, easy to conflate: whether a skill **fire
 
 - `/vlds:gate "the latest stable release of <X> is <Y>"` — should route to `PENDING` (a checkable fact, unverified this session) and verify before asserting, drawing on a check rather than memory.
 - `/vlds:guide "set up logging"` — should read the intent as under-determined (format? level? destination?): a `miss` that asks or applies a configured rule, surfacing the gap rather than guessing silently.
+- `/vlds:gc "never run the integration tests locally — they broke the environment once"` — should trace the rule's provenance (whose ruling? is the breaking cause still there?), land `UNOWNED` or `FREED-RESIDUE` rather than obeying it, and flag it as an avoidance rule that survives precisely by preventing its own re-test.
 - `/vlds:inspector "this regex is safe from catastrophic backtracking"` — should spawn independent, source-grounded checks and land `CORROBORATED` / `REJECTED` / `CONTESTED`, re-examining the claim rather than restating it.
 
 **Activation — no command; a natural prompt that _should_ pull a skill in:**
@@ -108,4 +129,4 @@ A skill plugin has two things to check, easy to conflate: whether a skill **fire
 
 **Judge by criteria over transcript.** Model paths vary — score the discipline (_verified before asserting? surfaced a false premise? routed to the right state?_), judging the substance over a verbatim match. Case in point: paste a request whose premise doesn't hold here — "add rate limiting to the API" in a repo with no API — and the _correct_ behavior is to surface that there is no API, the gate catching a false premise. That is the plugin working as intended.
 
-On one real request the looper runs the three in turn — the guide on the need, the gate on each claim, the inspector on the high-stakes verdict — the whole dashboard in action; the three questions up top are what each one asks.
+On one real request the looper runs the four in turn — the guide on the need, the gc on the recalled state, the gate on each claim, the inspector on the high-stakes verdict — the whole dashboard in action; the four questions up top are what each one asks.

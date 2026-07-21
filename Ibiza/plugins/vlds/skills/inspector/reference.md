@@ -45,7 +45,7 @@ The gate said certainty needs an independent eye. The inspector has to say the n
 
 ## Relationship to the Gate and Guide
 
-The three instruments are one loop, each refusing to treat an inference as fact at a different point. The gate asks _is this claim known?_ and routes it on epistemic status. The guide asks _has this need been configured?_ and routes it on hit/miss. The inspector asks _would an outside eye agree?_ and routes the others' verdicts on independent corroboration. The gate and guide run from the inside, where the floor can be raised but the blind spot cannot be seen; the inspector is the one instrument that steps outside — which is exactly why it is the only one that can deliver corroboration, and exactly why its own independence is bounded.
+The four instruments are one loop, each refusing to treat an inference as fact at a different point. The gate asks _is this claim known?_ and routes it on epistemic status. The guide asks _has this need been configured?_ and routes it on hit/miss. The gc asks _is what I stored still alive?_ and routes recalled state on provenance-liveness. The inspector asks _would an outside eye agree?_ and routes the others' verdicts on independent corroboration. The gate and guide run from the inside, where the floor can be raised but the blind spot cannot be seen; the inspector is the one instrument that steps outside — which is exactly why it is the only one that can deliver corroboration, and exactly why its own independence is bounded.
 
 ## What it's an instance of
 
