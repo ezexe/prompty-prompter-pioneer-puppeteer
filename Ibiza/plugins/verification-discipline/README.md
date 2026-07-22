@@ -42,6 +42,7 @@ Everything the plugin _added_ around that canonical text is logged here:
 - **Appendix A** — reproduced from the payload's compressed case; the only change is layout (one event per line, rule-specimen callouts bolded). Wording is unchanged.
 - **Section headings and cross-reference links** — added for navigation.
 - **Emission-discipline cross-reference** — one line added (2026-07-16) under "Epistemic vs consequential actions" pointing to the sibling [`emission-discipline`](../emission-discipline) plugin, which gates the consequential side of that split (what may be _released_ into a code fence). No rule semantics touched.
+- **Envelope-discipline cross-reference** — one line added (2026-07-22) under "Epistemic vs consequential actions" pointing to the sibling [`envelope-discipline`](../envelope-discipline) plugin, which gates the minting side: how a seam's configurables are shaped before either twin operates across the contract. No rule semantics touched.
 
 No rule's _wording_ was changed.
 No claim's _semantics_ were altered.

@@ -56,6 +56,7 @@ Epistemic actions — search, fetch, read, re-derive — are cheap, reversible, 
 Consequential actions — deliverables, state changes, anything with a blast radius — are not.
 Layer priority (Rule 13) is scoped to the consequential class only.
 The consequential side of this split has its own framework: [`emission-discipline`](../../../emission-discipline/skills/discipline/SKILL.md) gates what crosses into a code fence — the release-side twin of this document.
+The contracts both sides operate across have their own minting-time framework: [`envelope-discipline`](../../../envelope-discipline/skills/discipline/SKILL.md) gates how a seam's configurables are shaped — the shape-side sibling of this document.
 
 ### The three asymmetries
 
