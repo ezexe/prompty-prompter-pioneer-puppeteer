@@ -10,7 +10,7 @@ Source-code collectors treat object age as a signal; the epistemic heap has thre
 | Generation | Store                                                             | Collectability                                                                                              |
 | ---------- | ----------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
 | Gen 0      | The live session context (claims made this conversation)          | Cheapest to re-verify; collected naturally by the conversation moving on — but see the tenuring hazard below |
-| Gen 1      | Persisted stores: memory files, `.vlds/index.md`, plan docs, CLAUDE.md directives | The gc's main heap: collected on free, on recall, on completion, and by full audit             |
+| Gen 1      | Persisted stores: memory files, the VLDS store's `index.md`, plan docs, CLAUDE.md directives | The gc's main heap: collected on free, on recall, on completion, and by full audit             |
 | Gen 2      | Training data                                                     | Permanently allocated — never collectable, only maskable: tombstones + verification discipline sit in front of it |
 
 **The tenuring hazard**: context summarization is a copying collector for Gen 0 — and it copies garbage as faithfully as live objects.
@@ -22,7 +22,7 @@ This is why sweeping without a tombstone fails against Gen 2 garbage: the same p
 
 ## The Tombstone Schema
 
-`.vlds/tombstones.md` is the gc's own store — append-only, user-editable, one entry per free:
+`tombstones.md` — in the **VLDS store**, the working directory's `.claude/vlds/` directory resolved by the plugin's memory override ([../../hooks/memory-override.md](../../hooks/memory-override.md)) — is the gc's own store: append-only, user-editable, one entry per free:
 
 ```yaml
 - freed: [the decision/rule/claim that was disposed]

@@ -19,7 +19,7 @@ These triggers once lived in each instrument's `when_to_use`. With the instrumen
 
 ## The Shared Logger
 
-`.vlds/logger.md` is the looper's own — the dashboard's single, append-only, user-editable activity log. Every instrument's decision is logged there as the looper runs, tagged by instrument. Each entry carries a `time` — local `YYYY-MM-DD HH:MM` read from the system clock at write time, never invented; if the real time isn't available, stamp the date alone rather than fabricate minutes (fake precision is the gate's own failure mode):
+`logger.md` — in the **VLDS store**, the working directory's `.claude/vlds/` directory resolved by the plugin's memory override ([../../hooks/memory-override.md](../../hooks/memory-override.md)) — is the looper's own: the dashboard's single, append-only, user-editable activity log. Every instrument's decision is logged there as the looper runs, tagged by instrument. Each entry carries a `time` — local `YYYY-MM-DD HH:MM` read from the system clock at write time, never invented; if the real time isn't available, stamp the date alone rather than fabricate minutes (fake precision is the gate's own failure mode):
 
 ```yaml
 # gate — a claim routed
@@ -41,7 +41,7 @@ These triggers once lived in each instrument's `when_to_use`. With the instrumen
   time: [YYYY-MM-DD HH:MM]
   item: [the stored rule/memory/assumption traced]
   mark: LIVE | STALE | FREED-RESIDUE | UNOWNED
-  action: [applied | rewritten | swept + tombstoned | surfaced as OPEN]   # a sweep also appends to .vlds/tombstones.md
+  action: [applied | rewritten | swept + tombstoned | surfaced as OPEN]   # a sweep also appends to tombstones.md in the VLDS store
 
 # inspector — a verdict checked
 - instrument: inspector

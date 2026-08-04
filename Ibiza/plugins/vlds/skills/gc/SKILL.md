@@ -14,7 +14,7 @@ disable-model-invocation: true
 
 | GC concept       | Epistemic counterpart                                                                                                                              |
 | ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Heap object      | A stored decision or claim: a memory entry, a configured rule (`.vlds/index.md`), a logged verdict, a plan-doc ruling, a summary carryover, a training-data assumption |
+| Heap object      | A stored decision or claim: a memory entry, a configured rule (the VLDS store's `index.md`), a logged verdict, a plan-doc ruling, a summary carryover, a training-data assumption |
 | Root             | What is live NOW: the user's standing rulings (latest wins), the currently-verifiable state of the world, the live conversation                      |
 | Reference        | A provenance edge: the ruling that created a rule, the incident that justified a directive, the observation a claim was read from, links between stored entries |
 | Reachable (live) | An unbroken provenance chain to a root: the ruling still stands, the cause still exists, the world still checks out when re-verified                 |
@@ -57,7 +57,7 @@ The **write barrier** is its prevention — before persisting any standing rule,
 1. **Identify** the item under collection: what stored decision is about to be applied, was just retracted, or is being audited.
 2. **Trace provenance to a root**: who decided it, from what cause, re-verified against the world as it is now — not as the store remembers it.
 3. **Mark** its liveness class from the table above.
-4. **Sweep**: delete or compact (keep the durable lesson, kill the dead directive), update every inbound reference transitively, and **tombstone** the free in `.vlds/tombstones.md` — the retraction, its date, the user's words, and what was swept with it. The tombstone makes the sweep reversible and the same garbage un-relearnable.
+4. **Sweep**: delete or compact (keep the durable lesson, kill the dead directive), update every inbound reference transitively, and **tombstone** the free in the VLDS store's `tombstones.md` — the retraction, its date, the user's words, and what was swept with it. The tombstone makes the sweep reversible and the same garbage un-relearnable.
 5. **Surface the result**: what was collected, what survived compaction, and what is now `UNOWNED` awaiting a ruling.
 
 If a target was passed with the command — `/vlds:gc <target>` — collect **that** first.

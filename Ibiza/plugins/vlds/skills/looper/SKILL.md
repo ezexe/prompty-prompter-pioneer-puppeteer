@@ -13,7 +13,7 @@ argument-hint: "[request to run through the loop]"
 
 On a load-bearing request, run the four instruments in order — applying each one's own procedure (the looper only sequences — the mechanism stays the instrument's):
 
-1. **Guide the need** — at intake, treat the intent as a claim: look it up in `.vlds/index.md` (`hit` → apply the rule; `miss` → ask, teach, or offer to configure). Procedure: [../guide/SKILL.md](../guide/SKILL.md).
+1. **Guide the need** — at intake, treat the intent as a claim: look it up in `index.md` in the VLDS store (`hit` → apply the rule; `miss` → ask, teach, or offer to configure). Procedure: [../guide/SKILL.md](../guide/SKILL.md).
 2. **Collect the recalled state** — every stored rule, memory, or assumption the work is about to lean on (a guide `hit` included) passes the gc's read barrier: trace its provenance to a live root; freed or stale → do not apply, surface instead. A retraction in the request triggers the transitive sweep + tombstone. Procedure: [../gc/SKILL.md](../gc/SKILL.md).
 3. **Gate each claim** — for every load-bearing claim the work rests on, route it to `CONFIRMED` / `PENDING` / `HEDGED` and verify what is `PENDING`. Procedure: [../gate/SKILL.md](../gate/SKILL.md).
 4. **Inspect the high-stakes verdicts** — escalate a consequential `CONFIRMED`, applied `match`, or contested sweep to independent eyes → `CORROBORATED` / `REJECTED` / `CONTESTED`. Procedure: [../inspector/SKILL.md](../inspector/SKILL.md).
@@ -22,13 +22,15 @@ The order is the loop the dashboard is built on — **does the need have a confi
 
 ## Log Every Decision
 
-As it runs, the looper appends each instrument's decision to its own shared, user-editable **`.vlds/logger.md`** — the dashboard's single activity log. This is the looper's store. The guide keeps its own `.vlds/index.md` (rules) and `.vlds/ledger.md` (its config audit), and the gc keeps `.vlds/tombstones.md` (its record of freed decisions), each unique to its instrument; the logger is the looper's record of the whole flow as it conducts it.
+As it runs, the looper appends each instrument's decision to its own shared, user-editable **`logger.md`** in the **VLDS store** — the working directory's `.claude/vlds/` directory, resolved by the plugin's memory override, which extends the built-in memory system the way a derived class extends its base (legacy pre-override source: repo-root `.vlds/`; contract: [../../hooks/memory-override.md](../../hooks/memory-override.md)).
+This is the looper's store — the dashboard's single activity log.
+The guide keeps its own `index.md` (rules) and `ledger.md` (its config audit), and the gc keeps `tombstones.md` (its record of freed decisions), each unique to its instrument; the logger is the looper's record of the whole flow as it conducts it.
 
 ## How to Apply
 
 1. Run on any **load-bearing or consequential** request; skip trivial or conversational ones.
 2. Run steps 1–4 in order, applying each instrument's procedure.
-3. Append each decision to `.vlds/logger.md`.
+3. Append each decision to `logger.md` in the VLDS store.
 4. For a heavy independent check, **delegate to an isolated subagent** to run the inspector's eyes apart from the main context and return only a verdict; otherwise run inline.
 
 To use one instrument alone, invoke it directly: `/vlds:gate`, `/vlds:guide`, `/vlds:gc`, `/vlds:inspector`. If a request was passed with the command — `/vlds:looper <request>` — run **that** through the loop.

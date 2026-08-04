@@ -75,7 +75,7 @@ It is a real collector, not a metaphor: liveness = an unbroken provenance chain 
 | `FREED-RESIDUE` | derives from a disposed decision | sweep transitively + tombstone           |
 | `UNOWNED`       | no user ruling at its root       | surface as OPEN; never apply as settled  |
 
-Sweeps compact rather than erase — the durable lesson survives, the dead directive dies — and every free lands in the gc's own store, **`.vlds/tombstones.md`**: reversible, user-auditable, and a standing mask against re-learning the same garbage from the same training prior.
+Sweeps compact rather than erase — the durable lesson survives, the dead directive dies — and every free lands in the gc's own store, **`tombstones.md`** in the VLDS store: reversible, user-auditable, and a standing mask against re-learning the same garbage from the same training prior.
 The highest-risk objects are **avoidance rules** — a rule that prevents an action is never falsified by use, because it prevents the very runs that would falsify it — so seniority is not liveness, and they are traced proactively at every recall.
 
 > The other instruments ask what is known; the collector asks what stored knowledge still has the right to steer.
@@ -84,9 +84,20 @@ The highest-risk objects are **avoidance rules** — a rule that prevents an act
 
 The four instruments are single-purpose primitives, set to **direct-invoke only** (`/vlds:gate`, `/vlds:guide`, `/vlds:gc`, `/vlds:inspector`). They stay direct-invoke only — because Claude Code skills are selected one at a time and can neither co-fire nor hand off to one another, so a request needing all of them can't assemble the loop on its own.
 
-The **looper** ([`skills/looper`](skills/looper/SKILL.md)) is the fix: the one skill that surfaces on its own, on the union of the four triggers. On a load-bearing request it runs them in order — guide the need, collect the recalled state, gate each claim, inspect the high-stakes verdict — and logs every decision to its own shared, user-editable **`.vlds/logger.md`**. It owns the order and the log, leaving the mechanisms to each instrument: each step applies the instrument's own procedure.
+The **looper** ([`skills/looper`](skills/looper/SKILL.md)) is the fix: the one skill that surfaces on its own, on the union of the four triggers. On a load-bearing request it runs them in order — guide the need, collect the recalled state, gate each claim, inspect the high-stakes verdict — and logs every decision to its own shared, user-editable **`logger.md`** in the VLDS store. It owns the order and the log, leaving the mechanisms to each instrument: each step applies the instrument's own procedure.
 
 > Three instruments you reach for; one looper that reaches for them.
+
+## The store: memory as a base class
+
+The instruments' stores — `index.md`, `ledger.md`, `logger.md`, `tombstones.md` — live in one **VLDS store**, and the store is defined by inheritance rather than by a hardcoded path.
+A SessionStart hook injects the contract ([`hooks/memory-override.md`](hooks/memory-override.md)) so it rides along with the harness's own memory instructions and extends them the way a derived class overrides a virtual method:
+
+- `base.read()` / `base.write()` — the built-in memory system's recall and persistence — run untouched.
+- The override then applies the VLDS store on top: `read()` also recalls the store's files, each item passing the gc's read barrier before it steers; `write()` also persists instrument state to them.
+- The store resolves to the working directory's `.claude/vlds/` directory (`<project>/.claude/vlds/`) — the SessionStart hook creates it if absent, and the first write does too; a pre-override repo-root `.vlds/` is still read as a legacy source.
+
+Extension, not replacement: base memory files never move, VLDS files never enter the base index — the two ride side by side, and the store stays plain markdown the user can open, edit, and audit directly.
 
 ## What it's an instance of
 
@@ -106,7 +117,7 @@ A standing check **raises the floor** — it does not deliver certainty. Self-ra
 
 ## Install
 
-Load it with `claude --plugin-dir ./Ibiza/plugins/vlds` (repeat the flag for other plugins); it reads the current files each session, so there's no install or update step. The **looper** surfaces on its own on any load-bearing request and runs the loop; the four instruments are invoked directly — `/vlds:gate <claim>`, `/vlds:guide <need>`, `/vlds:gc <stored item | full>`, `/vlds:inspector <verdict>` — or `/vlds:looper <request>` to run the whole flow explicitly.
+Load it with `claude --plugin-dir ./Ibiza/plugins/vlds` (repeat the flag for other plugins); it reads the current files each session, so there's no install or update step, and the SessionStart hook makes the memory override resident the moment the plugin loads. The **looper** surfaces on its own on any load-bearing request and runs the loop; the four instruments are invoked directly — `/vlds:gate <claim>`, `/vlds:guide <need>`, `/vlds:gc <stored item | full>`, `/vlds:inspector <verdict>` — or `/vlds:looper <request>` to run the whole flow explicitly.
 
 ## Try it
 

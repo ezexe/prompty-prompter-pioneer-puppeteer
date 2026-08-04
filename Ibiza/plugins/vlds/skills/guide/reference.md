@@ -39,12 +39,14 @@ ledger_entry:
 
 ## Where the Index and Ledger Live
 
-Both stores are plain, user-readable files under a project-local **`.vlds/`** directory — kept where the user can open, edit, and version them directly (the virtual layer made literal, not a hidden store):
+Both stores are plain, user-readable files in the **VLDS store** — the working directory's **`.claude/vlds/`** directory, resolved by the plugin's memory override, extending the built-in memory system the way a derived class extends its base (contract: [../../hooks/memory-override.md](../../hooks/memory-override.md)):
 
-- **`.vlds/index.md`** — the decided rules, one `index_entry` per key. Read it at the start of a need to run the `hit` / `miss` lookup; write to it when a miss is configured. Small and authoritative; safe to commit, so team-wide conventions travel with the repo.
-- **`.vlds/ledger.md`** — the append-only record. Append a `ledger_entry` on every surfaced moment and every silent reuse; the user reads it to `promote` or `correct`. Personal; gitignore it if the audit trail should not be shared.
+- **`index.md`** — the decided rules, one `index_entry` per key. Read it at the start of a need to run the `hit` / `miss` lookup; write to it when a miss is configured. Small and authoritative.
+- **`ledger.md`** — the append-only record. Append a `ledger_entry` on every surfaced moment and every silent reuse; the user reads it to `promote` or `correct`.
 
-Default to the project-local `.vlds/` so rules track the codebase they belong to; a user-level `~/.vlds/` holds rules meant to apply everywhere, consulted as a fallback when no project rule matches. If a file does not exist yet, the first write creates it.
+The store lives in the project's own `.claude/` directory — user-editable in place (the virtual layer made literal, not a hidden store), and the first write creates the directory and file.
+Committing `.claude/vlds/index.md` lets team-wide conventions travel with the repo; gitignore `ledger.md` if the audit trail should stay personal.
+A pre-override repo-root `.vlds/` is still read as a legacy source, and a user-level `~/.vlds/` holds rules meant to apply everywhere, consulted when no project rule matches.
 
 ## The Mis-match: a silent miss wearing a hit's clothes
 

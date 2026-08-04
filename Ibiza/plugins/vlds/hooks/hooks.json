@@ -1,0 +1,14 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "[ -n \"${CLAUDE_PROJECT_DIR:-}\" ] && mkdir -p \"${CLAUDE_PROJECT_DIR}/.claude/vlds\"; cat \"${CLAUDE_PLUGIN_ROOT}/hooks/memory-override.md\""
+          }
+        ]
+      }
+    ]
+  }
+}
