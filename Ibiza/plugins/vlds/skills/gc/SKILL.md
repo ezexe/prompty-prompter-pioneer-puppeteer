@@ -34,6 +34,10 @@ Mark every item under collection:
 | `STALE`         | contradicted by the current world — re-verify against the world, never against the memory of it | rewrite to the current fact, or delete          |
 | `FREED-RESIDUE` | derives from a decision the user disposed of                                            | sweep transitively + tombstone                          |
 | `UNOWNED`       | no user ruling at its root — self-allocated doctrine                                    | surface as an OPEN point for the user; never apply as settled |
+| `EXPIRED`       | lifetime bound reached — a tier-scoped entry whose scope (the turn, the task) has closed | free without a tombstone; promote first if it must outlive its scope |
+
+`EXPIRED` is unreachability by the ordinary rule rather than a new one: `SKILL.md` already names the live conversation as a root, so a `virtual.md` entry's root **is** the turn and vanishes with it.
+What distinguishes it from `FREED-RESIDUE` is that nothing contradicted or retracted it — its scope simply closed — which is why it takes no tombstone.
 
 `UNOWNED` is an allocation bug, not only a collection target: a workaround for an operational annoyance stored as a standing rule was never anyone's decision.
 The **write barrier** is its prevention — before persisting any standing rule, name its owner (the user ruling that decided it); with no owner, store an open question instead of doctrine.
@@ -41,9 +45,10 @@ The **write barrier** is its prevention — before persisting any standing rule,
 ## When the collector runs
 
 1. **On free** — the user retracts, corrects, or supersedes: sweep TRANSITIVELY along the reference graph in both directions — everything derived from the freed decision, and every store that cites the swept items. A sweep that leaves an inbound reference has manufactured a dangling pointer.
-2. **On recall (the read barrier)** — before a stored rule, memory, or assumption shapes an in-session decision, trace its provenance to a root; unreachable → do not apply, surface instead.
-3. **On completion** — a landed arc collects what it obsoleted.
-4. **Full collection** — `/vlds:gc full`: mark-and-sweep the whole store.
+2. **On recall (the read barrier)** — before a stored rule, memory, or assumption shapes an in-session decision, trace its provenance to a root; unreachable → do not apply, surface instead. A tier-scoped entry whose scope has closed is collected here, which is how turn-end expiry is realized without a turn-end event to hook.
+3. **On dispatch (the dispatch barrier)** — before the thought stream commits to answering a message, check it against the dispatch record: already addressed → answer the delta, not the message; superseded → surface the free instead of acting.
+4. **On completion** — a landed arc collects what it obsoleted.
+5. **Full collection** — `/vlds:gc full`: mark-and-sweep the whole store.
 
 ## The hazard ranking
 
@@ -61,12 +66,39 @@ The gate's storage tiers persist to partition files in the VLDS store (map: [../
 | Partition | Expiry the platform gives you | What the gc must do |
 | --- | --- | --- |
 | `virtual.md` (Virtual) | vanishes after use — in theory | expire entries at turn end; an inference that must outlive its turn is promoted to a durable tier, never left to linger |
-| `session-storage.md` (sessionStorage) | gone when the task ends | clear at task completion — the on-completion collection, made mechanical |
+| `session-storage.md` (sessionStorage) | gone when the task ends | clear at task completion — collection trigger 4, applied to a tier |
 | `local-storage.md` (localStorage) | none — it never expires on its own | trace on every recall, free on retraction; age grants no liveness |
 | `data-store.md` (DataStore) | the source can drift under it | re-verify against the present world on recall — verification decays |
 
-Persisting an ephemeral tier gives Gen 0 state a Gen 1 body — exactly why its expiry must be mechanical: an un-expired `virtual.md` entry is the tenuring hazard on disk.
-Routine tier expiry emulates the platform and needs no tombstone; a retraction-driven free keeps its tombstone as ever.
+Persisting an ephemeral tier gives Gen 0 state a Gen 1 body — exactly why its expiry has to be checked rather than assumed: an un-expired `virtual.md` entry is the tenuring hazard on disk.
+Nothing here fires on a timer — the expiry is **lazy, enforced at recall**, which is what makes it real without a turn-end event to hook: an entry past its scope never steers, whatever bytes remain on disk.
+
+Which expiries take a tombstone is not uniform, and the split follows what was lost:
+
+- **`virtual.md` and `session-storage.md` — no tombstone.** Turn- and task-scoped state re-derives next time it is needed, so re-minting it is correct behavior, and tombstoning every expired inference would bury the record that matters under the record that doesn't. Mark them `EXPIRED`.
+- **`local-storage.md` — tombstone.** It never expires on its own, so anything leaving it left by a user's word — a retraction, a correction, a superseding ruling — which is a free like any other.
+- **`data-store.md` — it depends on which way it goes.** An entry **rewritten in place** to the verified current fact is already its own mask and owes nothing further; an entry **dropped** because re-verification failed is a `world-drift` free and owes a tombstone, or the same training prior regenerates the same stale claim with nothing standing in front of it.
+
+## The dispatch barrier — a new message, or the same one twice?
+
+The read barrier guards what you recall and the write barrier guards what you store; the **dispatch barrier** guards what you _answer_.
+It fires as the thought stream forms — before a response is committed to, not after it is written — on one question: **is this message new, or am I addressing it a second time believing it new?**
+A message, once addressed, is stored state like any other: re-addressing it dereferences a handled message as if unhandled, and re-addressing one that a later message overrode is a use-after-free with a friendly face.
+
+| State | Meaning | Do |
+| --- | --- | --- |
+| `FRESH` | no matching entry in the dispatch record | address it, then record it |
+| `ECHO` | already addressed, and nothing about it changed | answer the delta only — never re-answer the message whole |
+| `SUPERSEDED` | addressed, then freed by a later message | surface the free; acting on it is a use-after-free |
+
+**Timing is the whole mechanism.**
+Caught while the thought stream forms, an echo costs nothing to drop; caught at emission, the duplicate already exists and every remaining option is bad — ship it and contradict yourself, or retract it and spend the turn on noise.
+
+**Matching is an inference, so log it.**
+Messages carry no ids, so a match rests on a fingerprint — the opening clause plus the ask — and is exactly the sameness judgment the guide's `hit` can get wrong.
+**When the match is uncertain, default to `FRESH`**: the failure modes are not symmetric — a wrong `FRESH` wastes a turn, a wrong `ECHO` silently drops the user's request, and only the first is recoverable without the user having to notice and ask twice.
+
+The record lives in the store's `dispatch.md`, session-scoped and never promoted to a rule; where echoes come from is in [reference.md](reference.md).
 
 ## How to Apply
 

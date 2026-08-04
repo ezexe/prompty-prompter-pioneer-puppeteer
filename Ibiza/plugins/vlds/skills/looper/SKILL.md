@@ -11,14 +11,15 @@ argument-hint: "[request to run through the loop]"
 
 ## The Loop
 
-On a load-bearing request, run the four instruments in order — applying each one's own procedure (the looper only sequences — the mechanism stays the instrument's):
+On a load-bearing request, run the four instruments in order behind one preflight — applying each one's own procedure (the looper only sequences — the mechanism stays the instrument's):
 
-1. **Guide the need** — at intake, treat the intent as a claim: look it up in `index.md` in the VLDS store (`hit` → apply the rule; `miss` → ask, teach, or offer to configure). Procedure: [../guide/SKILL.md](../guide/SKILL.md).
-2. **Collect the recalled state** — every stored rule, memory, or assumption the work is about to lean on (a guide `hit` included) passes the gc's read barrier: trace its provenance to a live root; freed or stale → do not apply, surface instead. A retraction in the request triggers the transitive sweep + tombstone. Procedure: [../gc/SKILL.md](../gc/SKILL.md).
-3. **Gate each claim** — for every load-bearing claim the work rests on, route it to `CONFIRMED` / `PENDING` / `HEDGED` and verify what is `PENDING`. Procedure: [../gate/SKILL.md](../gate/SKILL.md).
-4. **Inspect the high-stakes verdicts** — escalate a consequential `CONFIRMED`, applied `match`, or contested sweep to independent eyes → `CORROBORATED` / `REJECTED` / `CONTESTED`. Procedure: [../inspector/SKILL.md](../inspector/SKILL.md).
+1. **Preflight: the dispatch barrier** — before the loop opens, check the request against `dispatch.md`: `ECHO` → answer the delta, not the message; `SUPERSEDED` → surface the free instead of acting. Only a `FRESH` message enters the loop, because a message already addressed makes every step below redundant work on a settled question. Procedure: [../gc/SKILL.md](../gc/SKILL.md).
+2. **Guide the need** — at intake, treat the intent as a claim: look it up in `index.md` in the VLDS store (`hit` → apply the rule; `miss` → ask, teach, or offer to configure). Procedure: [../guide/SKILL.md](../guide/SKILL.md).
+3. **Collect the recalled state** — every stored rule, memory, or assumption the work is about to lean on (a guide `hit` included) passes the gc's read barrier: trace its provenance to a live root; freed or stale → do not apply, surface instead. A retraction in the request triggers the transitive sweep + tombstone. Procedure: [../gc/SKILL.md](../gc/SKILL.md).
+4. **Gate each claim** — for every load-bearing claim the work rests on, route it to `CONFIRMED` / `PENDING` / `HEDGED` and verify what is `PENDING`. Procedure: [../gate/SKILL.md](../gate/SKILL.md).
+5. **Inspect the high-stakes verdicts** — escalate a consequential `CONFIRMED`, applied `match`, or contested sweep to independent eyes → `CORROBORATED` / `REJECTED` / `CONTESTED`. Procedure: [../inspector/SKILL.md](../inspector/SKILL.md).
 
-The order is the loop the dashboard is built on — **does the need have a configured answer? → is what I recall still alive? → is each claim known? → would an outside eye agree?** Carry state forward: a `REJECTED` verdict re-gates the claim; a `CONTESTED` one is surfaced; a swept rule un-hits the guide lookup that recalled it.
+The order is the loop the dashboard is built on — **have I answered this already? → does the need have a configured answer? → is what I recall still alive? → is each claim known? → would an outside eye agree?** Carry state forward: a `REJECTED` verdict re-gates the claim; a `CONTESTED` one is surfaced; a swept rule un-hits the guide lookup that recalled it.
 
 ## Log Every Decision
 
@@ -29,7 +30,7 @@ The guide keeps its own `index.md` (rules) and `ledger.md` (its config audit), a
 ## How to Apply
 
 1. Run on any **load-bearing or consequential** request; skip trivial or conversational ones.
-2. Run steps 1–4 in order, applying each instrument's procedure.
+2. Run the preflight, then steps 2–5 in order, applying each instrument's procedure.
 3. Append each decision to `logger.md` in the VLDS store.
 4. For a heavy independent check, **delegate to an isolated subagent** to run the inspector's eyes apart from the main context and return only a verdict; otherwise run inline.
 

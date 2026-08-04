@@ -50,12 +50,27 @@ Two structural biases to trace against:
 - **Self-defense at collection time.** The same reasoning that allocated a rule will defend it when audited; provenance-tracing is mechanical precisely to route around that — the chain either reaches a root or it does not.
 - **The avoidance-rule blind spot.** A rule that prevents an action is never falsified by use, because it prevents the very runs that would falsify it. The longer an avoidance rule has survived, the LESS that survival means; seniority is not liveness.
 
+## Where Echoes Come From
+
+The dispatch barrier ([SKILL.md](SKILL.md)) exists because an echo is rarely the user repeating themselves; it is the harness re-delivering something already handled:
+
+| Vector | How the echo arrives |
+| --- | --- |
+| Mid-turn interleave | a user message surfaces alongside a tool result inside a running turn, then appears again as a conversation turn |
+| Hook injection | SessionStart / resume hooks re-emit the same resident text every session; system-reminders repeat stored memory verbatim |
+| Summary replay | context summarization carries a handled message forward with its handled-ness stripped |
+| Task notification | a background result returns on a premise that has since moved |
+| Re-paste | the user re-sends a document already diffed against issued fixes |
+
+Summary replay is the dangerous row, and for the same reason the tenuring hazard is: the copy is faithful to content and lossy about status.
+A stale claim carried forward merely misleads; a handled message carried forward actively invites the work to be done a second time.
+
 ## Composing With the Other Instruments
 
 - **Gate** — the gate stamps a claim's status now; the gc governs how long a stamp stays good. A recalled `CONFIRMED` whose verification has aged re-enters as `PENDING`: verification decays, and the gc's read barrier is where the decay is noticed. The gate's `source_type: training` is the gc's Gen 2, met at claim scope.
 - **Guide** — the guide's `hit` is a read from the rule heap, so every hit passes the gc's read barrier before it is applied: a hit on a freed rule is exactly a use-after-free with good intentions. The guide's ledger records the liveness call beside the reuse it justified.
 - **Inspector** — a contested liveness call (the trace is ambiguous, or the sweep is consequential) escalates to the inspector's independent eyes before anything is deleted.
-- **Looper** — the looper carries the gc's triggers (the instruments' own `when_to_use` is inert): it runs the read barrier at intake on whatever stored state the request leans on, and runs the transitive sweep the moment a turn contains a retraction.
+- **Looper** — the looper carries the gc's triggers (the instruments' own `when_to_use` is inert): it runs the dispatch barrier before the loop opens, the read barrier at intake on whatever stored state the request leans on, and the transitive sweep the moment a turn contains a retraction.
 
 ## The Honest Limit
 

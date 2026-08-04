@@ -74,10 +74,12 @@ It is a real collector, not a metaphor: liveness = an unbroken provenance chain 
 | `STALE`         | the world moved on               | rewrite to the current fact, or delete   |
 | `FREED-RESIDUE` | derives from a disposed decision | sweep transitively + tombstone           |
 | `UNOWNED`       | no user ruling at its root       | surface as OPEN; never apply as settled  |
+| `EXPIRED`       | its scope — the turn, the task — closed | free without a tombstone; promote first to outlive it |
 
 Sweeps compact rather than erase — the durable lesson survives, the dead directive dies — and every free lands in the gc's own store, **`tombstones.md`** in the VLDS store: reversible, user-auditable, and a standing mask against re-learning the same garbage from the same training prior.
 The highest-risk objects are **avoidance rules** — a rule that prevents an action is never falsified by use, because it prevents the very runs that would falsify it — so seniority is not liveness, and they are traced proactively at every recall.
 The gate's storage tiers persist as partition files in the VLDS store, and their expiry is the gc's too — `sessionStorage` clears itself when the tab dies, `localStorage` never does: invalidation is the GC's job, now yours.
+The collector guards three barriers in all: the **read barrier** on what you recall, the **write barrier** on what you store, and the **dispatch barrier** on what you _answer_ — the last catching a message addressed twice, or one a later message already freed.
 
 > The other instruments ask what is known; the collector asks what stored knowledge still has the right to steer.
 
@@ -91,7 +93,7 @@ The **looper** ([`skills/looper`](skills/looper/SKILL.md)) is the fix: the one s
 
 ## The store: memory as a base class
 
-The instruments' stores — `index.md`, `ledger.md`, `logger.md`, `tombstones.md` — live in one **VLDS store**, joined by the gate's storage tiers made literal as partition files (`virtual.md`, `session-storage.md`, `local-storage.md`, `data-store.md`) whose expiry the gc owns — no partition invalidates itself.
+The instruments' stores — `index.md`, `ledger.md`, `logger.md`, `tombstones.md` — live in one **VLDS store**, joined by the gate's storage tiers made literal as partition files (`virtual.md`, `session-storage.md`, `local-storage.md`, `data-store.md`) whose expiry the gc owns — no partition invalidates itself — and by `dispatch.md`, the record of which messages this session has already addressed.
 The store is defined by inheritance rather than by a hardcoded path.
 A SessionStart hook injects the contract ([`hooks/memory-override.md`](hooks/memory-override.md)) so it rides along with the harness's own memory instructions and extends them the way a derived class overrides a virtual method:
 

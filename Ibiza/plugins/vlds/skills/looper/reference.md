@@ -8,12 +8,13 @@ Claude Code skills are single-purpose, selected one at a time, and cannot invoke
 
 ## When Each Instrument Fires
 
-The looper runs the instruments in a fixed order — **need before recall before claim before verdict** — skipping any step with nothing to act on (not every request has all four). Each fires on its own trigger:
+The looper runs the instruments in a fixed order — **message before need before recall before claim before verdict** — skipping any step with nothing to act on (not every request has all five). Each fires on its own trigger:
 
-1. **Guide** — on the _need_ behind the request, at intake: when the intent is inferred rather than stated, a clarifying question is in order, the request matches something handled before, or a durable preference surfaces. Skip when intent is explicit and no standing preference is in play.
-2. **GC** — on the _stored state_ the work is about to lean on: a recalled memory, configured rule (a guide `hit` included), plan-doc ruling, or training-data assumption whose grounding may have lapsed — and, immediately, on a user retraction/correction that frees standing state. Skip when the turn recalls nothing and retracts nothing.
-3. **Gate** — on each _load-bearing claim_ the work rests on: a checkable fact still unverified this session (a version, date, statistic, API behavior, a "latest/best/standard", a security or correctness claim feeding an edit or recommendation), or a position kept because it "sounds right." Skip trivial, conversational, or already-hedged statements.
-4. **Inspector** — on a _high-stakes verdict_: when a `CONFIRMED` claim's correctness carries real cost, a guide `match` is about to be reused on consequential ground, a consequential sweep is contested, or self-rationalization is the risk. Skip low-stakes verdicts the inside floor already covers.
+1. **GC, dispatch barrier** — on the _message itself_, before the loop opens: is this one already addressed? An `ECHO` gets the delta, a `SUPERSEDED` message gets its free surfaced, and neither enters the loop — every step below would be redundant work on a settled question. Skip when the message is plainly new.
+2. **Guide** — on the _need_ behind the request, at intake: when the intent is inferred rather than stated, a clarifying question is in order, the request matches something handled before, or a durable preference surfaces. Skip when intent is explicit and no standing preference is in play.
+3. **GC** — on the _stored state_ the work is about to lean on: a recalled memory, configured rule (a guide `hit` included), plan-doc ruling, or training-data assumption whose grounding may have lapsed — and, immediately, on a user retraction/correction that frees standing state. Skip when the turn recalls nothing and retracts nothing.
+4. **Gate** — on each _load-bearing claim_ the work rests on: a checkable fact still unverified this session (a version, date, statistic, API behavior, a "latest/best/standard", a security or correctness claim feeding an edit or recommendation), or a position kept because it "sounds right." Skip trivial, conversational, or already-hedged statements.
+5. **Inspector** — on a _high-stakes verdict_: when a `CONFIRMED` claim's correctness carries real cost, a guide `match` is about to be reused on consequential ground, a consequential sweep is contested, or self-rationalization is the risk. Skip low-stakes verdicts the inside floor already covers.
 
 These triggers once lived in each instrument's `when_to_use`. With the instruments set to direct-invoke-only — out of the model's context — that field is inert, so the looper carries the triggers: it is the one that decides which instrument applies, and when. Its own `when_to_use` is their union.
 
@@ -40,8 +41,17 @@ These triggers once lived in each instrument's `when_to_use`. With the instrumen
 - instrument: gc
   time: [YYYY-MM-DD HH:MM]
   item: [the stored rule/memory/assumption traced]
-  mark: LIVE | STALE | FREED-RESIDUE | UNOWNED
-  action: [applied | rewritten | swept + tombstoned | expired | surfaced as OPEN]   # a sweep also appends to tombstones.md in the VLDS store; routine partition expiry logs without a tombstone
+  mark: LIVE | STALE | FREED-RESIDUE | UNOWNED | EXPIRED
+  action: [applied | rewritten | swept + tombstoned | surfaced as OPEN | expired]   # a sweep also appends to tombstones.md in the VLDS store
+  # `expired` is for virtual/session-storage entries whose scope closed — no tombstone.
+  # A data-store entry DROPPED on failed re-verification is not expiry: log it `swept + tombstoned`, cause world-drift.
+
+# gc — a message dispatched (the dispatch barrier)
+- instrument: gc
+  time: [YYYY-MM-DD HH:MM]
+  message: [fingerprint — the opening clause plus the ask]
+  state: FRESH | ECHO | SUPERSEDED
+  match: [what justified an ECHO or SUPERSEDED call]   # the inference, on the record
 
 # inspector — a verdict checked
 - instrument: inspector

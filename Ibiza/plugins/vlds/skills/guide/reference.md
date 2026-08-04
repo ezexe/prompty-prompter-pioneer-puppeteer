@@ -46,7 +46,7 @@ Both stores are plain, user-readable files in the **VLDS store** — the working
 
 The store lives in the project's own `.claude/` directory — user-editable in place (the virtual layer made literal, not a hidden store), and the first write creates the directory and file.
 Committing `.claude/vlds/index.md` lets team-wide conventions travel with the repo; gitignore `ledger.md` if the audit trail should stay personal.
-A pre-override repo-root `.vlds/` is still read as a legacy source, and a user-level `~/.vlds/` holds rules meant to apply everywhere, consulted when no project rule matches.
+A pre-override repo-root `.vlds/` is still read as a legacy source; new writes land in the resolved store.
 
 ## The Mis-match: a silent miss wearing a hit's clothes
 
