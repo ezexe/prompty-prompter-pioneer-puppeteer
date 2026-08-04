@@ -41,7 +41,7 @@ These triggers once lived in each instrument's `when_to_use`. With the instrumen
   time: [YYYY-MM-DD HH:MM]
   item: [the stored rule/memory/assumption traced]
   mark: LIVE | STALE | FREED-RESIDUE | UNOWNED
-  action: [applied | rewritten | swept + tombstoned | surfaced as OPEN]   # a sweep also appends to tombstones.md in the VLDS store
+  action: [applied | rewritten | swept + tombstoned | expired | surfaced as OPEN]   # a sweep also appends to tombstones.md in the VLDS store; routine partition expiry logs without a tombstone
 
 # inspector — a verdict checked
 - instrument: inspector

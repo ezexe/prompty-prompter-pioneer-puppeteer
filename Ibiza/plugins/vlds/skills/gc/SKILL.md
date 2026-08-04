@@ -52,6 +52,22 @@ The **write barrier** is its prevention — before persisting any standing rule,
 - **Training data is the oldest generation.** Every versioned or dated claim recalled from it is `STALE`-suspect by default — the gate's `source_type: training`, read at store scope.
 - **Latest user word wins.** Rulings are ordered; a newer ruling silently frees every older one it contradicts, and the sweep is owed at the moment of contradiction.
 
+## Invalidation — the GC's job, now yours
+
+The web platform teaches this lesson the hard way: `sessionStorage` clears itself when the tab dies, but `localStorage` never expires — invalidation is the developer's job, and state nobody invalidates becomes doctrine by default.
+In VLDS the gc is that developer.
+The gate's storage tiers persist to partition files in the VLDS store (map: [../../hooks/memory-override.md](../../hooks/memory-override.md)), and no partition invalidates itself — every partition's expiry is the gc's to run:
+
+| Partition | Expiry the platform gives you | What the gc must do |
+| --- | --- | --- |
+| `virtual.md` (Virtual) | vanishes after use — in theory | expire entries at turn end; an inference that must outlive its turn is promoted to a durable tier, never left to linger |
+| `session-storage.md` (sessionStorage) | gone when the task ends | clear at task completion — the on-completion collection, made mechanical |
+| `local-storage.md` (localStorage) | none — it never expires on its own | trace on every recall, free on retraction; age grants no liveness |
+| `data-store.md` (DataStore) | the source can drift under it | re-verify against the present world on recall — verification decays |
+
+Persisting an ephemeral tier gives Gen 0 state a Gen 1 body — exactly why its expiry must be mechanical: an un-expired `virtual.md` entry is the tenuring hazard on disk.
+Routine tier expiry emulates the platform and needs no tombstone; a retraction-driven free keeps its tombstone as ever.
+
 ## How to Apply
 
 1. **Identify** the item under collection: what stored decision is about to be applied, was just retracted, or is being audited.

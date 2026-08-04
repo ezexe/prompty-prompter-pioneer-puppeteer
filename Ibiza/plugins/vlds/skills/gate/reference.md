@@ -34,6 +34,8 @@ The tiers borrow web-storage names as metaphors, from most ephemeral to most aut
 VLDS records the tier so the decision gate — and the reader — can weigh the claim correctly.
 The tier is part of a claim's provenance — one input the gate weighs.
 The most ephemeral tier (**Virtual**) carries the weakest provenance, while the persisted and authoritative tiers (**localStorage**, **DataStore**) are where a claim finds durable backing.
+Each tier persists to its own partition file in the VLDS store — `virtual.md`, `session-storage.md`, `local-storage.md`, `data-store.md` — written as state lands in the tier (map: [../../hooks/memory-override.md](../../hooks/memory-override.md)).
+No partition invalidates itself: expiry is the gc's job, per its "Invalidation — the GC's job, now yours" ([../gc/SKILL.md](../gc/SKILL.md)).
 
 ## The Draft/Verified Delta Schema
 

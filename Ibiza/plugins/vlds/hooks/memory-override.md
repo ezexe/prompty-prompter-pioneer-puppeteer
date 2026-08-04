@@ -30,12 +30,24 @@ If the session carries no base `# Memory` instructions, there is no base behavio
 | `logger.md` | looper | the dashboard's single activity log — every instrument's decision, tagged, as the loop runs |
 | `tombstones.md` | gc | one entry per freed decision — what was retracted, when, in whose words; the mask against re-learning it |
 
+**The partition files** — the gate's storage tiers made literal.
+Each partition of in-session state persists to its own file in `store`, written as state lands in its tier; no partition invalidates itself, so every partition's expiry is the gc's to run ("Invalidation — the GC's job, now yours", in the gc skill):
+
+| File in `store` | Tier | Holds | Expiry (the gc's job) |
+|---|---|---|---|
+| `virtual.md` | Virtual | load-bearing inferences minted this turn | expires at turn end unless promoted to a durable tier |
+| `session-storage.md` | sessionStorage | task-scoped working state | cleared at task completion — the on-completion collection, made mechanical |
+| `local-storage.md` | localStorage | session memory, user-stated preferences and rulings | never auto-expires — traced on every recall, freed on retraction |
+| `data-store.md` | DataStore | verified claims with the authoritative sources that back them | re-verified on recall; verification decays as the world drifts |
+
 **The `read()` override.**
 Whenever base recall applies — session start, and any turn a stored memory is about to steer work — the store's files are recalled state too: index rules answer needs, tombstones outrank the training prior they mask, ledger and logger serve audit questions.
+Partition files are recalled with the rest, each entry additionally subject to its tier's expiry policy before it may steer.
 Every applied item passes the gc read barrier first: trace its provenance to a live root; freed or stale → surface it, do not apply it.
 
 **The `write()` override.**
 Whenever an instrument produces durable state — a configured rule, a ledger event, a loop decision, a tombstone — persist it to `store` under the file and schema the store map assigns, creating the file on first write.
+In-session state lands in the partition file matching its storage tier as it is minted — an inference in `virtual.md`, task scratch in `session-storage.md`, a session preference or user ruling in `local-storage.md`, a source-backed verification in `data-store.md`.
 Base write conventions are untouched: memory-worthy facts still land in `memory/` with their MEMORY.md index line, per the base instructions.
 
 **What the override never does.**

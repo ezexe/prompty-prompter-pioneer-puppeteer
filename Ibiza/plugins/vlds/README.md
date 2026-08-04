@@ -77,6 +77,7 @@ It is a real collector, not a metaphor: liveness = an unbroken provenance chain 
 
 Sweeps compact rather than erase — the durable lesson survives, the dead directive dies — and every free lands in the gc's own store, **`tombstones.md`** in the VLDS store: reversible, user-auditable, and a standing mask against re-learning the same garbage from the same training prior.
 The highest-risk objects are **avoidance rules** — a rule that prevents an action is never falsified by use, because it prevents the very runs that would falsify it — so seniority is not liveness, and they are traced proactively at every recall.
+The gate's storage tiers persist as partition files in the VLDS store, and their expiry is the gc's too — `sessionStorage` clears itself when the tab dies, `localStorage` never does: invalidation is the GC's job, now yours.
 
 > The other instruments ask what is known; the collector asks what stored knowledge still has the right to steer.
 
@@ -90,7 +91,8 @@ The **looper** ([`skills/looper`](skills/looper/SKILL.md)) is the fix: the one s
 
 ## The store: memory as a base class
 
-The instruments' stores — `index.md`, `ledger.md`, `logger.md`, `tombstones.md` — live in one **VLDS store**, and the store is defined by inheritance rather than by a hardcoded path.
+The instruments' stores — `index.md`, `ledger.md`, `logger.md`, `tombstones.md` — live in one **VLDS store**, joined by the gate's storage tiers made literal as partition files (`virtual.md`, `session-storage.md`, `local-storage.md`, `data-store.md`) whose expiry the gc owns — no partition invalidates itself.
+The store is defined by inheritance rather than by a hardcoded path.
 A SessionStart hook injects the contract ([`hooks/memory-override.md`](hooks/memory-override.md)) so it rides along with the harness's own memory instructions and extends them the way a derived class overrides a virtual method:
 
 - `base.read()` / `base.write()` — the built-in memory system's recall and persistence — run untouched.
