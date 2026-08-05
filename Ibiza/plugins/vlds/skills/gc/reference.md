@@ -65,6 +65,34 @@ The dispatch barrier ([SKILL.md](SKILL.md)) exists because an echo is rarely the
 Summary replay is the dangerous row, and for the same reason the tenuring hazard is: the copy is faithful to content and lossy about status.
 A stale claim carried forward merely misleads; a handled message carried forward actively invites the work to be done a second time.
 
+## Cycles and Pressure — Collecting What Grew Into Itself
+
+Per-item tracing has a blind spot the literature already named: **reference counting cannot collect a cycle.**
+A cluster whose every inbound reference comes from another member keeps all of them "referenced," so each one audited alone passes — and the procedure above audits them one at a time.
+Only asking whether the _cluster_ reaches a live root, rather than whether an item has a referrer, sees the island float free.
+
+Applied to stored doctrine, that island is a rule patching the previous rule's gap, patched in turn by the next: every link locally justified, the whole anchored to nothing anyone asked for.
+It is the one failure the other marks structurally cannot catch, because each member really does have an owner — just a local one.
+
+**Three counted signals**, counted rather than judged for the reason the tracing procedure is mechanical: the reasoning that allocated the complexity will defend it under audit, and that bias operates at structure scope too.
+
+| Signal | Count | Reads as pressure when |
+| --- | --- | --- |
+| Growth ratio | insertions : deletions across the arc, or the last N changes | growth runs one way — a store that never deletes is accreting, whatever each change was worth |
+| Repair fraction | changes repairing the previous changes, against changes serving a new need | a third or more: the collector running more and reclaiming less is thrashing |
+| Root distance | hops from a new rule to a user ruling | more than two, and all of them through other doctrine — a cycle candidate |
+
+**It previews. It never sweeps.**
+Sorting essential complexity from accidental is `UNOWNED` by the write barrier's own rule — no user ruling covers it — so the output is a dry run: what would be collected, what it would cost, and what the collector is unsure of.
+
+**A pressure signal names suspects, not garbage.**
+Trace every candidate to a root before collecting it, and expect some to survive: a structure can be genuinely overgrown _and_ every branch of it still rooted in something the user asked for.
+When that happens the collectible target is not the concepts but the **duplication they spawned** — the same fact restated across files, which compacts without losing anything.
+Skipping the trace is how a collector eats live objects because a metric looked bad.
+
+**It counts itself.**
+The audit is an allocation like any other; if its own footprint grows across passes, that is pressure by its own first signal.
+
 ## Composing With the Other Instruments
 
 - **Gate** — the gate stamps a claim's status now; the gc governs how long a stamp stays good. A recalled `CONFIRMED` whose verification has aged re-enters as `PENDING`: verification decays, and the gc's read barrier is where the decay is noticed. The gate's `source_type: training` is the gc's Gen 2, met at claim scope.

@@ -48,6 +48,7 @@ The **write barrier** is its prevention — before persisting any standing rule,
 3. **On dispatch (the dispatch barrier)** — before the thought stream commits to answering a message, check it against the dispatch record: already addressed → answer the delta, not the message; superseded → surface the free instead of acting.
 4. **On completion** — a landed arc collects what it obsoleted.
 5. **Full collection** — `/vlds:gc full`: mark-and-sweep the whole store.
+6. **On pressure** — when a landed arc or a full audit shows growth running one way, run the cycle test: per-item tracing cannot see a cluster that only references itself. It previews, never sweeps — [reference.md](reference.md).
 
 ## The hazard ranking
 

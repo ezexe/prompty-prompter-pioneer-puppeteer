@@ -80,6 +80,7 @@ Sweeps compact rather than erase — the durable lesson survives, the dead direc
 The highest-risk objects are **avoidance rules** — a rule that prevents an action is never falsified by use, because it prevents the very runs that would falsify it — so seniority is not liveness, and they are traced proactively at every recall.
 The gate's storage tiers persist as partition files in the VLDS store, and their expiry is the gc's too — `sessionStorage` clears itself when the tab dies, `localStorage` never does: invalidation is the GC's job, now yours.
 The collector guards three barriers in all: the **read barrier** on what you recall, the **write barrier** on what you store, and the **dispatch barrier** on what you _answer_ — the last catching a message addressed twice, or one a later message already freed.
+It also collects the failure per-item tracing structurally cannot see: a **cycle** — doctrine justified only by other doctrine, every link locally owned and the whole anchored to nothing anyone asked for. Reference counting can't collect a cycle; the pressure audit counts growth, repair, and root distance, then _previews_ what it would take, because a metric that looks bad is not yet a verdict.
 
 > The other instruments ask what is known; the collector asks what stored knowledge still has the right to steer.
 
