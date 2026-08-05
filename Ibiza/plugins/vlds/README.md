@@ -101,6 +101,10 @@ A SessionStart hook injects the contract ([`hooks/memory-override.md`](hooks/mem
 - The override then applies the VLDS store on top: `read()` also recalls the store's files, each item passing the gc's read barrier before it steers; `write()` also persists instrument state to them.
 - The store resolves to the working directory's `.claude/vlds/` directory (`<project>/.claude/vlds/`) — the SessionStart hook creates it if absent, and the first write does too; a pre-override repo-root `.vlds/` is still read as a legacy source.
 
+The contract is injected as an **imperative trigger table** — _fires when → do_ — not as description, because a layer described is a layer that never runs.
+Its dispatch row is unconditional: every message appends its entry before it is answered, whether or not any instrument fires, so **a session that ends having written nothing did not run the layer**.
+The hook seeds `dispatch.md` from a template when absent (never overwriting one that exists), so the append target is a real file rather than an empty directory.
+
 Extension, not replacement: base memory files never move, VLDS files never enter the base index — the two ride side by side, and the store stays plain markdown the user can open, edit, and audit directly.
 
 ## What it's an instance of
