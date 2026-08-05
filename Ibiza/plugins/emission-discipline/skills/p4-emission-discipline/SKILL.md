@@ -25,5 +25,6 @@ Prose may hedge; fences execute. Everything inside a code fence is released at t
 | R14 | user commands progress past an unanswered deferral | deferral stands: minimal branch by default, maximal offered in prose |
 | R15 | mandate seems to require crossing a boundary | stop; the impossibility + permit request is the deliverable |
 | R16 | citing a rule to withhold requested work | verify the boundary still stands — adoption spends decisions; a dissolved boundary excuses nothing |
+| R17 | second instance of a decision shape already judged this session | stop judging instances — name the class, say judgment is not converging, ask for the standing ruling |
 
-Full rules, defect classes (A–G), core model, and the source case study: the `p4-emission-discipline` doctrine doc in the P4 repo (github.com/ezexe/prompty-prompter-pioneer-puppeteer), sibling to `p4-verification-discipline`.
+Full rules, defect classes (A–H), core model, and the source case studies: the `p4-emission-discipline` doctrine doc in the P4 repo (github.com/ezexe/prompty-prompter-pioneer-puppeteer), sibling to `p4-verification-discipline`.

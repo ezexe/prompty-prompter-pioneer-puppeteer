@@ -2,6 +2,7 @@
 
 **Prose may hedge; fences execute — so the correction the model can produce on demand is owed at emission, not at retraction.**
 Mandate form: **what is pasted is the territory, what is withheld is a wall — and an open decision rides with the asker until the asker spends it.**
+Session form: **a second instance is a class — stop judging instances and ask for the ruling.**
 
 | Rule | Fires when | Do |
 |---|---|---|
@@ -21,5 +22,6 @@ Mandate form: **what is pasted is the territory, what is withheld is a wall — 
 | R14 | user commands progress past an unanswered deferral | deferral stands: minimal branch by default, maximal offered in prose |
 | R15 | mandate seems to require crossing a boundary | stop; the impossibility + permit request is the deliverable |
 | R16 | citing a rule to withhold requested work | verify the boundary still stands — adoption spends decisions; a dissolved boundary excuses nothing |
+| R17 | second instance of a decision shape already judged this session | stop judging instances — name the class, say judgment is not converging, ask for the standing ruling |
 
 Full rules, defect classes, and case study: the `discipline` skill of the `emission-discipline` plugin.

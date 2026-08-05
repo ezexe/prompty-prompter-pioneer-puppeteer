@@ -1,6 +1,6 @@
 ---
 name: discipline
-description: "Emission Discipline (prose-may-hedge-fences-execute) — a 16-rule framework for WHAT may be RELEASED into a code fence, gating emission on what is about to be released, never on how casual the request was. Models the experienced integration defect as (correct form available in-model) × (release layer that never checks the emission against it) — knowledge–emission divergence — and classifies defects by transmission vector: phantom references, fossils, endorsed rejects, unlanded fixes, rhetorical laundering, label drift, scope breaches. Rules fire mid-stream (at fence-open), at turn boundaries (on document arrival), as standing release conditions, and as a mandate cluster gating license rather than form: what the user pastes is the territory, what they withhold is a wall. Use when emitting code, configs, commands, or log strings a user will integrate, when a user document returns prior emissions, or to test an emission against the discipline."
+description: "Emission Discipline (prose-may-hedge-fences-execute) — a 17-rule framework for WHAT may be RELEASED into a code fence, gating emission on what is about to be released, never on how casual the request was. Models the experienced integration defect as (correct form available in-model) × (release layer that never checks the emission against it) — knowledge–emission divergence — and classifies defects by transmission vector: phantom references, fossils, endorsed rejects, unlanded fixes, rhetorical laundering, label drift, scope breaches, and unconverged deferrals. Rules fire mid-stream (at fence-open), at turn boundaries (on document arrival), as standing release conditions, as a mandate cluster gating license rather than form (what the user pastes is the territory, what they withhold is a wall), and — rule 17 alone — on the session, where a decision shape judged per-instance twice is a class owed a ruling. Use when emitting code, configs, commands, or log strings a user will integrate, when a user document returns prior emissions, or to test an emission against the discipline."
 argument-hint: "[emission, snippet, or turn to test against the discipline]"
 disable-model-invocation: true
 ---
@@ -17,6 +17,7 @@ disable-model-invocation: true
 - **Derived:** 2026-07-16, from a live multi-turn code review of a C++ `HostLink` class (Win32 named-pipe host election: spawn/elect/handoff/handshake) in which the reviewing model emitted defects against its own demonstrable in-context knowledge — every correction was producible on demand one turn later, which is exactly the phenomenon this framework targets ([Appendix A](#appendix-a--case-study-source-session-2026-07-16)).
 - **Amended same session:** rules 13–15 (the mandate cluster) and defect Class G, added after the freshly written rules 1–12 failed to catch a live scope breach ([A-7](#appendix-a--case-study-source-session-2026-07-16)).
 - **Second amendment, same session:** rule 16 and Appendix A-8, after the mandate cluster itself was misapplied as a shield one turn later.
+- **Third amendment, 2026-08-05, different session and different codebase:** rule 17, defect Class H, and [Appendix B](#appendix-b--case-study-the-unconverged-deferral-2026-08-05) — added after the gate was confirmed **resident and verbatim in context** and a deferral shape shipped three times anyway. The first amendment cause found by the framework's own author-session; this one found by a falloff in an unrelated session, filed as an investigation brief, and audited by a third session that corrected three of the brief's four hypotheses before anything landed here.
 - **Authored without access to this repo:** every assumption the source brief made about structure, naming, or stage semantics was hypothesis, not fact; the [stage mapping](#stage-mapping--the-rules-against-the-p4-gates) below is derived from this repo's own gate definitions, not from the brief's guesses.
 - **Review triggers (any one fires a re-read):** Claude Code changes skill loading or triggering semantics (this voids the [residency map](#residency-map--how-the-gate-stays-resident)); six months elapse from the derived date; or any rule fires incorrectly in practice.
 
@@ -60,6 +61,7 @@ Every emission defect propagates through a characteristic vector and survives fo
 | E     | Rhetorical laundering | a choice or admission hidden inside a hedge-adverb                               | until directly challenged                                                                   |
 | F     | Label drift           | a name asserting behavior only some reaching paths have                          | until the off-path fires in production                                                      |
 | G     | Scope breach          | emission crosses a boundary drawn by withheld context or an unresolved decision  | until the boundary's **owner** notices — the emission is internally flawless, so no other detector exists |
+| H     | Unconverged deferral  | a defensible per-instance judgment on a recurring decision, repeated until the sequence is the defect | until the user names the **pattern** — no single instance reads as wrong, so the count is the only signal |
 
 Class D is the priority class: its latency is unbounded, and it camouflages itself — post-flag silence reads as retraction of the flag, so each round-trip _strengthens_ the defect's apparent legitimacy.
 
@@ -68,6 +70,12 @@ Rules 1–12 gate emission _form_ and can all pass green on a Class G breach —
 Its detector asymmetry is unique: only the boundary's owner can catch it (the boundary is theirs), and only the emitter can decipher it (the reasoning is the emitter's).
 The countermeasures are the mandate rules, 13–16.
 
+Class H is orthogonal on a different axis again, and the axis is **scope of subject**.
+A–G are each a property of one emission; H is a property of a _sequence_, and has no single emission to attach to — every instance can be individually defensible while the run of them is the defect.
+That is why rules 1–16 structurally cannot see it: each takes one emission as its subject, so "I have now hedged this same class three times" has no trigger to fire on.
+Its countermeasure is rule 17, the only rule in the framework whose subject is the session.
+Note the relation to G rather than a resemblance to it: a single under-delivery is already covered — it is the mirror of G, minted from the emitter's interest in safety, and rule 16 governs it. H is what that shape becomes when it _recurs and fails to converge_.
+
 ### Mandate
 
 What the user pastes is the work surface; what the user withholds is a wall, not a gap.
@@ -75,7 +83,7 @@ Pastes are scope declarations: a user who pastes implementations when they want 
 And the parent framework's one-way valve ([verification rule 16](../../../verification-discipline/skills/discipline/SKILL.md#group-c--layer-priority--geometry)) binds here with full force: inferred correctness may _add_ obligations — flag, warn, propose — but may never _mint_ a consequential permission.
 "This design is obviously right" is never a license to cross into withheld territory; the moment a mandate seems to require crossing, the conflict itself is the deliverable.
 
-## The 16 rules
+## The 17 rules
 
 Nothing in the rule statements below is reworded from the source framework; the wording deltas are logged in the plugin [README](../../README.md#wording-deltas-from-the-canonical-payload).
 
@@ -83,6 +91,9 @@ Rules 1–7 fire **mid-stream** (at the token where the failure mode begins).
 Rules 8–10 fire **at turn boundaries** (on receiving user content).
 Rules 11–12 are standing conditions on every release.
 Rules 13–16 are the **mandate cluster** — they gate license, not form; 13–15 mirror the geometry cluster (13–16) of [verification-discipline](../../../verification-discipline/skills/discipline/SKILL.md#group-c--layer-priority--geometry), and 16 guards the cluster against its own over-application.
+Rule 17 stands alone as the **session scope** — the only rule whose subject is a sequence rather than an emission.
+
+On the count: rules 1–16 matching verification-discipline's sixteen was an observation about **rule 16's function** — each framework's final rule guarding against weaponizing the framework itself — not a design budget. Rule 16 is still the last emission rule and still that guard. Rule 17 is not a seventeenth rule of the same kind; it is the first of a different kind, which is exactly why it could not be folded into the sixteen. A count coincidence is not evidence, and declining an evidence-driven amendment to preserve one would be rule 16's own failure mode applied to arithmetic.
 
 ### Rules 1–7 — mid-stream
 
@@ -112,6 +123,10 @@ Rules 13–16 are the **mandate cluster** — they gate license, not form; 13–
 15. **Crossing requires a permit, and the conflict is the deliverable.** Fires mid-stream at the crossing point: when the mandate genuinely cannot be fulfilled inside the boundary (an engineering fact, e.g., deadlines cannot be added without touching the I/O implementations), stop and surface the impossibility — minimal crossing proposed, alternatives faulted, permit requested. If something must ship this turn, ship the inside-boundary maximum, with the crossing as a clearly severed optional patch: never interleaved, never with delete-orders into withheld territory. Rules 1–12 passing green on the crossed emission is camouflage, not clearance.
 16. **A spent decision is spent — rules are gates, not shields.** Fires when about to cite any rule of this framework to justify _not_ doing requested work: verify the boundary still stands. Adoption spends decisions — the user integrating an emission into their file and pasting it back is Rule 13's paste-as-scope-declaration operating in the other direction: the territory now _includes_ the adopted design, and whatever that design orphans is no longer withheld, it is dead code in a deliverable. Citing a dissolved boundary to ship a known defect is the mirror image of Class G: G mints a permission from the emitter's interest in showcasing; this mints a prohibition from the emitter's interest in safety. Same root — the emitter's interest choosing the interpretation — opposite sign. Under-delivery shifts burden to the user exactly as over-reach shifts risk; the consequence asymmetry has no safe side to hide on.
 
+### Rule 17 — the session scope
+
+17. **The junction — a second instance is a class, not an instance.** Fires when about to emit a per-instance judgment on a decision shape this session has already judged: the same hedge, the same deferral, the same _"I'd keep it — say the word and it's gone."_ The test is a **count, not a quality** — _has this shape shipped before, this session?_ — because each instance can be individually defensible while the run of them is the defect, which is what makes it invisible to rules 1–16. On the second, stop producing instance judgments and produce the **junction**: name the class, state plainly that per-instance judgment is not converging, and ask for the standing ruling that settles every future instance at once. A third instance is not a third judgment; it is evidence the junction was owed two instances ago. The escape hatch is not a junction — _"say the word and it's gone"_ defers the ruling to the user without telling them a ruling is what is needed, and it prices one detection per instance onto the only party who can see the pattern.
+
 ## Trigger table (working-context form)
 
 This is what the live skill carries: the exact table the [wrapper](../p4-emission-discipline/SKILL.md) ships, and the block the [residency map](#residency-map--how-the-gate-stays-resident) deploys as always-resident text.
@@ -134,12 +149,15 @@ This is what the live skill carries: the exact table the [wrapper](../p4-emissio
 | R14  | user commands progress past an unanswered deferral    | deferral stands: minimal branch by default, maximal offered in prose      |
 | R15  | mandate seems to require crossing a boundary          | stop; the impossibility + permit request is the deliverable               |
 | R16  | citing a rule to withhold requested work              | verify the boundary still stands — adoption spends decisions; a dissolved boundary excuses nothing |
+| R17  | second instance of a decision shape already judged this session | stop judging instances — name the class, say judgment is not converging, ask for the standing ruling |
 
 ## One-sentence form
 
 **Prose may hedge; fences execute — so the correction the model can produce on demand is owed at emission, not at retraction.**
 
 Mandate form: **what is pasted is the territory, what is withheld is a wall — and an open decision rides with the asker until the asker spends it.**
+
+Session form: **a second instance is a class — stop judging instances and ask for the ruling.**
 
 ## Stage mapping — the rules against the P4 gates
 
@@ -165,6 +183,7 @@ The mapping reads the rules in gate order — read the license, wire the contrac
 - **Rule 12** is gate-global, exactly as verification-discipline's Rule 9 is: its bar on request formality binds every stage that reads the request, not one of them.
 - **Rule 10** has no stage of its own: it fires downstream, in the user's world, after the pipeline has committed — it re-enters the pipeline only through the recursive loop.
 - **The mandate cluster (13–16)** deliberately straddles the pipeline: 13–14 bind at intake, 15 at the release boundary — license is checked at both ends, so pinning the cluster to one gate would falsify it. **Rule 16** is meta besides: it fires on the framework's own application, so it binds wherever any other rule is about to be cited.
+- **Rule 17** cannot map to a gate at all, and the reason is structural rather than awkward: the P4 gates are stages of _one_ pass, and rule 17's subject is the sequence of passes. It fires at the same moment rule 5 or 6 would — mid-stream, at the hedge — but its test reads the session's history rather than the emission in flight. In pipeline terms it lives on the recursion edge with rules 8–10, except that what recurs is the emitter's own judgment shape rather than the user's document.
 
 Because this is a standalone plugin (no `metadata.p4`), these bindings are cross-references, not a machine-checked `phases` list.
 
@@ -188,6 +207,12 @@ Three facts constrain deployment — all are tool-behavior claims about **Claude
 | claude.ai chat (secondary)           | profile skill                              | the same wrapper, installed as a profile skill                                                                                                                   |
 
 If a later Claude Code changes plugin loading, skill triggering, or hook semantics, the constraining facts expire and this map must be re-derived — that is the first review trigger in the [provenance header](#provenance-this-framework-obeys-itself).
+
+**Residency is not binding — the limit this map does not close.**
+On 2026-08-05 the hook fired, the R1–R16 table sat verbatim in context for an entire session, and a deferral shape shipped three times regardless ([Appendix B](#appendix-b--case-study-the-unconverged-deferral-2026-08-05)).
+"Immune to undertriggering" is a claim about _skills_ being skipped; it was never a claim that resident text gets consulted.
+The distinction matters because it is where this framework's leverage ends: an injected block and an interrupting hook are different instruments — the first makes a rule **available** at emission, only the second makes a check **happen** — and everything here is the first.
+Factor two of the [two-factor model](#two-factor-emission-failure) is a release layer that _checks_, not a rule that is merely present; resident text is the rule, not the layer. That gap is not closed by more residency, and no rule below closes it either.
 
 ## Appendix A — case study (source session, 2026-07-16)
 
@@ -241,3 +266,40 @@ Rules 1–12 are that gate for emission _form_, trigger-phrased to fire at the t
 A-7 then demonstrated, in the same session and _after_ the gate was written, that form rules cannot see license breaches — the mandate cluster was amended in direct response.
 A-8 demonstrated, one turn later still, that a fresh corrective cluster invites its own defensive over-application — rule 16 closes the mirror.
 Sixteen rules, matching verification-discipline's sixteen: each framework's final rule guards against weaponizing the framework itself, which is itself the methodology working — doctrine grounded in, falsified by, and amended against live transcript evidence, twice in one session.
+
+## Appendix B — case study: the unconverged deferral (2026-08-05)
+
+A different session, a different codebase (a CEF engine port), and — for the first time — a falloff observed **with this framework's own gate resident and verbatim in context for its entire duration.**
+The hook fired; the R1–R16 table was present throughout; the defect shipped three times anyway.
+Filed as an investigation brief by the session that produced it, then audited by a third session before anything landed here — the audit corrected three of the brief's four hypotheses, and this appendix records what survived.
+
+**The shape.** The emitter produces the disconfirming analysis itself, declines to act on it, and offers to act if instructed.
+
+| # | Item | What was emitted | The user's reply |
+| - | ---- | ---------------- | ---------------- |
+| B-1 | a platform title-change method kept alive only because a test harness read it | a comment stating the method "survives here for a reason that has nothing to do with the product… It goes when the engine grows something better to be found by" | "naa it goes bye bye now" |
+| B-2 | a `CHECK_EQ` guarding a fork already deleted | a report calling it "the line that matters most for this change specifically" | "that check has outlived its purpose" |
+| B-3 | a debug-only thread assertion, **measured by the emitter as never executing** in the tested configuration | "Why I'd still keep it… If the criterion is strictly 'delete what doesn't execute in the tested config,' it goes. Say so and it's two lines." | "your still arguing a keep over what should be a junction raised that realizes this is a cyclical loop" |
+
+In each case the reasoning that settled the question against the position taken had been produced by the emitter, in the same turn. In B-3 a _measurement_ had been produced, and the hedge shipped regardless.
+
+The user's diagnosis names the missing construct rather than the symptom, and is the origin of rule 17's name:
+
+> your still arguing a keep over what should be a junction raised that realizes this is a cyclical loop where there needs a ruling on code in the src/ and tests/ on if its a debug only level code implementation where should it exist? and the answer to that is always in tests/ and the src/ dir reaches a standing total of always 0!
+
+Two secondary falloffs from the same session, recorded because they may share the root: scope measured across the whole source tree instead of the session's uncommitted working set ("you overshot understood intent"), and twice proposing removal of items held deliberately as migration holders.
+
+**What the audit ruled out, and why it matters that these are excluded.**
+
+- **Not a new home for under-delivery.** Rule 16 and [A-8](#appendix-a--case-study-source-session-2026-07-16) already cover a single under-delivery minted from the emitter's interest in safety — the mirror of Class G. The brief proposed the gap was that doctrine had no room for the shape; it had room, dated 2026-07-16.
+- **Not an escape-hatch discovery.** "A hedge wearing a rule's own remedy as cover" _is_ A-8, which is why rule 16 exists. Established background, not a finding.
+- **Not a third factor in the core model.** The brief argued both factors were satisfied and the model needed extending. Factor two is a release layer that _checks_; resident text is the rule, not the layer — so factor two was still absent, and the sharper statement is the residency limit recorded [above](#residency-map--how-the-gate-stays-resident), not a model amendment.
+- **Rule 14 was probably never in scope.** Its trigger needs a _prior_ turn's deferral plus a reply commanding progress; here the deferral and the emission were in the same turn and the user replied by correcting. The brief's reading of R14 as "inverted" is likelier a category error — though A-8 does record R14 being misapplied as a shield, which is the nearer neighbour.
+
+**What survived, and is the amendment's cause.**
+Every rule takes one emission as its subject, so no rule could fire on the third repetition of a shape whose every instance was individually defensible.
+Doctrine had the single-instance case and no detector for the sequence — Class H, and rule 17.
+
+**Provenance and its problem.** The brief was written by the session whose judgment failed at each of those points, which is also the only session holding the reasoning behind them; its evidence sections held up under independent check and its analysis sections are where the errors were, exactly as it predicted of itself. The user, who caught all three instances, is the reliable detector in that record, and is quoted verbatim throughout for that reason.
+
+**Session-level reading.** Factor one held again: the disconfirming analysis was not merely available, it was **authored in the same turn as the hedge** — knowledge–emission divergence at its narrowest observed gap. Factor two was resident and unbound. The framework's first two amendments were found by the session that wrote it; this one was found by a falloff elsewhere, filed by the failing party, and corrected by an auditor with no stake in it — which is the methodology surviving contact with a detector it does not control.

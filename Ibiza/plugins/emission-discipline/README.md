@@ -2,7 +2,7 @@
 
 A standalone plugin holding one framework: **Emission Discipline**, the _what-may-be-released_ gate that decides what is licensed to cross into a code fence — and therefore into the user's systems — while it is being generated.
 
-Its doctrine lives in [`skills/discipline`](skills/discipline/SKILL.md) — the provenance header, the core model (consequence asymmetry, the fence as a jurisdiction change, knowledge–emission divergence, defect classes A–G, the mandate), the 16 rules in four groups, the resident trigger table, the one-sentence forms, a proposed mapping onto the P4 gates, the residency map, and the live case study the whole thing was derived from.
+Its doctrine lives in [`skills/discipline`](skills/discipline/SKILL.md) — the provenance header, the core model (consequence asymmetry, the fence as a jurisdiction change, knowledge–emission divergence, defect classes A–H, the mandate), the 17 rules in five groups, the resident trigger table, the one-sentence forms, a proposed mapping onto the P4 gates, the residency map, and the two live case studies the whole thing was derived from and amended against.
 It ships a second skill, [`skills/p4-emission-discipline`](skills/p4-emission-discipline/SKILL.md) — the **resident-gate wrapper**: the trigger table plus a pointer back to the doctrine, packaged for installation outside this repo.
 The [`residency/`](residency/) directory carries the claude.ai deployment block.
 
@@ -11,7 +11,7 @@ The [`residency/`](residency/) directory carries the claude.ai deployment block.
 It is the sibling of [`verification-discipline`](../verification-discipline), deliberately never merged with it:
 
 - **verification-discipline** gates what the model _believes_ — when a stale-or-wrong prior must be re-checked before it drives an action (claim admission, half-life classes, assertion-indexed gating).
-- **emission-discipline** gates what the model _releases_ — what is licensed to cross into a code fence, form (rules 1–12) and license (rules 13–16) both.
+- **emission-discipline** gates what the model _releases_ — what is licensed to cross into a code fence: form (rules 1–12), license (rules 13–16), and the session itself (rule 17, where a decision shape judged twice is a class owed a ruling).
 
 The parent split — epistemic vs consequential actions, drawn in [verification-discipline's core model](../verification-discipline/skills/discipline/SKILL.md#epistemic-vs-consequential-actions) — is the boundary between the two docs, and the code fence is where jurisdiction changes.
 Verification-discipline closes the gap between world and belief; emission-discipline closes the gap between belief and release.
@@ -37,6 +37,7 @@ Per its sibling's Rule 1, the skill opens with a provenance header carrying its 
 - **Derived** 2026-07-16, from the live host-election review in the skill's Appendix A — every defect's correction was producible on demand one turn later, which is the phenomenon (knowledge–emission divergence) the framework targets.
 - **Amended same session:** rules 13–15 (the mandate cluster) and defect Class G, added after the freshly written rules 1–12 failed to catch a live scope breach (Appendix A-7) — doctrine falsified and patched by its own transcript evidence.
 - **Second amendment, same session:** rule 16 and Appendix A-8, after the mandate cluster itself was misapplied as a shield one turn later — sixteen rules, matching verification-discipline's sixteen, each framework's final rule guarding against weaponizing the framework itself.
+- **Third amendment, 2026-08-05:** rule 17, defect Class H, and Appendix B — the first falloff observed with the gate **resident and verbatim in context**, in which a deferral shape shipped three times regardless. It is also the first amendment not found by the framework's own author-session: a falloff elsewhere was filed as an [investigation brief](investigations/), audited by a third session that corrected three of its four hypotheses, and only what survived was landed. Rule 16 remains the last emission rule and the framework's self-guard; rule 17 is the first rule whose subject is a session rather than an emission, which is why it could not be folded into the sixteen.
 - **Review triggers:** Claude Code changes skill loading or triggering semantics (voids the residency map); six months elapse from the derived date; or any rule fires incorrectly in practice.
 
 ## Install
@@ -49,7 +50,7 @@ The wrapper skill is deliberately **model-invocable** — being consulted before
 
 ## Wording deltas from the canonical payload
 
-The 16 rule statements, the core-model prose, the defect-class table, the trigger table, the one-sentence forms, and Appendix A are reproduced **verbatim** from the source framework; markdown formatting (bold paragraph leads promoted to headings, one-sentence-per-line prose, underscore italics per the house style, rules kept one-per-line) is not a wording change.
+Rules 1–16, the core-model prose, the defect-class rows A–G, the trigger table, the first two one-sentence forms, and Appendix A are reproduced **verbatim** from the source framework; markdown formatting (bold paragraph leads promoted to headings, one-sentence-per-line prose, underscore italics per the house style, rules kept one-per-line) is not a wording change.
 Everything the plugin _added_ around or changed in that canonical text is logged here:
 
 - **Provenance header** — added (mandated by the integration brief); its facts are transcribed from the brief's provenance notice, with the "authored without repo access" hypothesis resolved: the stage mapping is derived from this repo's gate definitions, as the brief required.
@@ -66,6 +67,7 @@ Everything the plugin _added_ around or changed in that canonical text is logged
 - **Second amendment (rule 16 + Appendix A-8)** — applied 2026-07-16 from the author's follow-up deltas, canonical text as supplied: rule 16 appended, cluster reframed 13–16 (provenance, §2 intro, Class G countermeasures line, group heading), A-8 inserted, session-level reading's closing replaced, R16 row appended to every trigger-table copy (doctrine, wrapper, hook block), R16 clause appended to the userStyle block. Integrator's consistency ripples beyond the supplied deltas: 15→16 count references here and in the manifests, and one added stage-mapping clause noting rule 16 is meta (binds wherever another rule is about to be cited).
 - **SessionStart hook** — added after integration (not in the brief, which predates it): `hooks/hooks.json` plus `hooks/emission-gate.md` (the two one-sentence forms and the trigger table, both verbatim, plus a one-line pointer). It promotes the installed plugin to the Claude Code primary vehicle; the residency map and its stamped claim count were amended accordingly, and the brief's CLAUDE.md-paste primary was demoted to the no-plugin alternative.
 - **Reciprocal cross-reference** — one line added to [verification-discipline's SKILL.md](../verification-discipline/skills/discipline/SKILL.md#epistemic-vs-consequential-actions) pointing here for the release-side rules, and logged in that plugin's own delta log.
+- **Third amendment (rule 17 + Class H + Appendix B)** — applied 2026-08-05, and unlike the first two this text is **not** canonical payload: no author deltas were supplied. It was derived in-repo from an [investigation brief](investigations/) filed by the session where the falloff occurred and an audit of that brief filed by a third session, both versioned in `investigations/` beside the doctrine. Landed: rule 17 in a new "session scope" group, Class H appended to the defect table with a paragraph siting it against G, a "Session form" third one-sentence form, Appendix B, and a residency-map subsection recording that residency is not binding. R17 row appended to every trigger-table copy (doctrine, wrapper, hook block) and an R17 clause to the userStyle block. Consistency ripples: 16→17 and A–G→A–H counts here, in both skill frontmatters, and in the manifests; a stage-mapping clause noting rule 17 maps to no gate because its subject is the sequence of passes; and a note on the count symmetry, kept honest rather than preserved. **Explicitly not landed**, per the audit: no third factor in the core model, no reclassification of single-instance under-delivery (rule 16 and A-8 already hold it), and no change to rule 14, whose trigger the audit found was never met.
 
 No rule's _wording_ was changed.
-No claim's _semantics_ were altered, except the two residency stamps and the wrapper's class-count correction noted above.
+No claim's _semantics_ were altered, except the two residency stamps, the wrapper's class-count correction, and the third amendment's in-repo additions — all noted above.
