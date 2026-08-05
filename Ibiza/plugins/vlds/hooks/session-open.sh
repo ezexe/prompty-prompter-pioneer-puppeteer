@@ -18,27 +18,19 @@ if [ -n "${CLAUDE_PROJECT_DIR:-}" ]; then
   prev=""
   [ -f "$store/.session" ] && prev=$(cat "$store/.session" 2>/dev/null || true)
 
-  # Archive only on a positively identified NEW session. No id, or the same id, means do nothing.
+  # ROTATION IS SUSPENDED — pending a ruling on what actually proves a new session.
+  #
+  # It was tried twice and failed twice, each time rotating a conversation that was still running:
+  #   1. an absent sidecar was read as proof the record was a prior session's orphan — it was the live one;
+  #   2. a single restart fires SessionStart under a transient id and THEN under the conversation's own id,
+  #      so any trigger keyed on "the id changed" rotates a session that never ended.
+  # session_id is therefore not a signal for "a new session began," and no third guess is being made here:
+  # a mechanism that cannot decide competently should not be the one deciding. The record now simply
+  # accumulates, which is the known, survivable state this replaced — and collecting it is the gc's job,
+  # where there is a judge, not a shell script inferring from an unstable id.
+  #
+  # The sidecar is still written: it costs nothing and it is the evidence any future trigger would be built on.
   if [ -n "$sid" ] && [ "$sid" != "$prev" ]; then
-    # Two guards, both learned from a live restart that rotated a running session's record away.
-    #   $prev empty -> no sidecar, so ownership of the existing record is UNPROVABLE. Adopt it rather
-    #   than rotate: appending to a stale record is visible and recoverable, archiving a live one costs
-    #   the session its working memory mid-run. Same fail-safe direction as every other branch here.
-    #   cmp against the seed -> a pristine record has nothing to archive. Without this, one restart
-    #   firing SessionStart twice under different ids files a junk archive of an untouched template.
-    if [ -n "$prev" ] && [ -f "$store/dispatch.md" ] && ! cmp -s "$store/dispatch.md" "$seed"; then
-      mkdir -p "$store/archive"
-      # Name by the OUTGOING session, not the clock alone: a timestamp has one-second resolution, and two
-      # rotations inside the same second would overwrite — silently turning an archive back into a truncation.
-      owner=$(printf '%s' "${prev:-orphan}" | tr -c 'A-Za-z0-9-' '_' | cut -c1-12)
-      target="$store/archive/dispatch-$(date +%Y%m%d-%H%M%S)-$owner.md"
-      n=1
-      while [ -e "$target" ] && [ "$n" -lt 100 ]; do
-        target="$store/archive/dispatch-$(date +%Y%m%d-%H%M%S)-$owner-$n.md"
-        n=$((n + 1))
-      done
-      [ -e "$target" ] || mv "$store/dispatch.md" "$target" 2>/dev/null || true
-    fi
     printf '%s' "$sid" > "$store/.session"
   fi
 
