@@ -60,14 +60,9 @@ The **write barrier** is its prevention — before persisting any standing rule,
 
 The web platform teaches this lesson the hard way: `sessionStorage` clears itself when the tab dies, but `localStorage` never expires — invalidation is the developer's job, and state nobody invalidates becomes doctrine by default.
 In VLDS the gc is that developer.
-The gate's storage tiers persist to partition files in the VLDS store (map: [../../hooks/memory-override.md](../../hooks/memory-override.md)), and no partition invalidates itself — every partition's expiry is the gc's to run:
-
-| Partition | Expiry the platform gives you | What the gc must do |
-| --- | --- | --- |
-| `virtual.md` (Virtual) | vanishes after use — in theory | expire entries at turn end; an inference that must outlive its turn is promoted to a durable tier, never left to linger |
-| `session-storage.md` (sessionStorage) | gone when the task ends | clear at task completion — collection trigger 4, applied to a tier |
-| `local-storage.md` (localStorage) | none — it never expires on its own | trace on every recall, free on retraction; age grants no liveness |
-| `data-store.md` (DataStore) | the source can drift under it | re-verify against the present world on recall — verification decays |
+The gate's storage tiers persist to partition files, and no partition invalidates itself — so running their expiries is the gc's job.
+**Which file takes what is settled in one place: the fires-when table of the always-injected contract** ([../../hooks/memory-override.md](../../hooks/memory-override.md)), which is in context every session; this section owns why those policies are what they are, not a second copy of them.
+Two of them are collection triggers already in the list above, met at tier scope: `session-storage.md` clearing at task completion is trigger 4, and `local-storage.md` freeing on retraction is trigger 1.
 
 Persisting an ephemeral tier gives Gen 0 state a Gen 1 body — exactly why its expiry has to be checked rather than assumed: an un-expired `virtual.md` entry is the tenuring hazard on disk.
 Nothing here fires on a timer — the expiry is **lazy, enforced at recall**, which is what makes it real without a turn-end event to hook: an entry past its scope never steers, whatever bytes remain on disk.

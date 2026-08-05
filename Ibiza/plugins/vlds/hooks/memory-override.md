@@ -13,7 +13,7 @@ Neither `.claude/` nor `vlds/` need pre-exist; the first Write creates them.
 | **a message arrives, before you answer it** | append its entry to `dispatch.md`, and check it against the ones already there — already addressed → answer the delta, not the message; superseded by a later message → surface the free instead of acting |
 | session starts, or stored state is about to steer work | read `store/*`; apply it as base memories apply, each item through the gc read barrier — freed, stale, or unowned → surface it, do not apply it |
 | the user rules, prefers, corrects, or retracts | append to `local-storage.md` with their words; a retraction also sweeps and appends to `tombstones.md` |
-| a claim is verified against a source | append to `data-store.md` with what was read |
+| a claim is verified against a source | append to `data-store.md` with what was read; re-verify it on recall — verification decays as the world drifts |
 | an inference is minted that the work leans on | append to `virtual.md`; it expires at turn end unless promoted |
 | a task starts, moves, or completes | append to `session-storage.md`; completion clears its entries |
 | the guide settles a rule, or reuses one | `index.md` (the rule) and `ledger.md` (the event, with the match that justified it) |
@@ -41,8 +41,7 @@ class Vlds : UserMemories {                // this layer
 If the session carries no base `# Memory` instructions there is nothing to wrap — the overrides still run, with `base.read()` / `base.write()` as no-ops.
 
 **The files.** `index.md` and `ledger.md` are the guide's; `logger.md` the looper's; `tombstones.md` the gc's; `dispatch.md` the record of messages addressed, session-scoped and never promoted to a rule.
-The four partition files are the gate's storage tiers made literal — `virtual.md` (inferences, expiring at turn end), `session-storage.md` (task scratch, cleared on completion), `local-storage.md` (preferences and rulings, never auto-expiring), `data-store.md` (verified claims, decaying as the world drifts).
-No partition invalidates itself: expiry is lazy, checked at recall, and is the gc's job.
+`virtual.md`, `session-storage.md`, `local-storage.md`, and `data-store.md` are the gate's storage tiers made literal, written and expired per the table above — no partition invalidates itself, so expiry is lazy, checked at recall, and the gc's to run.
 One entry shape per file, defined in the owning instrument's reference — the partitions' beside the gate's tier table.
 
 **What this never does.**
