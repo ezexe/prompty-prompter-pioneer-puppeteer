@@ -22,7 +22,12 @@ The script verifies, mechanically:
 
 1. **Closure** — every member's skill-level `depends_on` is present in the set. `depends_on` is two id-spaces: skill names resolve to `skills/<name>/`; P4 **gate** ids (`prompty | prompter | pioneer | puppeteer`) resolve to the fixed gate graph, not a skill.
 2. **No dangling refs** — every `depends_on` / `optional_depends_on` skill name resolves to a real skill, and every `phases` entry is a valid gate id.
-3. **Convention** — no skill re-lists the always-on base (`identity` / `rubric`) in `depends_on`.
+3. **Convention** — no skill re-lists the always-on base (`identity` / `rubric`) in `depends_on`, and both base skills exist.
+4. **Hooks match phases** — a non-empty `hooks.on_<gate>` whose gate is absent from that skill's `phases` is an undeclared hook: the skill claims work at a stage it never registers for.
+5. **Rubric reconciliation** — the closure is registered in _two_ places and both must agree. Every row of the `rubric` gate table names a closure some skill's `tiers` lists (no phantom row), every closure has a row (nothing unreachable by `prompty`), each row's **marginal capability** really is a member and really is new, and each row's closure contains everything the closures in its **Builds on** column contain.
+
+`check <closure>` also prints the rubric row that selects it, so an unreachable closure is visible at a glance.
+An unreadable or unparseable gate table is itself a failure — the check fails closed rather than passing on nothing.
 
 Then judge the one thing the script cannot: whether the closure is **appropriate** for the `fires_when` it claims (a semantic call left to you).
 

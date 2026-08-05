@@ -5,7 +5,7 @@ when_to_use: "Trigger when one reading would have to guess past a real ambiguity
 metadata:
   p4:
     type: skill
-    phases: [pioneer, puppeteer]
+    phases: [prompter, pioneer, puppeteer]
     depends_on: []
     optional_depends_on: [vlds, bias-patterns, templates, isomorphic-operations, sjc-indexer, activation, persistence]
     interface:

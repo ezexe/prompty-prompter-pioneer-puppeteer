@@ -30,15 +30,17 @@ metadata:
 Engage the highest row whose signal fires, then compile that closure (it includes every lower layer it depends on).
 When nothing above row 0 fires, stay at `identity`.
 
-| # | Signal in the request                       | Marginal capability it adds                            | Closure        |
-| - | ------------------------------------------- | ------------------------------------------------------ | -------------- |
-| 0 | Trivial / conversational                    | — (contract only)                                      | `minimal`      |
-| 1 | Wants a real, shaped answer                 | `templates` (formatting)                               | `standard`     |
-| 2 | Load-bearing factual / technical claims     | `vlds` (decision gate)                                 | `verification` |
-| 3 | Loaded / polluted / under-specified framing | `bias-patterns` (pre-response scan)                    | `detection`    |
-| 4 | Research, **exploration** (enumerate / map out / deep-dive), consequential, or contested | `isomorphic-operations`, `sjc-indexer` + orchestration | `full`         |
+| # | Signal in the request                       | Marginal capability it adds                            | Builds on                    | Closure        |
+| - | ------------------------------------------- | ------------------------------------------------------ | ---------------------------- | -------------- |
+| 0 | Trivial / conversational                    | — (contract only)                                      | —                            | `minimal`      |
+| 1 | Wants a real, shaped answer                 | `templates` (formatting)                               | `minimal`                    | `standard`     |
+| 2 | Load-bearing factual / technical claims     | `vlds` (decision gate)                                 | `standard`                   | `verification` |
+| 3 | Loaded / polluted / under-specified framing | `bias-patterns` (pre-response scan)                    | `standard`                   | `detection`    |
+| 4 | Research, **exploration** (enumerate / map out / deep-dive), consequential, or contested | `isomorphic-operations`, `sjc-indexer`, `orchestration` | `verification`, `detection` | `full`         |
 
 The four signals are the same questions the `prompty` stage asks — applied here as a runtime test rather than a build-time menu.
+
+**Builds on** is the ladder's actual shape, and it is load-bearing rather than decorative: a row's closure must contain every member of the closures it builds on, plus its own marginal capabilities. Rows 2 and 3 are **parallel branches** — both build on `standard`, neither on the other — and row 4 unions them. `p4.py validate` reads this column and fails when a closure drops something the row below it declared.
 
 ## Gate graph (fixed)
 
@@ -55,7 +57,7 @@ A skill hooks gates via its `metadata.p4.phases`; resolving a gate resolves its 
 
 - **Just-in-time** — pull a skill only when its row fires; never preload the whole set.
 - **Closed** — pulling a skill pulls its `metadata.p4.depends_on`; a closure's member set = the skills whose `metadata.p4.tiers` lists it (`identity` + `rubric` always-on). This gate _selects_ the closure; the skills declare their own membership.
-- **Branches** — `verification` (`vlds`) and `detection` (`bias-patterns`) are parallel branches above `standard`; `full` unions them.
+- **Branches** — the gate's **Builds on** column, not this prose, is where the ladder's shape lives; read it there.
 - **Default down** — a lower closure is a declared choice, not a violation.
 
 Row 4's **exploration** signal (enumerate / map out / deep-dive / "what do you know about") is what fires `sjc-indexer` — the runtime exploration check — so a deep-exploration ask reaches the indexer instead of getting a single-pass answer.

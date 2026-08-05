@@ -14,7 +14,7 @@ metadata:
     hooks:
       on_prompter: [choose_format]
       on_puppeteer: [render_response]
-    tiers: [standard, verification, full]
+    tiers: [standard, verification, detection, full]
 ---
 
 # Templates Skill
@@ -491,7 +491,7 @@ Clarification
 
 - **`depends_on`: `[]`.** `templates` builds on the always-on `identity` base (implicit — see the always-on base in the `roboto` agent), so it names no explicit prerequisite: it renders the output of the four lenses and obeys the response contract — it cannot exist without the thing it formats.
 - **`optional_depends_on`: `[vlds]`.** Without VLDS, the higher audit levels still render the four lenses; _with_ VLDS, Regular and Full additionally carry provenance and the decision-gate outcome. The dependency is optional precisely because formatting degrades gracefully when provenance isn't loaded.
-- **Configuration tiers:** `templates` ships in **Standard**, **Verification**, and **Full**. The **Detection** tier drops it (that branch pairs `identity` with `bias-patterns` instead). At the **Minimal** tier — `identity` alone — responses fall back to the contract's own default shape.
+- **Configuration tiers:** `templates` ships in **Standard**, **Verification**, **Detection**, and **Full** — every closure above `minimal`. It was previously withheld from **Detection** on the reading that the branch "pairs `identity` with `bias-patterns` instead", which the resolved closure never bore out (`detection` also carries `activation` and `persistence`) and which the `rubric` gate contradicts: `detection` builds on `standard`, and `standard`'s marginal capability is this skill. A corrected framing still has to be shaped, so the higher row no longer renders less than the row beneath it. At the **Minimal** tier — `identity` alone — responses fall back to the contract's own default shape.
 
 ## Extension Points
 

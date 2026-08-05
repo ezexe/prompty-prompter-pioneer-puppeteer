@@ -14,9 +14,11 @@ Closure + fires-when: $closure / $fires_when
 
 Register the closure — there is no separate file; a closure _is_ its members' `tiers` plus a `rubric` row:
 
-1. Add a row to the `rubric` gate (`skills/rubric/SKILL.md`): the firing signal → the closure name + `fires_when`.
+1. Add a row to the `rubric` gate (`skills/rubric/SKILL.md`): the firing signal → the closure name + `fires_when`, plus the **Marginal capability it adds** and the **Builds on** column naming the closure(s) this one sits above.
 2. Add the closure name to each member skill's `metadata.p4.tiers`.
 
-Keep the closure dependency-closed — each member's `depends_on` resolves within it.
-Confirm it with the validator (from the roboto plugin root): `python scripts/p4.py validate` (or `check <closure>`) — it fails if the new closure is not dependency-closed, has a dangling ref, or re-lists the always-on base.
-The output of this stage can feed a new `prompty` gate — the loop recurses.
+These two writes are the whole registration, and they are what makes the loop recurse: step 1 is the surface `prompty` scores a request against, step 2 is the graph `prompter` resolves. Neither half is the closure on its own — a row with no members is a closure `prompty` selects and `prompter` cannot fill; members with no row are a closure that exists and can never be reached.
+
+Keep the closure dependency-closed — each member's `depends_on` resolves within it — and keep it a superset of everything in its **Builds on** column, or the new rung offers less than the rung beneath it.
+Confirm it with the validator (from the roboto plugin root): `python scripts/p4.py validate` (or `check <closure>`) — it fails if the closure is not dependency-closed, has a dangling ref, re-lists the always-on base, hooks a gate it never declared, or if the two halves of the registration disagree.
+The output of this stage feeds the `prompty` gate — the loop recurses, and the validator is what closes it.
