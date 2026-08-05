@@ -20,7 +20,13 @@ if [ -n "${CLAUDE_PROJECT_DIR:-}" ]; then
 
   # Archive only on a positively identified NEW session. No id, or the same id, means do nothing.
   if [ -n "$sid" ] && [ "$sid" != "$prev" ]; then
-    if [ -f "$store/dispatch.md" ]; then
+    # Two guards, both learned from a live restart that rotated a running session's record away.
+    #   $prev empty -> no sidecar, so ownership of the existing record is UNPROVABLE. Adopt it rather
+    #   than rotate: appending to a stale record is visible and recoverable, archiving a live one costs
+    #   the session its working memory mid-run. Same fail-safe direction as every other branch here.
+    #   cmp against the seed -> a pristine record has nothing to archive. Without this, one restart
+    #   firing SessionStart twice under different ids files a junk archive of an untouched template.
+    if [ -n "$prev" ] && [ -f "$store/dispatch.md" ] && ! cmp -s "$store/dispatch.md" "$seed"; then
       mkdir -p "$store/archive"
       # Name by the OUTGOING session, not the clock alone: a timestamp has one-second resolution, and two
       # rotations inside the same second would overwrite — silently turning an archive back into a truncation.
