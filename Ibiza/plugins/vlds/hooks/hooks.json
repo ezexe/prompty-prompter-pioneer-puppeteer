@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "[ -n \"${CLAUDE_PROJECT_DIR:-}\" ] && { mkdir -p \"${CLAUDE_PROJECT_DIR}/.claude/vlds\"; [ -f \"${CLAUDE_PROJECT_DIR}/.claude/vlds/dispatch.md\" ] || cp \"${CLAUDE_PLUGIN_ROOT}/hooks/dispatch-seed.md\" \"${CLAUDE_PROJECT_DIR}/.claude/vlds/dispatch.md\"; }; cat \"${CLAUDE_PLUGIN_ROOT}/hooks/memory-override.md\""
+            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/hooks/session-open.sh\""
           }
         ]
       }

@@ -40,7 +40,7 @@ class Vlds : UserMemories {                // this layer
 
 If the session carries no base `# Memory` instructions there is nothing to wrap — the overrides still run, with `base.read()` / `base.write()` as no-ops.
 
-**The files.** `index.md` and `ledger.md` are the guide's; `logger.md` the looper's; `tombstones.md` the gc's; `dispatch.md` the record of messages addressed, session-scoped and never promoted to a rule.
+**The files.** `index.md` and `ledger.md` are the guide's; `logger.md` the looper's; `tombstones.md` the gc's; `dispatch.md` the record of messages addressed — session-scoped, never promoted to a rule, and rotated into `archive/` when a new session opens, so anything worth keeping belongs in `logger.md`, which does not expire.
 `virtual.md`, `session-storage.md`, `local-storage.md`, and `data-store.md` are the gate's storage tiers made literal, written and expired per the table above — no partition invalidates itself, so expiry is lazy, checked at recall, and the gc's to run.
 One entry shape per file, defined in the owning instrument's reference — the partitions' beside the gate's tier table.
 

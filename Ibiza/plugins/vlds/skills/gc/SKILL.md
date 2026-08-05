@@ -94,6 +94,7 @@ Messages carry no ids, so a match rests on a fingerprint — the opening clause 
 **When the match is uncertain, default to `FRESH`**: the failure modes are not symmetric — a wrong `FRESH` wastes a turn, a wrong `ECHO` silently drops the user's request, and only the first is recoverable without the user having to notice and ask twice.
 
 The record lives in the store's `dispatch.md`, session-scoped and never promoted to a rule; where echoes come from is in [reference.md](reference.md).
+Its collection is a **rotation, not a truncation**: opening a new session moves the prior record into `archive/` and seeds a fresh one, keyed on session identity so a resume — which fires the same event — leaves the live record alone. A record that outlived its session is one whose every entry is an echo by definition, and archiving is what lets it be collected without being destroyed.
 
 ## How to Apply
 
