@@ -104,8 +104,8 @@ A SessionStart hook injects the contract ([`hooks/memory-override.md`](hooks/mem
 
 The contract is injected as an **imperative trigger table** — _fires when → do_ — not as description, because a layer described is a layer that never runs.
 Its dispatch row is unconditional: every message appends its entry before it is answered, whether or not any instrument fires, so **a session that ends having written nothing did not run the layer**.
-The hook seeds `dispatch.md` from a template when absent (never overwriting one that exists), so the append target is a real file rather than an empty directory.
-Because that record is session-scoped, opening a new session **rotates it into `archive/` rather than truncating it** — keyed on session identity, so a resume, which fires the same event, leaves the live record alone.
+The hook seeds this session's dispatch record from a template when absent (never overwriting one that exists), so the append target is a real file rather than an empty directory.
+That record is **one file per session** — `dispatch-<session>.md`, with `.dispatch-current` naming the live one — so nothing is ever rotated or moved and a running session's record cannot be taken from under it. Collecting the old ones is the gc's job, not the hook's.
 
 Extension, not replacement: base memory files never move, VLDS files never enter the base index — the two ride side by side, and the store stays plain markdown the user can open, edit, and audit directly.
 

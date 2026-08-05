@@ -94,9 +94,10 @@ Messages carry no ids, so a match rests on a fingerprint — the opening clause 
 **When the match is uncertain, default to `FRESH`**: the failure modes are not symmetric — a wrong `FRESH` wastes a turn, a wrong `ECHO` silently drops the user's request, and only the first is recoverable without the user having to notice and ask twice.
 
 The record lives in the store's `dispatch.md`, session-scoped and never promoted to a rule; where echoes come from is in [reference.md](reference.md).
-Its collection is a **rotation, not a truncation**: opening a new session moves the prior record into `archive/` and seeds a fresh one, keyed on session identity so a resume — which fires the same event — leaves the live record alone. A record that outlived its session is one whose every entry is an echo by definition, and archiving is what lets it be collected without being destroyed.
-The rotation promotes nothing, and cannot: it runs at session open, when the session that could judge what deserved keeping is already gone.
-So a misreading that steered work is promoted to the guide's `ledger.md` as a `correction` **when it is caught**, not when the record rotates — the same discipline `virtual.md` follows, where an inference that must outlive its turn is promoted before the turn ends rather than rescued after.
+There is **one record per session** — `dispatch-<session>.md`, with `.dispatch-current` naming the live one — so collection never has to move or truncate anything. That design replaced two attempts to rotate a single shared record at session open, both of which took the record out from under a conversation that was still running: `SessionStart` also fires on resume, and one restart fires it under a transient id before the conversation's own, so "the id changed" never proved a session had ended. Per-session files dissolve the question instead of answering it.
+What the gc collects here is the accumulation: records whose session is over, and seed-only records from sessions that opened and wrote nothing. Both are ordinary heap objects — no special mechanism, and a judge rather than a hook deciding.
+Collection promotes nothing, and cannot: by the time a record is collectable its session is gone, and with it the only party who could judge what deserved keeping.
+So a misreading that steered work is promoted to the guide's `ledger.md` as a `correction` **when it is caught**, not when the record is eventually collected — the same discipline `virtual.md` follows, where an inference that must outlive its turn is promoted before the turn ends rather than rescued after.
 
 ## How to Apply
 
