@@ -36,8 +36,7 @@ Mark every item under collection:
 | `UNOWNED`       | no user ruling at its root — self-allocated doctrine                                    | surface as an OPEN point for the user; never apply as settled |
 | `EXPIRED`       | lifetime bound reached — a tier-scoped entry whose scope (the turn, the task) has closed | free without a tombstone; promote first if it must outlive its scope |
 
-`EXPIRED` is unreachability by the ordinary rule rather than a new one: `SKILL.md` already names the live conversation as a root, so a `virtual.md` entry's root **is** the turn and vanishes with it.
-What distinguishes it from `FREED-RESIDUE` is that nothing contradicted or retracted it — its scope simply closed — which is why it takes no tombstone.
+`EXPIRED` is the ordinary rule, not a new one: the live conversation is already a root, so a turn-scoped entry's root **is** the turn and vanishes with it — and nothing contradicted it, which is why it takes no tombstone.
 
 `UNOWNED` is an allocation bug, not only a collection target: a workaround for an operational annoyance stored as a standing rule was never anyone's decision.
 The **write barrier** is its prevention — before persisting any standing rule, name its owner (the user ruling that decided it); with no owner, store an open question instead of doctrine.

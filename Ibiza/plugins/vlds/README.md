@@ -93,7 +93,7 @@ The **looper** ([`skills/looper`](skills/looper/SKILL.md)) is the fix: the one s
 
 ## The store: memory as a base class
 
-The instruments' stores — `index.md`, `ledger.md`, `logger.md`, `tombstones.md` — live in one **VLDS store**, joined by the gate's storage tiers made literal as partition files (`virtual.md`, `session-storage.md`, `local-storage.md`, `data-store.md`) whose expiry the gc owns — no partition invalidates itself — and by `dispatch.md`, the record of which messages this session has already addressed.
+The instruments' stores — `index.md`, `ledger.md`, `logger.md`, `tombstones.md` — live in one **VLDS store**, joined by the four partition files and by `dispatch.md`, the record of which messages this session has already addressed.
 The store is defined by inheritance rather than by a hardcoded path.
 A SessionStart hook injects the contract ([`hooks/memory-override.md`](hooks/memory-override.md)) so it rides along with the harness's own memory instructions and extends them the way a derived class overrides a virtual method:
 

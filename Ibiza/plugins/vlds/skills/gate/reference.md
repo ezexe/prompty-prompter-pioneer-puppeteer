@@ -40,38 +40,18 @@ No partition invalidates itself: expiry is the gc's job, per its "Invalidation �
 ### Partition entry schemas
 
 One shape per partition — the filename already carries the tier, so no entry repeats it.
-Each carries exactly what its own expiry rule has to read; `time` follows the store-wide convention (local `YYYY-MM-DD HH:MM` at write time, date alone rather than fabricated minutes).
+Every entry carries `time` (local `YYYY-MM-DD HH:MM` at write time, date alone rather than fabricated minutes) plus the fields its own expiry rule has to read:
 
-```yaml
-# virtual.md — a load-bearing inference minted this turn
-- inference: [what was concluded]
-  time: [YYYY-MM-DD HH:MM]
-  basis: [what it was drawn from]
-  minted: [session id + best-effort turn ordinal]
-  disposition: pending | promoted -> [file] | expired
+| Partition | Entry fields beyond `time` |
+| --- | --- |
+| `virtual.md` | `inference`, `basis`, `minted`, `disposition: pending \| promoted -> <file> \| expired` |
+| `session-storage.md` | `task`, `state` |
+| `local-storage.md` | `ruling`, `owner-words`, `scope`, `status: LIVE \| SPENT \| FREED` |
+| `data-store.md` | `claim`, `verified`, `source` |
 
-# session-storage.md — task-scoped working state
-- task: [the task it belongs to]
-  time: [YYYY-MM-DD HH:MM]
-  state: [where the task stands]
-
-# local-storage.md — a session preference or user ruling
-- ruling: [what was settled]
-  time: [YYYY-MM-DD HH:MM]
-  owner-words: "[the user's actual words]"
-  scope: [this session | durable, and where it landed]
-  status: LIVE | SPENT | FREED
-
-# data-store.md — a verified claim and what backs it
-- claim: [the claim]
-  time: [YYYY-MM-DD HH:MM]
-  verified: [when the verification was performed]
-  source: [the authoritative source read]
-```
-
-Two fields do load-bearing work beyond record-keeping.
-`local-storage.owner-words` is what "trace on every recall, free on retraction" actually traces, and it matches the tombstone's field of the same name so a retraction-driven free maps across without translation.
-`virtual.minted` makes turn-end expiry decidable at recall without a turn counter the harness never supplies — and the rule is **fail-closed: an entry whose minting cannot be established as the current turn is treated as expired, not as live.**
+Two of those do load-bearing work beyond record-keeping.
+`owner-words` is what "trace on every recall, free on retraction" actually traces, and it matches the tombstone field of the same name so a retraction-driven free maps across without translation.
+`minted` makes turn-end expiry decidable without a turn counter the harness never supplies — **fail-closed: an entry whose minting cannot be established as the current turn is treated as expired, not as live.**
 
 ## The Draft/Verified Delta Schema
 
