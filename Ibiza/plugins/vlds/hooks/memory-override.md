@@ -17,6 +17,7 @@ Neither `.claude/` nor `vlds/` need pre-exist; the first Write creates them.
 | an inference is minted that the work leans on | append to `virtual.md`; it expires at turn end unless promoted |
 | a task starts, moves, or completes | append to `session-storage.md`; completion clears its entries |
 | the guide settles a rule, or reuses one | `index.md` (the rule) and `ledger.md` (the event, with the match that justified it) |
+| **a reading that steered work turns out to be wrong** | append a `correction` to `ledger.md` — `match` (what was assumed) against `meant` (what was wanted) — **while the session is alive**: `dispatch.md` is archived unread, so a lesson left there is lost, and rotation runs at session open when nobody is left to judge what deserved keeping |
 | the looper runs an instrument | append that decision to `logger.md`, tagged |
 
 **The floor.** A session that ends having written nothing did not run this layer.
