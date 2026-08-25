@@ -11,7 +11,7 @@ Neither `.claude/` nor `vlds/` need pre-exist; the first Write creates them.
 | Fires when | Do |
 |---|---|
 | **a message arrives, before you answer it** | append its entry to **this session's dispatch record — the file named in `.dispatch-current`** — and check it against the ones already there: already addressed → answer the delta, not the message; superseded by a later message → surface the free instead of acting |
-| session starts, or stored state is about to steer work | read `store/*`; apply it as base memories apply, each item through the gc read barrier — freed, stale, or unowned → surface it, do not apply it |
+| session starts, or stored state is about to steer work | read `phi-index.md`, then the hot files it lists — never `arc/`, dead dispatch records, or below-watermark spans — each item through the gc read barrier: freed, stale, or unowned → surface it, do not apply it; a `pressure: owed` row or register debt → surface the owed `/vlds:gc normalize` (no index yet → cold-start on `store/*`) |
 | the user rules, prefers, corrects, or retracts | append to `local-storage.md` with their words; a retraction also sweeps and appends to `tombstones.md` |
 | a claim is verified against a source | append to `data-store.md` with what was read; re-verify it on recall — verification decays as the world drifts |
 | an inference is minted that the work leans on | append to `virtual.md`; it expires at turn end unless promoted |
@@ -34,7 +34,7 @@ class UserMemories {                       // the base: this session's "# Memory
 
 class Vlds : UserMemories {                // this layer
   store = <working dir>/.claude/vlds/      // .claude created if absent
-  override read()  { base.read();  apply store/* to thinking as base memories apply — each item through the gc read barrier }
+  override read()  { base.read();  apply phi-index.md + the hot store/* it lists — each item through the gc read barrier }
   override write() { base.write(); persist VLDS state to store/* per the table above }
 }
 ```
@@ -44,6 +44,7 @@ If the session carries no base `# Memory` instructions there is nothing to wrap 
 **The files.** `index.md` and `ledger.md` are the guide's; `logger.md` the looper's; `tombstones.md` the gc's.
 The dispatch record is **one file per session**, `dispatch-<session>.md`, with `.dispatch-current` naming this session's — so nothing is ever rotated or moved, and a running session's record cannot be taken because nothing else writes to that filename. It is never promoted to a rule, and anything worth keeping belongs in `logger.md`, which does not expire. Old records and seed-only ones from sessions that wrote nothing are the gc's to collect.
 `virtual.md`, `session-storage.md`, `local-storage.md`, and `data-store.md` are the gate's storage tiers made literal, written and expired per the table above — no partition invalidates itself, so expiry is lazy, checked at recall, and the gc's to run.
+`phi-index.md` and `arc/` are the gc's φ-register — poured and normalized in-session per its reference, never by hook; the index is derived, but a user's edit to it is a ruling.
 One entry shape per file, defined in the owning instrument's reference — the partitions' beside the gate's tier table.
 
 **What this never does.**

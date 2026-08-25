@@ -94,7 +94,7 @@ The **looper** ([`skills/looper`](skills/looper/SKILL.md)) is the fix: the one s
 
 ## The store: memory as a base class
 
-The instruments' stores — `index.md`, `ledger.md`, `logger.md`, `tombstones.md` — live in one **VLDS store**, joined by the four partition files and by `dispatch.md`, the record of which messages this session has already addressed.
+The instruments' stores — `index.md`, `ledger.md`, `logger.md`, `tombstones.md` — live in one **VLDS store**, joined by the four partition files and by the per-session dispatch records of which messages each session has already addressed.
 The store is defined by inheritance rather than by a hardcoded path.
 A SessionStart hook injects the contract ([`hooks/memory-override.md`](hooks/memory-override.md)) so it rides along with the harness's own memory instructions and extends them the way a derived class overrides a virtual method:
 
@@ -108,6 +108,11 @@ The hook seeds this session's dispatch record from a template when absent (never
 That record is **one file per session** — `dispatch-<session>.md`, with `.dispatch-current` naming the live one — so nothing is ever rotated or moved and a running session's record cannot be taken from under it. Collecting the old ones is the gc's job, not the hook's.
 
 Extension, not replacement: base memory files never move, VLDS files never enter the base index — the two ride side by side, and the store stays plain markdown the user can open, edit, and audit directly.
+
+The store compresses as a **φ-register**, modeled on the fib/phi-binary machinery of zeckendorf-prune: hot files pour, `arc/` holds one segment per Fibonacci position at Fibonacci-KB capacities (the unique capacities under which merges cannot overflow — the carry and resolve identities are byte-exact), and the gc's normalize sweep settles debt by BORROW → RESOLVE → CARRY, archiving verbatim and deleting only what a script has verified is contained in its replacement.
+Session start reads `phi-index.md` — the phi-matrix index: the register's digit string, position rows, hot budgets, and epoch pairs checked by Cassini's identity plus row continuity — then only the budget-bounded hot files, never `arc/`.
+The mechanical companion `scripts/phi.py` (check / mask / verify-merge / rebuild / restore) computes and verifies; every judgment about what deserves keeping stays with the gc, in-session.
+Coverage is stated honestly: the scans catch structural corruption for free, and nothing semantic — that remains the read barrier's job.
 
 ## What it's an instance of
 

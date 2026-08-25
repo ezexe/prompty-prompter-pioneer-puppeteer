@@ -52,6 +52,7 @@ Every entry carries `time` (local `YYYY-MM-DD HH:MM` at write time, date alone r
 Two of those do load-bearing work beyond record-keeping.
 `owner-words` is what "trace on every recall, free on retraction" actually traces, and it matches the tombstone field of the same name so a retraction-driven free maps across without translation.
 `minted` makes turn-end expiry decidable without a turn counter the harness never supplies — **fail-closed: an entry whose minting cannot be established as the current turn is treated as expired, not as live.**
+`id:` and `merged-from:` are sweep-minted fields of the gc's φ-register ([../gc/reference.md](../gc/reference.md)) — a partition entry gains them only at its first sweep, never at write time.
 
 ## The Draft/Verified Delta Schema
 

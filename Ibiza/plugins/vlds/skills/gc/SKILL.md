@@ -49,6 +49,7 @@ The **write barrier** is its prevention — before persisting any standing rule,
 4. **On completion** — a landed arc collects what it obsoleted.
 5. **Full collection** — `/vlds:gc full`: mark-and-sweep the whole store.
 6. **On pressure** — when a landed arc or a full audit shows growth running one way, run the cycle test: per-item tracing cannot see a cluster that only references itself. It previews, never sweeps — [reference.md](reference.md).
+7. **On normalize** — `/vlds:gc normalize <file | 'register'>`: the φ-register sweep — pour cold spans, then BORROW → RESOLVE → CARRY until settled; owed when the index reads `pressure: owed` or the register scan shows '2'/'11' debt. Rules, budgets, commit protocol, and scans: [reference.md](reference.md).
 
 ## The hazard ranking
 
