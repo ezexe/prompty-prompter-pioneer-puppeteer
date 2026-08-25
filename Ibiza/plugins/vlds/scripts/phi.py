@@ -548,6 +548,11 @@ def cmd_restore(args):
 
 
 def main():
+    # the store is UTF-8; Windows consoles default to a legacy codepage, which made restore crash on
+    # '→' and check print mojibake — force UTF-8 out, replacing anything a weirder console still rejects
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8", errors="replace")
     ap = argparse.ArgumentParser(prog="phi.py", description="VLDS φ-register mechanical companion")
     ap.add_argument("--store", default=os.path.join(os.environ.get("CLAUDE_PROJECT_DIR", "."),
                                                     ".claude", "vlds"))
