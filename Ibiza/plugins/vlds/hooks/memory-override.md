@@ -11,7 +11,7 @@ Neither `.claude/` nor `vlds/` need pre-exist; the first Write creates them.
 | Fires when | Do |
 |---|---|
 | **a message arrives, before you answer it** | append its entry to **this session's dispatch record — the file named in `.dispatch-current`** — and check it against the ones already there: already addressed → answer the delta, not the message; superseded by a later message → surface the free instead of acting |
-| session starts, or stored state is about to steer work | read `phi-index.md`, then the hot files it lists — never `arc/`, dead dispatch records, or below-watermark spans — each item through the gc read barrier: freed, stale, or unowned → surface it, do not apply it; a `pressure: owed` row or register debt → surface the owed `/vlds:gc normalize` (no index yet → cold-start on `store/*`) |
+| session starts, or stored state is about to steer work | read `phi-index.md`, then the hot files it lists — never `arc/`, dead dispatch records, or masked spans — each item through the gc read barrier: freed, stale, or unowned → surface it, do not apply it; a `pressure: owed` row or register debt → surface the owed `/vlds:gc normalize` (no index yet → cold-start on `store/*`) |
 | the user rules, prefers, corrects, or retracts | append to `local-storage.md` with their words; a retraction also sweeps and appends to `tombstones.md` |
 | a claim is verified against a source | append to `data-store.md` with what was read; re-verify it on recall — verification decays as the world drifts |
 | an inference is minted that the work leans on | append to `virtual.md`; it expires at turn end unless promoted |

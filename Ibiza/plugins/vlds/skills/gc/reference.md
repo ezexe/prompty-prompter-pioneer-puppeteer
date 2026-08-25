@@ -103,10 +103,12 @@ The machinery governs **structure only** — what is hot, where history lives, h
 Positions are 1-based over the cache `[1, 2, 3, 5, 8, 13, 21, 34, ...]`: position p has weight `cache[p−1]` and byte capacity `cache[p−1]` KB.
 Epoch pairs are `(cache[k], cache[k+1])`; Cassini `b²−ab−a² = (−1)^k` holds under cache indexing and flips sign under any odd shift, so the position-weight numbering is never reused for the epoch check.
 Positions are budgeted in KB; hot files are counted in entries; the two are never interchanged.
+The register digit string reads highest position first.
+A watermark is recorded as `mask=A:B sha=H` — a 0-based, half-open physical line range naming the masked span, plus the span's content hash; both reader and writer share exactly this definition.
 
 **The register.**
 At most one live segment per position, `arc/arc-<p>-<seq>.md`; new material pours at position 1; higher positions exist only as merge products.
-The index's digit string (`register: 10100100`) is the archived history as a phi-binary numeral — one glance is the normal-form check.
+The index's digit string (`register: 10100100`) is the archived history as a phi-binary numeral — one glance shows '11' debt; a '2' state (two segments at one position) is visible only to the arc listing, which `phi.py check`'s register scan reads.
 The capacities are the unique ones under which merges cannot overflow: `cap(j)+cap(j+1)=cap(j+2)` (CARRY, exact) and `2·cap(j)=cap(j+1)+cap(j−2)` (RESOLVE, exact — the worst-case excess equals the residue capacity, zero slack).
 A segment is a ```yaml-fenced header (never `---` frontmatter) plus entry blocks delimited by column-0 `---`; each entry block is an `id: xx-NNNN` line, a blank line, then the verbatim body.
 The delimiter cannot occur inside a valid entry (headers fenced, continuations indented, offenders poured whole-file), so one mangled entry corrupts only itself and the parse resynchronizes at the next delimiter.
@@ -119,8 +121,8 @@ A SPENT ruling without a tombstone stays hot deliberately — an anti-citation w
 Grammar gate at pour time: an entry containing a column-0 `---` or a code fence is poured whole-file or escaped by a recorded one-level indent; entries lifted out of a partition's ```yaml fence are stored bare with `fenced: yaml` in the header.
 Whole-file: a dead session's content-bearing dispatch record moves whole into `arc/` under its own name as a position **attachment** (`attached:` in the index row; merges move attachments to the child's row mechanically); a dead record byte-identical to the seed is deleted after verification, not poured.
 A poured span is trimmed from the hot file only after `phi.py` verifies the verbatim arc copy — this and merge-parent deletion are the design's two script-verified deletions.
-A span poured but not yet trimmed is masked by a **watermark**: a physical line offset plus a content hash of the span, recorded at pour time.
-**Below-watermark content remains authoritative until trimmed**: a hash mismatch means the user ruled there — `check` reports "watermark voided", and the gc must re-read, re-pour, and tombstone what the edit freed before the arc copy may be cited again.
+A span poured but not yet trimmed is masked by a **watermark**: the `mask=A:B sha=H` line range plus content hash, recorded at pour time (`phi.py verify-pour` is the trim gate).
+**Masked-span content remains authoritative until trimmed**: a hash mismatch means the user ruled there — `check` reports "watermark voided", and the gc must re-read, re-pour, and tombstone what the edit freed before the arc copy may be cited again.
 
 _Rules._ The codec's three violation classes are the complete set of rules a sweep may apply — they are what normalization can do, not when it runs (pressure, below, is the when — a separate, admittedly conventional signal):
 
@@ -148,7 +150,7 @@ Amortization, measured by simulation: position k merges roughly once per φ^(k+1
 
 **Recall.**
 Session start reads `phi-index.md` (the only unconditionally whole-read file), then the hot files it lists in steering-first order — every item still through the read barrier: the register narrows WHAT is read, never HOW it is judged.
-Never read at start: `arc/`, dead dispatch records, below-watermark spans.
+Never read at start: `arc/`, dead dispatch records, masked (watermarked) spans.
 Hot budgets (entries): logger 34, data-store 34, ledger 21, local-storage 21, tombstones 21, virtual 13, session-storage 13, index rows 21; the current dispatch record is unbudgeted (the floor).
 On a miss: fact-id grep across segment headers and canonical blocks (O(log_φ) files), or largest-first descent; spans are per-source in headers, so time-anchored queries resolve per (source, time) pair.
 Fact-id uniqueness — one id in one live canonical block — is enforced by merge dedupe and verified by scan: the store's **analog of**, not an instance of, Zeckendorf uniqueness.
