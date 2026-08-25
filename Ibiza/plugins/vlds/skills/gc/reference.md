@@ -115,11 +115,13 @@ The delimiter cannot occur inside a valid entry (headers fenced, continuations i
 
 **The normalize sweep** (`/vlds:gc normalize <file | 'register'>`) — in-session, gc-owned, never a hook, never a timer.
 A sweep takes the session-stamped lock `arc/.sweep-lock` (stale after 60 minutes) before any arc write; without it a session only reports owed work — deterministic naming makes concurrent-sweep collisions certain, so the destructive tail is serialized.
+The sweep's standing occasion is **session start**: the model's first turn pours the dead weight — every entry already in `dispatch.md`, and every cold span prior sessions left in the hot files — before recall proceeds; pressure and register debt cover mid-session growth.
+Concurrent sessions share the one dispatcher: the barrier matches on fingerprints, so interleaved entries are tolerated, and a simultaneous append can lose an entry — the accepted cost of one file, by ruling.
 
-_Pour._ Entry-level: cold spans (pre-session logger entries, SPENT/FREED ruling bodies whose tombstones exist, expired virtual entries) copy verbatim into position-1 segments, chunked at entry boundaries so no segment exceeds capacity, oldest first.
+_Pour._ Entry-level: everything already in `dispatch.md` at session start, plus cold spans (pre-session logger entries, SPENT/FREED ruling bodies whose tombstones exist, expired virtual entries) copy verbatim into position-1 segments, chunked at entry boundaries so no segment exceeds capacity, oldest first.
 A SPENT ruling without a tombstone stays hot deliberately — an anti-citation warning until a gc pass tombstones it.
 Grammar gate at pour time: an entry containing a column-0 `---` or a code fence is poured whole-file or escaped by a recorded one-level indent; entries lifted out of a partition's ```yaml fence are stored bare with `fenced: yaml` in the header.
-Whole-file: a dead session's content-bearing dispatch record moves whole into `arc/` under its own name as a position **attachment** (`attached:` in the index row; merges move attachments to the child's row mechanically); a dead record byte-identical to the seed is deleted after verification, not poured.
+Whole-file: a file that cannot pour entry-level — a legacy per-session dispatch record from the pre-0.0.18 design, or any grammar offender — moves whole into `arc/` under its own name as a position **attachment** (`attached:` in the index row; merges move attachments to the child's row mechanically); a legacy record byte-identical to its seed is deleted after verification, not poured.
 A poured span is trimmed from the hot file only after `phi.py` verifies the verbatim arc copy — this and merge-parent deletion are the design's two script-verified deletions.
 A span poured but not yet trimmed is masked by a **watermark**: the `mask=A:B sha=H` line range plus content hash, recorded at pour time (`phi.py verify-pour` is the trim gate).
 **Masked-span content remains authoritative until trimmed**: a hash mismatch means the user ruled there — `check` reports "watermark voided", and the gc must re-read, re-pour, and tombstone what the edit freed before the arc copy may be cited again.
@@ -150,8 +152,8 @@ Amortization, measured by simulation: position k merges roughly once per φ^(k+1
 
 **Recall.**
 Session start reads `phi-index.md` (the only unconditionally whole-read file), then the hot files it lists in steering-first order — every item still through the read barrier: the register narrows WHAT is read, never HOW it is judged.
-Never read at start: `arc/`, dead dispatch records, masked (watermarked) spans.
-Hot budgets (entries): logger 34, data-store 34, ledger 21, local-storage 21, tombstones 21, virtual 13, session-storage 13, index rows 21; the current dispatch record is unbudgeted (the floor).
+Never read at start: `arc/` and masked (watermarked) spans.
+Hot budgets (entries): logger 34, data-store 34, ledger 21, local-storage 21, tombstones 21, virtual 13, session-storage 13, index rows 21; `dispatch.md` is unbudgeted (the floor) — it empties at every session start anyway.
 On a miss: fact-id grep across segment headers and canonical blocks (O(log_φ) files), or largest-first descent; spans are per-source in headers, so time-anchored queries resolve per (source, time) pair.
 Fact-id uniqueness — one id in one live canonical block — is enforced by merge dedupe and verified by scan: the store's **analog of**, not an instance of, Zeckendorf uniqueness.
 Archive-read entries arrive as weakened-provenance Gen 1 objects, re-traced before steering.

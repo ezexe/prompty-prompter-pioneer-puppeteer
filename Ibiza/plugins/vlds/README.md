@@ -94,7 +94,7 @@ The **looper** ([`skills/looper`](skills/looper/SKILL.md)) is the fix: the one s
 
 ## The store: memory as a base class
 
-The instruments' stores — `index.md`, `ledger.md`, `logger.md`, `tombstones.md` — live in one **VLDS store**, joined by the four partition files and by the per-session dispatch records of which messages each session has already addressed.
+The instruments' stores — `index.md`, `ledger.md`, `logger.md`, `tombstones.md` — live in one **VLDS store**, joined by the four partition files and by `dispatch.md`, the record of which messages have been addressed — poured into the φ-register at each session start so the dispatcher begins fresh.
 The store is defined by inheritance rather than by a hardcoded path.
 A SessionStart hook injects the contract ([`hooks/memory-override.md`](hooks/memory-override.md)) so it rides along with the harness's own memory instructions and extends them the way a derived class overrides a virtual method:
 
@@ -104,8 +104,8 @@ A SessionStart hook injects the contract ([`hooks/memory-override.md`](hooks/mem
 
 The contract is injected as an **imperative trigger table** — _fires when → do_ — not as description, because a layer described is a layer that never runs.
 Its dispatch row is unconditional: every message appends its entry before it is answered, whether or not any instrument fires, so **a session that ends having written nothing did not run the layer**.
-The hook seeds this session's dispatch record from a template when absent (never overwriting one that exists), so the append target is a real file rather than an empty directory.
-That record is **one file per session** — `dispatch-<session>.md`, with `.dispatch-current` naming the live one — so nothing is ever rotated or moved and a running session's record cannot be taken from under it. Collecting the old ones is the gc's job, not the hook's.
+The hook seeds `dispatch.md` from a template when absent (never overwriting one that exists), so the append target is a real file rather than an empty directory.
+That record is **one shared file**: at session start the model pours its existing entries into the φ-register and starts fresh — a first-turn act a transient hook firing can never perform, verbatim and script-verified before any trim, dissolving the rotation hazard two per-session designs were built around. The pour is the model's, never the hook's.
 
 Extension, not replacement: base memory files never move, VLDS files never enter the base index — the two ride side by side, and the store stays plain markdown the user can open, edit, and audit directly.
 

@@ -10,8 +10,8 @@ Neither `.claude/` nor `vlds/` need pre-exist; the first Write creates them.
 
 | Fires when | Do |
 |---|---|
-| **a message arrives, before you answer it** | append its entry to **this session's dispatch record — the file named in `.dispatch-current`** — and check it against the ones already there: already addressed → answer the delta, not the message; superseded by a later message → surface the free instead of acting |
-| session starts, or stored state is about to steer work | read `phi-index.md`, then the hot files it lists — never `arc/`, dead dispatch records, or masked spans — each item through the gc read barrier: freed, stale, or unowned → surface it, do not apply it; a `pressure: owed` row or register debt → surface the owed `/vlds:gc normalize` (no index yet → cold-start on `store/*`) |
+| **a message arrives, before you answer it** | append its entry to **`dispatch.md`** and check it against the ones already there: already addressed → answer the delta, not the message; superseded by a later message → surface the free instead of acting |
+| session starts, or stored state is about to steer work | **pour first**: everything already in `dispatch.md` and every cold span prior sessions left in the hot files goes into `arc/` per the normalize sweep — verbatim, verified, trimmed; the dispatcher starts fresh — then read `phi-index.md` and the hot files it lists, never `arc/` or masked spans, each item through the gc read barrier: freed, stale, or unowned → surface it, do not apply it (no index yet → cold-start on `store/*`) |
 | the user rules, prefers, corrects, or retracts | append to `local-storage.md` with their words; a retraction also sweeps and appends to `tombstones.md` |
 | a claim is verified against a source | append to `data-store.md` with what was read; re-verify it on recall — verification decays as the world drifts |
 | an inference is minted that the work leans on | append to `virtual.md`; it expires at turn end unless promoted |
@@ -42,7 +42,7 @@ class Vlds : UserMemories {                // this layer
 If the session carries no base `# Memory` instructions there is nothing to wrap — the overrides still run, with `base.read()` / `base.write()` as no-ops.
 
 **The files.** `index.md` and `ledger.md` are the guide's; `logger.md` the looper's; `tombstones.md` the gc's.
-The dispatch record is **one file per session**, `dispatch-<session>.md`, with `.dispatch-current` naming this session's — so nothing is ever rotated or moved, and a running session's record cannot be taken because nothing else writes to that filename. It is never promoted to a rule, and anything worth keeping belongs in `logger.md`, which does not expire. Old records and seed-only ones from sessions that wrote nothing are the gc's to collect.
+The dispatch record is **one file, `dispatch.md`**: at session start the model pours its existing entries into `arc/` and the dispatcher starts fresh — the pour is a first-turn act (a transient hook firing never has one), verbatim and script-verified before the trim, which is what dissolves the rotation hazard the per-session era was built around. It is never promoted to a rule, and anything worth keeping belongs in `logger.md`, which does not expire.
 `virtual.md`, `session-storage.md`, `local-storage.md`, and `data-store.md` are the gate's storage tiers made literal, written and expired per the table above — no partition invalidates itself, so expiry is lazy, checked at recall, and the gc's to run.
 `phi-index.md` and `arc/` are the gc's φ-register — poured and normalized in-session per its reference, never by hook; the index is derived, but a user's edit to it is a ruling.
 One entry shape per file, defined in the owning instrument's reference — the partitions' beside the gate's tier table.

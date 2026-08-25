@@ -354,21 +354,21 @@ def cmd_check(store):
             if eid in all_ids:
                 debt.append(f"'-1' state: tombstoned {eid} still live in {all_ids[eid]} — a BORROW is owed")
 
-    # 9. liveness — classify dispatch records; deadness is age + content, never slot occupancy
-    cur = ""
-    cur_path = os.path.join(store, ".dispatch-current")
-    if os.path.exists(cur_path):
-        cur = read(cur_path).strip()
+    # 9. liveness — dispatch.md is the live dispatcher (the floor): poured only by the model at session
+    # start, never by this script. Per-session dispatch-*.md files are legacy artifacts of the
+    # pre-0.0.18 design, still judged by age + content while an old-contract session could yet exist.
     now = time.time()
+    if os.path.exists(os.path.join(store, "dispatch.md")):
+        notes.append("dispatch.md: the live dispatcher — untouchable by script; pours at session start")
+    else:
+        debt.append("dispatch.md missing — the hook seeds it; until then the dispatch floor has no target")
     for f in sorted(os.listdir(store)):
         if f.startswith("dispatch-") and f.endswith(".md"):
             age = now - os.path.getmtime(os.path.join(store, f))
-            if f == cur:
-                notes.append(f"{f}: LIVE (named by .dispatch-current) — untouchable")
-            elif age < LIVENESS_HORIZON_S:
-                notes.append(f"{f}: within the {LIVENESS_HORIZON_S // 3600}h liveness horizon — untouchable")
+            if age < LIVENESS_HORIZON_S:
+                notes.append(f"{f}: legacy per-session record inside the {LIVENESS_HORIZON_S // 3600}h horizon — hold")
             else:
-                notes.append(f"{f}: dead candidate (age + content are the standard; the gc judges)")
+                notes.append(f"{f}: legacy per-session record, dead candidate (age + content; the gc judges)")
 
     for tag, items in (("CORRUPT", corrupt), ("DEBT", debt), ("note", notes)):
         for i in items:
