@@ -67,6 +67,7 @@ Because the ledger records everything — not only what the user opted into — 
 # a correction — records what a reuse could not know until now
 correction:
   key: [the mis-matched key]
+  time: [YYYY-MM-DD HH:MM]           # provenance survives every reshaping
   match: [what the loop assumed]     # the reading it logged at reuse
   meant: [what was actually wanted]  # supplied by the user at correction
   delta: [split / re-file]           # the fix applied to the index

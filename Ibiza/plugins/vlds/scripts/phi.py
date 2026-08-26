@@ -50,7 +50,7 @@ while len(CACHE) < 40:
 SEED_HOT = ["local-storage.md", "index.md", "data-store.md", "ledger.md", "tombstones.md",
             "virtual.md", "session-storage.md", "logger.md"]
 LIVENESS_HORIZON_S = 24 * 3600
-FACT_ID_RE = re.compile(r"^id: ([a-z]{2}-\d{4})\s*$", re.M)
+FACT_ID_RE = re.compile(r"^id: ([a-z]{2}-\d{4})( \(tombstoned\))?\s*$", re.M)
 SEG_NAME_RE = re.compile(r"^arc-(\d+)-([A-Za-z0-9]+)\.md$")
 LOGGER_ENTRY_RE = re.compile(r"^- `\[(?:gate|guide|gc|inspector|looper)\]` 20\d\d-\d\d-\d\d(?: \d\d:\d\d)? — \*\*")
 
@@ -277,6 +277,7 @@ def cmd_check(store):
 
     # 2+3. per-segment: grammar, mask records, ids
     all_ids = {}
+    tombstoned_ids = set()
     for p, files in sorted(positions.items()):
         for f in files:
             header, entries, issues = parse_segment(os.path.join(arc, f))
@@ -301,9 +302,11 @@ def cmd_check(store):
             if "verified" not in header:
                 corrupt.append(f"{f}: no 'verified:' commit mark — treat as a torn pour (dead to recall)")
             for e in entries:
-                eid = entry_id(e)
-                if eid:
-                    all_ids.setdefault(eid, []).append(f)
+                m_id = FACT_ID_RE.match(e.split("\n", 1)[0] + "\n")
+                if m_id:
+                    all_ids.setdefault(m_id.group(1), []).append(f)
+                    if m_id.group(2):
+                        tombstoned_ids.add(m_id.group(1))
 
     # 5. uniqueness — one fact-id, one live segment
     for eid, where in sorted(all_ids.items()):
@@ -381,12 +384,16 @@ def cmd_check(store):
         if len(files) > 1:
             notes.append(f"verbatim line in {sorted(files)}: {s[:70]}...")
 
-    # 8. owed borrows — tombstoned fact-ids still live in canonical blocks
+    # 8. owed borrows — tombstoned fact-ids still live in canonical blocks. An id annotated
+    # `(tombstoned)` on its own id line is exempt: the pour class deliberately archives already-
+    # tombstoned bodies, and the tombstone plus the annotation together read "freed, archived, not
+    # steering" — without the annotation the scan cannot tell archived history from a lurking free
     tpath = os.path.join(store, "tombstones.md")
     if os.path.exists(tpath):
         for eid in set(re.findall(r"\b([a-z]{2}-\d{4})\b", read(tpath))):
-            if eid in all_ids:
-                debt.append(f"'-1' state: tombstoned {eid} still live in {all_ids[eid]} — a BORROW is owed")
+            if eid in all_ids and eid not in tombstoned_ids:
+                debt.append(f"'-1' state: tombstoned {eid} still live in {all_ids[eid]} — a BORROW is owed "
+                            f"(or the id line lacks its '(tombstoned)' annotation, if this was a pour)")
 
     # 9. liveness — dispatch.md is the live dispatcher (the floor): poured only by the model at session
     # start, never by this script. Per-session dispatch-*.md files are legacy artifacts of the
@@ -413,8 +420,21 @@ def cmd_check(store):
             continue
         text = read(path)
         if "\n---\n" not in text:
+            # a separator-less file used to be silently skipped here — the exact blind spot that hid a
+            # whole store's pre-canonical files from this scan
+            if any(l.startswith("- ") for l in text.split("\n")):
+                notes.append(f"{fname}: entries but no header/entries separator — pre-canonical "
+                             f"structure, normalize owed")
             continue
         head, body = text.split("\n---\n", 1)
+        hm = re.search(r"```yaml\n(.*?)```", head, re.S)
+        if hm and re.search(r"^- [a-z-]+:", hm.group(1), re.M) and "[" not in hm.group(1):
+            notes.append(f"{fname}: header fence holds live entries, not a shape template — "
+                         f"normalize owed")
+        wrapped = sum(1 for l in body.split("\n") if re.match(r"^    \S", l))
+        if wrapped:
+            notes.append(f"{fname}: {wrapped} wrapped continuation line(s) — one field = one line, "
+                         f"normalize owed")
         if fname == "logger.md":
             for i, l in enumerate(body.split("\n"), 1):
                 if l.startswith("- ") and not LOGGER_ENTRY_RE.match(l):
