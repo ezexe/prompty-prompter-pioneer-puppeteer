@@ -39,6 +39,7 @@ No partition invalidates itself: expiry is the gc's job, per its "Invalidation �
 
 ### Partition entry schemas
 
+**The operative shape lives in each partition file's own header** (title, description, schema prose, yaml shape — the canonical form, per the user's 2026-08-26 ruling); this table is the teaching copy, and on divergence the file wins, because a user's edit to it is a ruling.
 One shape per partition — the filename already carries the tier, so no entry repeats it.
 Every entry carries `time` (local `YYYY-MM-DD HH:MM` at write time, date alone rather than fabricated minutes) plus the fields its own expiry rule has to read:
 

@@ -45,7 +45,7 @@ If the session carries no base `# Memory` instructions there is nothing to wrap 
 The dispatch record is **one file, `dispatch.md`**: at a NEW session's first turn the model pours its existing entries into `arc/` and the dispatcher starts fresh — the pour is a first-turn act (a transient hook firing never has one, and a resumed conversation recognizes its own entries and pours nothing), verbatim and script-verified before the trim, which is what dissolves the rotation hazard the per-session era was built around. It is never promoted to a rule, and anything worth keeping belongs in `logger.md`, which does not expire.
 `virtual.md`, `session-storage.md`, `local-storage.md`, and `data-store.md` are the gate's storage tiers made literal, written and expired per the table above — no partition invalidates itself, so expiry is lazy, checked at recall, and the gc's to run.
 `phi-index.md` and `arc/` are the gc's φ-register — poured and normalized in-session per its reference, never by hook; the index is derived, but a user's edit to it is a ruling.
-One entry shape per file, defined in the owning instrument's reference — the partitions' beside the gate's tier table.
+One entry shape per file, defined in the file's own header — title, short description, schema prose, and the yaml shape, dispatch-seed style; the owning instrument's reference carries the why, and on divergence the file wins (a user edit is a ruling).
 
 **What this never does.**
 It never re-homes, renames, or suppresses base memory files; VLDS files never get MEMORY.md index lines, and base memories never move into `store` — extension, not replacement.

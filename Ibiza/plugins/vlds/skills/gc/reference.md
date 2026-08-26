@@ -22,7 +22,8 @@ This is why sweeping without a tombstone fails against Gen 2 garbage: the same p
 
 ## The Tombstone Schema
 
-`tombstones.md` — in the **VLDS store**, the working directory's `.claude/vlds/` directory resolved by the plugin's memory override ([../../hooks/memory-override.md](../../hooks/memory-override.md)) — is the gc's own store: append-only, user-editable, one entry per free:
+`tombstones.md` — in the **VLDS store**, the working directory's `.claude/vlds/` directory resolved by the plugin's memory override ([../../hooks/memory-override.md](../../hooks/memory-override.md)) — is the gc's own store: append-only, user-editable, one entry per free.
+The operative shape lives in the file's own header (canonical form, per the user's 2026-08-26 ruling); the block below is the teaching copy, and on divergence the file wins:
 
 ```yaml
 - freed: [the decision/rule/claim that was disposed]

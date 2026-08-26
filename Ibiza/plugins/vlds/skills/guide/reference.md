@@ -22,6 +22,8 @@ The index is the _decided_ state — small, authoritative, the thing a lookup co
 
 A lookup `hit` turns on a key's _existence_, not its contents: any decided key stops the loop re-opening the question. The `decision` then selects what happens — a `rule` applies its directive, which may itself prescribe an action-time confirmation ("ask before deleting"); an `opt-out` proceeds on the model's own judgment. "Silent," then, means the configuration question is not re-asked — not that the applied rule never speaks.
 
+The operative ledger shapes live in `ledger.md`'s own header (canonical form, per the user's 2026-08-26 ruling); the block below is the teaching copy, and on divergence the file wins — a user's edit to it is a ruling.
+
 ```yaml
 # an index entry — one per key, the decided state
 index_entry:
