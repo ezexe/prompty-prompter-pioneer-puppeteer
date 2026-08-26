@@ -6,8 +6,9 @@ what deserves keeping, never sweeps on its own, and never deletes anything. The 
 judges; this script is the arithmetic and the scans.
 
 Subcommands:
-  check         run the nine structural scans over the store; report, never repair (exit 1 = corruption,
-                exit 0 = clean or debt-only — '2'/'11' states are owed work, not corruption)
+  check         run the ten structural scans over the store; report, never repair (exit 1 = corruption,
+                exit 0 = clean or debt-only — '2'/'11' states are owed work, not corruption; shape
+                drift is notes-only, because an off-schema entry can be the user's edit — a ruling)
   mask          run the literal zeckendorf_dp over model-supplied scores with pins; pure function,
                 JSON in / JSON out; asserts the exact guarantee kept <= ceil(n_i/2) per segment
   verify-merge  the merge deletion gate: every parent entry body must be verbatim-contained in the
@@ -51,6 +52,7 @@ SEED_HOT = ["local-storage.md", "index.md", "data-store.md", "ledger.md", "tombs
 LIVENESS_HORIZON_S = 24 * 3600
 FACT_ID_RE = re.compile(r"^id: ([a-z]{2}-\d{4})\s*$", re.M)
 SEG_NAME_RE = re.compile(r"^arc-(\d+)-([A-Za-z0-9]+)\.md$")
+LOGGER_ENTRY_RE = re.compile(r"^- `\[(?:gate|guide|gc|inspector|looper)\]` 20\d\d-\d\d-\d\d(?: \d\d:\d\d)? — \*\*")
 
 
 def read(path):
@@ -373,6 +375,33 @@ def cmd_check(store):
                 notes.append(f"{f}: legacy per-session record inside the {LIVENESS_HORIZON_S // 3600}h horizon — hold")
             else:
                 notes.append(f"{f}: legacy per-session record, dead candidate (age + content; the gc judges)")
+
+    # 10. conformance — each hot file's entries against the shape its OWN header declares (the file
+    # is the shape's authority). Drift is notes-only: an off-schema entry can be the user's hand
+    # edit, which is a ruling, so repair is judged, never mechanical.
+    for fname in SEED_HOT + ["dispatch.md"]:
+        path = os.path.join(store, fname)
+        if not os.path.exists(path):
+            continue
+        text = read(path)
+        if "\n---\n" not in text:
+            continue
+        head, body = text.split("\n---\n", 1)
+        if fname == "logger.md":
+            for i, l in enumerate(body.split("\n"), 1):
+                if l.startswith("- ") and not LOGGER_ENTRY_RE.match(l):
+                    notes.append(f"{fname}: line {i} diverges from the tagged-bullet shape — judged repair")
+            continue
+        m = re.search(r"```yaml\n(.*?)```", head, re.S)
+        if not m:
+            continue
+        allowed = set(re.findall(r"^(?:- |  )([a-z-]+):", m.group(1), re.M))
+        if not allowed:
+            continue
+        for i, l in enumerate(body.split("\n"), 1):
+            mm = re.match(r"^- ([a-z-]+):", l) or re.match(r"^  ([a-z-]+):", l)
+            if mm and mm.group(1) not in allowed:
+                notes.append(f"{fname}: line {i} field '{mm.group(1)}' not in the header shape — judged repair")
 
     for tag, items in (("CORRUPT", corrupt), ("DEBT", debt), ("note", notes)):
         for i in items:
