@@ -261,6 +261,20 @@ def cmd_check(store):
                 corrupt.append(f"segment(s) at position {p} absent from the positions table — torn pour: "
                                f"delete and re-sweep ({files})")
 
+    # unregistered mass — files in arc/ that are neither positioned segments, declared attachments,
+    # nor the lock are outside the register entirely: owed registration or collection, invisible to
+    # every other scan (found live in a peer store's bootstrap verification)
+    if os.path.isdir(arc):
+        registered = {f for files in positions.values() for f in files} | {".sweep-lock"}
+        for p, files in positions.items():
+            for f in files:
+                h, _e, _i = parse_segment(os.path.join(arc, f))
+                registered |= {a.strip() for a in h.get("attached", "").split(",") if a.strip()}
+        for f in sorted(os.listdir(arc)):
+            if f not in registered and os.path.isfile(os.path.join(arc, f)):
+                debt.append(f"arc/{f}: unregistered file — outside the register; registration or "
+                            f"collection owed (the gc judges)")
+
     # 2+3. per-segment: grammar, mask records, ids
     all_ids = {}
     for p, files in sorted(positions.items()):
@@ -330,6 +344,20 @@ def cmd_check(store):
                 live = int(row[1])
                 if live != count:
                     notes.append(f"{fname}: index live={live}, recounted {count} — stale row (updates at sweep)")
+            except (ValueError, IndexError):
+                pass
+            # the pressure verdict — recomputed here at recall, as the doctrine promises: the stored
+            # row updates only at sweep, so the RECOUNT carries the live verdict
+            try:
+                budget = int(row[4])
+                if count > budget:
+                    debt.append(f"{fname}: {count} entries over budget {budget} — normalize owed")
+            except (ValueError, IndexError):
+                pass
+            try:
+                at_sweep = int(row[2])
+                if at_sweep > 0 and count / at_sweep >= 1.618:
+                    debt.append(f"{fname}: live/at-sweep = {count}/{at_sweep} ≥ φ — pressure owed")
             except (ValueError, IndexError):
                 pass
             if span and wm_hash:
