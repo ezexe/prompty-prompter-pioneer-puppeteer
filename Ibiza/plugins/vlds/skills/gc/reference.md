@@ -115,7 +115,8 @@ The delimiter cannot occur inside a valid entry (headers fenced, continuations i
 
 **The normalize sweep** (`/vlds:gc normalize <file | 'register'>`) — in-session, gc-owned, never a hook, never a timer.
 A sweep takes the session-stamped lock `arc/.sweep-lock` (stale after 60 minutes) before any arc write; without it a session only reports owed work — deterministic naming makes concurrent-sweep collisions certain, so the destructive tail is serialized.
-The sweep's standing occasion is **session start**: the model's first turn pours the dead weight — every entry already in `dispatch.md`, and every cold span prior sessions left in the hot files — before recall proceeds; pressure and register debt cover mid-session growth.
+The sweep's standing occasion is **a new session's first turn**: it pours the dead weight — every entry already in `dispatch.md`, and every cold span prior sessions left in the hot files — before recall proceeds; pressure and register debt cover mid-session growth.
+A RESUME pours nothing: `SessionStart` fires on resume too, but a resumed conversation's dispatch entries are its own live barrier state — the first real firing of the pour row caught exactly this over-reach, and the scope clause is its repair.
 Concurrent sessions share the one dispatcher: the barrier matches on fingerprints, so interleaved entries are tolerated, and a simultaneous append can lose an entry — the accepted cost of one file, by ruling.
 
 _Pour._ Entry-level: everything already in `dispatch.md` at session start, plus cold spans (pre-session logger entries, SPENT/FREED ruling bodies whose tombstones exist, expired virtual entries) copy verbatim into position-1 segments, chunked at entry boundaries so no segment exceeds capacity, oldest first.
