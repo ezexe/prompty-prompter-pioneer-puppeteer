@@ -19,6 +19,10 @@ Subcommands:
   rebuild       regenerate phi-index.md from segment headers + store grammar — corruption recovery ONLY:
                 refuses to run while the drift scan shows a voided watermark (a user edit is a ruling)
   restore       print a segment's entries to stdout for judged re-insertion
+  lint          the tier guard: scan the PLUGIN's own doctrine files for store-tier content that leaked
+                into the portable layer — session dates, "per the user" attributions, dated rulings,
+                session-id tokens. Doctrine states mechanism; provenance lives in the store, which
+                recall replays. Report-only; the model judges each hit.
 
 Watermark convention (shared by reader and writer, pinned in gc/reference.md): `mask=A:B sha=H` is a
 0-based, HALF-OPEN line range — the masked span is lines[A:B]; live entries are counted outside it.
@@ -547,6 +551,40 @@ def cmd_restore(args):
     return 0
 
 
+LINT_PATTERNS = [
+    (re.compile(r"\b20\d\d-\d\d(-\d\d)?\b"), "session date in portable doctrine"),
+    (re.compile(r"per the user", re.I), "user attribution in portable doctrine"),
+    (re.compile(r"\bruling\b[^.\n]{0,20}\b20\d\d\b|\b20\d\d\b[^.\n]{0,20}\bruling\b", re.I),
+     "dated ruling citation in portable doctrine"),
+    (re.compile(r"\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}\b"), "session-id token in portable doctrine"),
+]
+LINT_EXEMPT = {"examples.md"}  # worked examples legitimately carry illustrative dates
+
+
+def cmd_lint(plugin_root):
+    """The tier guard: portable doctrine carries mechanism and design only — a ruling's CONTENT may
+    become doctrine, but its PROVENANCE (who ruled, when, in which session) belongs to the store."""
+    hits = 0
+    targets = []
+    for sub in ("skills", "hooks"):
+        for root, _dirs, files in os.walk(os.path.join(plugin_root, sub)):
+            targets += [os.path.join(root, f) for f in files if f.endswith(".md")]
+    targets.append(os.path.join(plugin_root, "README.md"))
+    for path in sorted(targets):
+        if not os.path.exists(path) or os.path.basename(path) in LINT_EXEMPT:
+            continue
+        rel = os.path.relpath(path, plugin_root)
+        for i, line in enumerate(read(path).split("\n"), 1):
+            for pat, why in LINT_PATTERNS:
+                m = pat.search(line)
+                if m:
+                    hits += 1
+                    print(f"[leak?] {rel}:{i}: {why}: ...{line.strip()[:80]}")
+                    break
+    print(f"phi.py lint: {hits} candidate leak(s) — each is a finding for the model to judge, not an auto-fix")
+    return 1 if hits else 0
+
+
 def main():
     # the store is UTF-8; Windows consoles default to a legacy codepage, which made restore crash on
     # '→' and check print mojibake — force UTF-8 out, replacing anything a weirder console still rejects
@@ -575,6 +613,9 @@ def main():
     sub.add_parser("rebuild")
     p = sub.add_parser("restore")
     p.add_argument("segment")
+    p = sub.add_parser("lint")
+    p.add_argument("--plugin-root",
+                   default=os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     args = ap.parse_args()
     if args.cmd == "check":
         sys.exit(cmd_check(args.store))
@@ -592,6 +633,8 @@ def main():
         sys.exit(cmd_rebuild(args.store))
     if args.cmd == "restore":
         sys.exit(cmd_restore(args))
+    if args.cmd == "lint":
+        sys.exit(cmd_lint(args.plugin_root))
     ap.print_help()
     sys.exit(2)
 

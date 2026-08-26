@@ -23,7 +23,7 @@ This is why sweeping without a tombstone fails against Gen 2 garbage: the same p
 ## The Tombstone Schema
 
 `tombstones.md` — in the **VLDS store**, the working directory's `.claude/vlds/` directory resolved by the plugin's memory override ([../../hooks/memory-override.md](../../hooks/memory-override.md)) — is the gc's own store: append-only, user-editable, one entry per free.
-The operative shape lives in the file's own header (canonical form, per the user's 2026-08-26 ruling); the block below is the teaching copy, and on divergence the file wins:
+The operative shape lives in the file's own header (the canonical form); the block below is the teaching copy, and on divergence the file wins:
 
 ```yaml
 - freed: [the decision/rule/claim that was disposed]
@@ -96,7 +96,7 @@ The audit is an allocation like any other; if its own footprint grows across pas
 
 ## The φ-Register — Compression and Recall
 
-The store's compression and session-start recall are modeled on the fib/phi-binary machinery of `zeckendorf-prune` (user ruling 2026-08-25): the hot files are an unnormalized φ-register's pour cells, `store/arc/` is the normalized register, and the gc's compaction is the codec's normalization sweep.
+The store's compression and session-start recall are modeled on the fib/phi-binary machinery of `zeckendorf-prune`: the hot files are an unnormalized φ-register's pour cells, `store/arc/` is the normalized register, and the gc's compaction is the codec's normalization sweep.
 The mechanical companion is `scripts/phi.py` (check / mask / verify-merge / rebuild / restore) — it computes and verifies; every judgment stays here, with the gc, in-session.
 The machinery governs **structure only** — what is hot, where history lives, how it parses — never the content of entries; that boundary is the source project's own measured lesson, transferred whole.
 
@@ -118,7 +118,7 @@ The delimiter cannot occur inside a valid entry (headers fenced, continuations i
 A sweep takes the session-stamped lock `arc/.sweep-lock` (stale after 60 minutes) before any arc write; without it a session only reports owed work — deterministic naming makes concurrent-sweep collisions certain, so the destructive tail is serialized.
 The sweep's standing occasion is **a new session's first turn**: it pours the dead weight — every entry already in `dispatch.md`, and every cold span prior sessions left in the hot files — before recall proceeds; pressure and register debt cover mid-session growth.
 A RESUME pours nothing: `SessionStart` fires on resume too, but a resumed conversation's dispatch entries are its own live barrier state — the first real firing of the pour row caught exactly this over-reach, and the scope clause is its repair.
-Concurrent sessions share the one dispatcher: the barrier matches on fingerprints, so interleaved entries are tolerated, and a simultaneous append can lose an entry — the accepted cost of one file, by ruling.
+Concurrent sessions share the one dispatcher: the barrier matches on fingerprints, so interleaved entries are tolerated, and a simultaneous append can lose an entry — the accepted cost of one shared file.
 
 _Pour._ Entry-level: everything already in `dispatch.md` at session start, plus cold spans (pre-session logger entries, SPENT/FREED ruling bodies whose tombstones exist, expired virtual entries) copy verbatim into position-1 segments, chunked at entry boundaries so no segment exceeds capacity, oldest first.
 A SPENT ruling without a tombstone stays hot deliberately — an anti-citation warning until a gc pass tombstones it.
