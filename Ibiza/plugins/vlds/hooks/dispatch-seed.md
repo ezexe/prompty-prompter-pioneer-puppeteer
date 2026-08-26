@@ -7,7 +7,7 @@ One shared file: at a new session's first turn the model pours every entry alrea
 States: `FRESH` (no match — address it, then record it) · `ECHO` (already addressed, unchanged — answer the delta, never the whole message again) · `SUPERSEDED` (addressed, then freed by a later message — surface the free; acting on it is a use-after-free).
 When a match is uncertain, default to `FRESH`: re-answering wastes a turn, but wrongly suppressing drops the user's request entirely, and only one of those is recoverable.
 
-Append one entry per message, in this shape:
+Append one entry per message, in this shape — one field to a line, never folded or wrapped:
 
 ```yaml
 - fingerprint: [the opening clause plus the ask, enough to recognize it again]
