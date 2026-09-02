@@ -52,6 +52,7 @@ SEED_HOT = ["local-storage.md", "index.md", "data-store.md", "ledger.md", "tombs
 LIVENESS_HORIZON_S = 24 * 3600
 FACT_ID_RE = re.compile(r"^id: ([a-z]{2}-\d{4})( \(tombstoned\))?\s*$", re.M)
 SEG_NAME_RE = re.compile(r"^arc-(\d+)-([A-Za-z0-9]+)\.md$")
+POURED_DISPATCH_RE = re.compile(r"^dispatch-\d{8}-\d{6}-[0-9A-Za-z-]{1,12}\.md$")  # the prompt hook's pour
 LOGGER_ENTRY_RE = re.compile(r"^- `\[(?:gate|guide|gc|inspector|looper)\]` 20\d\d-\d\d-\d\d(?: \d\d:\d\d)? — \*\*")
 
 
@@ -272,8 +273,12 @@ def cmd_check(store):
                 registered |= {a.strip() for a in h.get("attached", "").split(",") if a.strip()}
         for f in sorted(os.listdir(arc)):
             if f not in registered and os.path.isfile(os.path.join(arc, f)):
-                debt.append(f"arc/{f}: unregistered file — outside the register; registration or "
-                            f"collection owed (the gc judges)")
+                if POURED_DISPATCH_RE.match(f):
+                    debt.append(f"arc/{f}: hook-poured dispatch record — attachment registration owed to "
+                                f"the next sweep")
+                else:
+                    debt.append(f"arc/{f}: unregistered file — outside the register; registration or "
+                                f"collection owed (the gc judges)")
 
     # 2+3. per-segment: grammar, mask records, ids
     all_ids = {}
@@ -359,7 +364,9 @@ def cmd_check(store):
                 pass
             try:
                 at_sweep = int(row[2])
-                if at_sweep > 0 and count / at_sweep >= 1.618:
+                # dispatch.md is exempt: the prompt hook pours it whole-file at a new session's first prompt,
+                # so its growth is never the sweep's to settle
+                if fname != "dispatch.md" and at_sweep > 0 and count / at_sweep >= 1.618:
                     debt.append(f"{fname}: live/at-sweep = {count}/{at_sweep} ≥ φ — pressure owed")
             except (ValueError, IndexError):
                 pass
@@ -395,12 +402,13 @@ def cmd_check(store):
                 debt.append(f"'-1' state: tombstoned {eid} still live in {all_ids[eid]} — a BORROW is owed "
                             f"(or the id line lacks its '(tombstoned)' annotation, if this was a pour)")
 
-    # 9. liveness — dispatch.md is the live dispatcher (the floor): poured only by the model at session
-    # start, never by this script. Per-session dispatch-*.md files are legacy artifacts of the
-    # pre-0.0.18 design, still judged by age + content while an old-contract session could yet exist.
+    # 9. liveness — dispatch.md is the live dispatcher (the floor): poured whole-file by the prompt hook at
+    # a new session's first prompt, never by this script. Per-session dispatch-*.md files in the store ROOT
+    # are legacy artifacts of the pre-0.0.18 design, still judged by age + content while an old-contract
+    # session could yet exist.
     now = time.time()
     if os.path.exists(os.path.join(store, "dispatch.md")):
-        notes.append("dispatch.md: the live dispatcher — untouchable by script; pours at session start")
+        notes.append("dispatch.md: the live dispatcher — untouchable by script; the prompt hook pours it")
     else:
         debt.append("dispatch.md missing — the hook seeds it; until then the dispatch floor has no target")
     for f in sorted(os.listdir(store)):

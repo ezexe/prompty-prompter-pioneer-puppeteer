@@ -94,23 +94,23 @@ The **looper** ([`skills/looper`](skills/looper/SKILL.md)) is the fix: the one s
 
 ## The store: memory as a base class
 
-The instruments' stores — `index.md`, `ledger.md`, `logger.md`, `tombstones.md` — live in one **VLDS store**, joined by the four partition files and by `dispatch.md`, the record of which messages have been addressed — poured into the φ-register at each session start so the dispatcher begins fresh.
+The instruments' stores — `index.md`, `ledger.md`, `logger.md`, `tombstones.md` — live in one **VLDS store**, joined by the four partition files and by `dispatch.md`, the record of which messages have been addressed — poured into `arc/` by the prompt hook at each new session's first prompt so the dispatcher begins fresh.
 The store is defined by inheritance rather than by a hardcoded path.
-A SessionStart hook injects the contract ([`hooks/memory-override.md`](hooks/memory-override.md)) so it rides along with the harness's own memory instructions and extends them the way a derived class overrides a virtual method:
+SessionStart hooks inject the contract ([`hooks/memory-override.md`](hooks/memory-override.md)) and, one file per hook output, the recall slice, so both ride along with the harness's own memory instructions and extend them the way a derived class overrides a virtual method:
 
 - `base.read()` / `base.write()` — the built-in memory system's recall and persistence — run untouched.
 - The override then applies the VLDS store on top: `read()` also recalls the store's files, each item passing the gc's read barrier before it steers; `write()` also persists instrument state to them.
 - The store resolves to the working directory's `.claude/vlds/` directory (`<project>/.claude/vlds/`) — the SessionStart hook creates it if absent, and the first write does too; a pre-override repo-root `.vlds/` is still read as a legacy source.
 
 The contract is injected as an **imperative trigger table** — _fires when → do_ — not as description, because a layer described is a layer that never runs.
-Its dispatch row is unconditional: every message appends its entry before it is answered, whether or not any instrument fires, so **a session that ends having written nothing did not run the layer**.
+Its dispatch row is unconditional: the prompt hook stamps every message's row before it is answered, whether or not any instrument fires, and the model completes it — so **a session that ends with its rows stamped and never completed did not run the layer**.
 The hook seeds `dispatch.md` from a template when absent (never overwriting one that exists), so the append target is a real file rather than an empty directory.
-That record is **one shared file**: at session start the model pours its existing entries into the φ-register and starts fresh — a first-turn act a transient hook firing can never perform, verbatim and script-verified before any trim, dissolving the rotation hazard two per-session designs were built around. The pour is the model's, never the hook's.
+That record is **one shared file**: on a new session's first prompt the UserPromptSubmit hook pours it whole into `arc/` — a byte-identical copy, sha-verified before the reseed — and the dispatcher starts fresh. The hook keys on the store's `.sessions` ledger rather than on SessionStart: a resumed conversation's id is already there and pours nothing, a fork's new id is recorded at its SessionStart, and a transient firing never submits a prompt, which dissolves the rotation hazard two per-session designs were built around. The judged sweep — what is cold in the other hot files, and where a poured record settles in the register — stays the model's; a PostToolUse hook runs `phi.py check` after every store write so the owed work is seen as it arises.
 
 Extension, not replacement: base memory files never move, VLDS files never enter the base index — the two ride side by side, and the store stays plain markdown the user can open, edit, and audit directly.
 
 The store compresses as a **φ-register**, modeled on the fib/phi-binary machinery of zeckendorf-prune: hot files pour, `arc/` holds one segment per Fibonacci position at Fibonacci-KB capacities (the unique capacities under which merges cannot overflow — the carry and resolve identities are byte-exact), and the gc's normalize sweep settles debt by BORROW → RESOLVE → CARRY, archiving verbatim — deletions are gated by script-verified containment in the replacement, or by byte-identity to the seed for a dead session's empty record.
-Session start reads `phi-index.md` — the phi-matrix index: the register's digit string, position rows, hot budgets, and epoch pairs checked by Cassini's identity plus row continuity — then only the budget-bounded hot files, never `arc/`.
+Session start reads `phi-index.md` — the phi-matrix index: the register's digit string, position rows, hot budgets, and epoch pairs checked by Cassini's identity plus row continuity — then only the steering hot files its `## recall` section names, never `arc/`; the SessionStart hooks print it into context one file per hook output, under the harness's 10,000-character cap, so the model reads by hand only what the cap or the digest list left out.
 The mechanical companion `scripts/phi.py` (check / mask / verify-merge / rebuild / restore) computes and verifies; every judgment about what deserves keeping stays with the gc, in-session.
 Coverage is stated honestly: the scans catch structural corruption for free, and nothing semantic — that remains the read barrier's job.
 

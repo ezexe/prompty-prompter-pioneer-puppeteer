@@ -83,7 +83,7 @@ A message, once addressed, is stored state like any other: re-addressing it dere
 
 | State | Meaning | Do |
 | --- | --- | --- |
-| `FRESH` | no matching entry in the dispatch record | address it, then record it |
+| `FRESH` | no matching entry in the record before this message's own stamped row | address it, then complete its row — the stamp is the hook's, `state:` and `addressed:` are yours |
 | `ECHO` | already addressed, and nothing about it changed | answer the delta only — never re-answer the message whole |
 | `SUPERSEDED` | addressed, then freed by a later message | surface the free; acting on it is a use-after-free |
 
@@ -95,8 +95,8 @@ Messages carry no ids, so a match rests on a fingerprint — the opening clause 
 **When the match is uncertain, default to `FRESH`**: the failure modes are not symmetric — a wrong `FRESH` wastes a turn, a wrong `ECHO` silently drops the user's request, and only the first is recoverable without the user having to notice and ask twice.
 
 The record is `dispatch.md` — **one shared file**, never promoted to a rule; where echoes come from is in [reference.md](reference.md).
-At a NEW session's first turn the model pours every entry already in it into the φ-register and starts the dispatcher fresh — a first-turn act, so a transient hook firing (which never gets a turn) can take nothing, a resumed conversation keeps its own entries, and the poured entries stay verbatim, verified, and demand-pageable in `arc/`. That pour supersedes the per-session-files era (`dispatch-<session>.md` + `.dispatch-current`), which itself replaced two attempts to rotate a shared record at hook time — both took the record out from under a running conversation, because `SessionStart` also fires on resume and under transient ids, so no hook signal ever proved a session had ended. The register dissolves what proliferation only dodged: nothing is moved by anything that cannot judge, and nothing is destroyed at all.
-Collection here is nothing special anymore — the pour IS the collection, and it runs every session.
+On a NEW session's first prompt the prompt hook pours the whole file into `arc/` — a byte-identical, sha-verified copy, the header kept — and the dispatcher starts fresh; the poured entries stay verbatim and demand-pageable, registered by the next sweep. The hook keys on the store's `.sessions` ledger — written at a first prompt, and by the SessionStart index hook on a resume, fork, or compact — so a resumed conversation keeps its own entries, a fork (a new id over a live conversation) is recorded before its first prompt and keeps them too, and a transient `SessionStart` firing (which never submits a prompt) takes nothing. That pour supersedes the model's first-turn pour, which superseded the per-session-files era (`dispatch-<session>.md` + `.dispatch-current`), which itself replaced two attempts to rotate a shared record at hook time — both took the record out from under a running conversation, because `SessionStart` also fires on resume and under transient ids, so no `SessionStart` signal ever proved a session had begun. A first prompt from an unrecorded id is that proof: every entry in the file then belongs to a conversation that is not this one, so no judgment is needed on what to pour — and nothing is destroyed at all.
+Collection here is nothing special anymore — the pour IS the collection, and it runs every new session without a model turn spent on it.
 Collection promotes nothing, and cannot: by the time a record is collectable its session is gone, and with it the only party who could judge what deserved keeping.
 So a misreading that steered work is promoted to the guide's `ledger.md` as a `correction` **when it is caught**, not when the record is eventually collected — the same discipline `virtual.md` follows, where an inference that must outlive its turn is promoted before the turn ends rather than rescued after.
 

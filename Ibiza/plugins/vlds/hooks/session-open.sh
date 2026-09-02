@@ -1,13 +1,13 @@
 #!/bin/sh
-# VLDS SessionStart: seed the shared dispatcher if absent, and emit the contract.
+# VLDS SessionStart, the contract hook: seed the shared dispatcher if absent, then emit the contract.
 #
-# ONE DISPATCH FILE, `dispatch.md`, poured into the φ-register at session start BY THE MODEL — never by
-# this hook. That division is what makes a single shared file safe where two per-session designs and two
-# rotation designs before them were not: SessionStart also fires on resume, and a restart fires it under
-# a transient id before the conversation's own, so no hook can ever know whether a session began — but a
-# transient firing never gets a model turn, and the pour is the model's first-turn act: verbatim into
-# arc/, script-verified before the trim, and reversible. The hook's whole job is mechanical: make sure
-# the append target exists, then print the contract.
+# This hook prints the contract and nothing else, on purpose: the harness caps each hook's output at 10,000
+# characters and spills a longer one to a file, so the recall rides in separate hooks — hooks/run-hook.sh
+# session-open (the index slot) and session-open --slot N (one inject file each), all registered beside this
+# one in hooks.json. Nothing here pours. SessionStart fires on resume and, on a restart, under a transient id
+# before the conversation's own, so no SessionStart firing can prove a session began; the pour of dispatch.md
+# belongs to the UserPromptSubmit hook, which fires only when a real turn exists and keys on the store's
+# .sessions ledger to tell a first prompt from a resumed, forked, or compacted conversation's.
 set -u
 
 seed="${CLAUDE_PLUGIN_ROOT}/hooks/dispatch-seed.md"
