@@ -10,7 +10,7 @@ seed="${CLAUDE_PLUGIN_ROOT}/hooks/frags-seed.md"
 
 if [ -n "${CLAUDE_PROJECT_DIR:-}" ]; then
   src="${CLAUDE_PROJECT_DIR}/.claude/vlds/src"
-  mkdir -p "$src"
+  mkdir -p "$src" "${CLAUDE_PROJECT_DIR}/.claude/scratchpad"
   [ -f "$src/frags.md" ] || cp "$seed" "$src/frags.md" 2>/dev/null || true
 fi
 

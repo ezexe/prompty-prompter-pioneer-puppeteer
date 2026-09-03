@@ -15,7 +15,8 @@ A frag under `<working dir>/.claude/vlds/src/<task>/` fixes all three: it outliv
 ## What ships
 
 - [`hooks/src-fragger.md`](hooks/src-fragger.md) — the contract, injected at every SessionStart by [`hooks/session-open.sh`](hooks/session-open.sh), which also creates `store/src/` and seeds the register from [`hooks/frags-seed.md`](hooks/frags-seed.md) when absent (never overwriting it).
-- [`hooks/frag_gate.py`](hooks/frag_gate.py) — the `PreToolUse` gate, run through [`hooks/run-hook.sh`](hooks/run-hook.sh): asks before a Write, Edit, Bash, or PowerShell call writes a code file (by extension) to a temp location (the scratchpad, `/tmp`, the user's temp directory). Asks, never denies. Acceptance tests in [`hooks/test_frag_gate.py`](hooks/test_frag_gate.py).
+- [`hooks/frag_gate.py`](hooks/frag_gate.py) — the `PreToolUse` gate, run through [`hooks/run-hook.sh`](hooks/run-hook.sh): asks before a Write, Edit, Bash, or PowerShell call writes ANY file into the harness's per-session scratchpad, or a code file (by extension) to any other temp location (`/tmp`, the user's temp directory). Asks, never denies. Acceptance tests in [`hooks/test_frag_gate.py`](hooks/test_frag_gate.py).
+- **Working files that are not code** go under the project's own `.claude/scratchpad/`, created by the SessionStart hook: the harness's temp scratchpad is named after a session id, invisible to the user, and gone with the session, so nothing lives there.
 - [`skills/frag`](skills/frag/SKILL.md) — the procedure: reuse before rewrite, the header comment, the register shape, the double-check before any hand-off, the user's edits as rulings, retirement without deletion. Direct-invoke (`/src-fragger:frag`); the hook carries the residency.
 
 ## Before interrupting the user

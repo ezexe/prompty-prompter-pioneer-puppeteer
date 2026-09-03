@@ -21,6 +21,7 @@ Notes, plans, and data files are not frags either; they may live in the scratchp
 - **Directory:** `<working dir>/.claude/vlds/src/<task-slug>/` — one directory per task, inside the VLDS store, so it rides with the store's other state and stays out of the project tree and out of version control with it.
 - **Register:** `<working dir>/.claude/vlds/src/frags.md` — one entry per frag in the shape its header declares (`frag`, `time`, `task`, `run`, `state`, and `retry` once a refusal has been retried). The SessionStart hook seeds it and never overwrites it.
 - **Header comment:** every frag opens with the task it completes, the date copied from the hook stream's `now:`, and the exact command that runs it from the project root.
+- **Working files that are not code** — commit messages, plans, notes, fixtures, captured output — go under `<working dir>/.claude/scratchpad/`, which the SessionStart hook creates. The harness's per-session scratchpad (a temp path named after the session id) is never used for anything: it is invisible to the user and gone with the session, and `.claude/` is git-ignored, so the project's own scratchpad costs nothing.
 
 ## The procedure
 
