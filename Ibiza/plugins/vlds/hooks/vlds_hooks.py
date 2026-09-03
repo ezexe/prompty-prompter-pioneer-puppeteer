@@ -3,12 +3,13 @@
 
 Subcommands, each reading the harness's JSON payload on stdin (decoded as UTF-8 — the harness writes UTF-8
 whatever the console codepage says):
-  session-open            SessionStart, the recall's index slot: print phi-index.md, the inject/digest lists,
-                          a digest line per digest file, and the verdict of `phi.py check`. On `source` resume,
-                          fork, or compact print only the digest lines and the verdict — the conversation already
-                          holds its own recall — and record the session id in `.sessions`, so a fork's first
-                          prompt (a new id over a live conversation) and a pre-hook session's next prompt do not
-                          pour rows that are still live.
+  session-open            SessionStart, the recall's index slot: print the clock (`now:`), phi-index.md, the
+                          inject/digest lists, a digest line per digest file, the owner-voice digest, and the
+                          verdict of `phi.py check`. On `source` resume, fork, or compact print only the clock,
+                          the digest lines, and the verdict — the conversation already holds its own recall —
+                          and record the session id in `.sessions`, so a fork's first prompt (a new id over a
+                          live conversation) and a pre-hook session's next prompt do not pour rows that are
+                          still live.
   session-open --slot N   SessionStart, one chunk slot: the index's `inject:` files are split at entry boundaries
                           into chunks under the harness's per-hook output cap, and slot N prints the N-th chunk
                           (header with the first chunk of each file). Nothing on resume / fork / compact, nothing
@@ -16,19 +17,34 @@ whatever the console codepage says):
                           hook's output at 10,000 characters: one process printing everything would be spilled
                           to a file and replaced by a preview. A single entry over the cap, or a chunk beyond the
                           registered slots, arrives as a marker line to read by hand.
-  prompt-open             UserPromptSubmit: stamp the message's dispatch row (fingerprint / time / arrival; the
-                          model completes state and addressed) and, on the FIRST prompt a session id ever
-                          submits, pour dispatch.md whole-file into arc/ — a sha-verified byte-identical copy,
-                          then a reseed that preserves the file's own header (a user's header edit is a ruling).
-  post-write              PostToolUse: when a Write, Edit, Bash, or PowerShell call touched the store, run
-                          `phi.py check` and hand its verdict back as additionalContext.
+  prompt-open             UserPromptSubmit: print the clock, stamp the message's dispatch row (fingerprint /
+                          time / arrival; the model completes state and addressed) and, on the FIRST prompt a
+                          session id ever submits, pour dispatch.md whole-file into arc/ — a sha-verified
+                          byte-identical copy, then a reseed that preserves the file's own header (a user's
+                          header edit is a ruling).
+  pre-write               PreToolUse: when a Write, Edit, Bash, or PowerShell call is about to write a file
+                          that carries a store file's NAME, ask before it lands anywhere but a `.claude/vlds/`
+                          directory (the path is resolved against the call's cwd and any `cd` earlier in the
+                          same command — a bare `ledger.md` that was true under one `cd` is false under
+                          another), and ask before a persisted entry carries a placeholder `time:` (`12:4x`,
+                          `TBD`) instead of a stamp copied from the stream's `now:`. Silent otherwise. Always
+                          `ask`, never `deny`: `index.md` and `ledger.md` are legitimate names in a docs tree,
+                          and only the user can say which this one is.
+  post-write              PostToolUse: when a Write, Edit, Bash, or PowerShell call touched the store, or wrote
+                          a store-named file anywhere, print the clock and run `phi.py check`, handing its
+                          verdict back as additionalContext — a mis-homed write is followed at once by a check
+                          whose `[STRAY]` line names the file.
 
 Everything here is mechanical. The stamp carries no judgment; the pour moves a file whose every entry belongs to
 a conversation that is not this one (a new id that reaches its first prompt unrecorded) and destroys nothing (the
-copy is verified before the reseed, and the copy stays); the check only reports. What the hooks never do:
-register the poured file in the index (a sweep's judged act), pour any other hot file (cold spans are scored,
-not counted), complete a dispatch row (state and addressed are the model's), or block a prompt — every failure
-prints a one-line notice and exits 0.
+copy is verified before the reseed, and the copy stays); the check only reports; the pre-write gate only asks.
+What the hooks never do: register the poured file in the index (a sweep's judged act), pour any other hot file
+(cold spans are scored, not counted), complete a dispatch row (state and addressed are the model's), delete or
+move a stray file (the user disposes of it), or block a prompt — every failure prints a one-line notice and
+exits 0.
+
+The clock: every subcommand's output carries a `now: YYYY-MM-DD HH:MM` line, so a store write anywhere in the
+turn has an authoritative stamp to copy — the model never guesses a digit.
 
 First-prompt detection: `<store>/.sessions` holds one line per session id that has submitted a prompt or been
 recorded at a resume / fork / compact start. An id absent from it at its first prompt is a new session; a resumed
@@ -43,6 +59,7 @@ import os
 import re
 import subprocess
 import sys
+from collections import Counter
 
 DEFAULT_INJECT = ["local-storage.md", "index.md", "tombstones.md", "ledger.md", "session-storage.md",
                   "virtual.md"]
@@ -54,6 +71,16 @@ SLOT_BUDGET = 9500          # what one slot may print, head line included, to st
 SLOT_HEAD = 200             # reserved for the slot's head line when chunking
 SLOTS = 12                  # slots hooks.json registers: --slot 0 .. --slot 11
 HELD_SOURCES = ("resume", "fork", "compact")   # SessionStart sources whose conversation holds its own recall
+# the store's file names — the same set as scripts/phi.py STORE_FILES; a file carrying one of these names
+# outside a `.claude/vlds/` directory is what the pre-write gate asks about and the check reports as [STRAY]
+STORE_FILES = {"dispatch.md", "index.md", "ledger.md", "logger.md", "tombstones.md", "virtual.md",
+               "session-storage.md", "local-storage.md", "data-store.md", "phi-index.md"}
+NOW_FMT = "%Y-%m-%d %H:%M"
+VOICE_CAP = 1200            # the owner-voice digest's size cap, in characters
+VOICE_TOKEN_WORDS = 3       # a message of at most this many words counts as an adoption token
+VOICE_TOKENS = 10           # how many adoption tokens the digest lists
+VOICE_RULINGS = 5           # how many delivery-form rulings the digest lists
+VOICE_FORM_WORDS = ("fence", "file", "message", "artifact", "text box")
 
 
 def payload_from_stdin():
@@ -96,6 +123,11 @@ def session_tag(payload):
     return sid, sid[:8]
 
 
+def now_line(now):
+    """The clock line every hook output carries — the one value a `time:` field is copied from."""
+    return f"now: {now:{NOW_FMT}}"
+
+
 def split_header(data):
     """Return (header_bytes, separator_bytes, body_bytes) at the first column-0 '---' line, or None."""
     for sep in (b"\n---\n", b"\n---\r\n"):
@@ -132,10 +164,11 @@ def run_check(store):
 
 
 def check_summary(store):
-    """The verdict line plus every CORRUPT and DEBT line; notes are counted, not listed."""
+    """The verdict line plus every CORRUPT, DEBT, and STRAY line; notes are counted, not listed."""
     out = run_check(store)
     lines = out.split("\n")
-    keep = [l for l in lines if l.startswith("[CORRUPT]") or l.startswith("[DEBT]") or l.startswith("phi.py check")]
+    keep = [l for l in lines if l.startswith("[CORRUPT]") or l.startswith("[DEBT]") or l.startswith("[STRAY]")
+            or l.startswith("phi.py check")]
     notes = sum(1 for l in lines if l.startswith("[note]"))
     if not keep:
         return out
@@ -153,8 +186,142 @@ def record_seen(store, sid, now):
     if sid in seen:
         return False
     with open(ledger, "a", encoding="utf-8", newline="\n") as f:
-        f.write(f"{sid} {now:%Y-%m-%d %H:%M}\n")
+        f.write(f"{sid} {now:{NOW_FMT}}\n")
     return True
+
+
+# ─── the store-path matcher (pre-write and post-write share it) ─────────────────────────────────────────
+
+_STORE_ALT = "|".join(re.escape(f) for f in sorted(STORE_FILES))
+_QUOTED = r"(?:[A-Za-z]:)?[^\"'<>|;&\n]*?(?:%s)" % _STORE_ALT      # inside quotes: spaces allowed
+_BARE = r"(?:[A-Za-z]:)?[^\s\"'<>|;&()`]*?(?:%s)" % _STORE_ALT     # unquoted: stops at whitespace
+_PATH = r"(?:\"(%s)\"|'(%s)'|(%s))(?![\w.-])" % (_QUOTED, _QUOTED, _BARE)
+_PY_PATH = r"(?:\"(%s)\"|'(%s)')" % (_QUOTED, _QUOTED)
+# write positions in a shell command: redirects, tee, the PowerShell content cmdlets, python's open() in a
+# write mode and Path().write_*; cp / mv / Copy-Item / Move-Item destinations are handled by COPY_RE
+WRITE_RES = [
+    re.compile(r">{1,2}[ \t]*" + _PATH),
+    re.compile(r"\btee\b(?:[ \t]+-[A-Za-z]+)*[ \t]+" + _PATH),
+    re.compile(r"\b(?:Set-Content|Add-Content|Out-File)\b[^\n|;]*?" + _PATH),
+    re.compile(r"\bopen\(\s*" + _PY_PATH + r"\s*,\s*[\"'][aw]\+?b?[\"']"),
+    re.compile(r"\bPath\(\s*" + _PY_PATH + r"\s*\)\.(?:write_text|write_bytes|open)\("),
+]
+COPY_RE = re.compile(r"\b(?:cp|mv|Copy-Item|Move-Item)\b((?:[ \t]+(?:-\S+|\"[^\"\n]*\"|'[^'\n]*'|[^\s;&|>]+))+)")
+CD_RE = re.compile(r"(?:^|&&|\|\||;|\n)[ \t]*(?:cd|Set-Location|pushd)[ \t]+(?:\"([^\"\n]+)\"|'([^'\n]+)'|([^\s;&|]+))")
+HEREDOC_RE = re.compile(r"<<-?[ \t]*(['\"]?)([A-Za-z_][A-Za-z0-9_]*)\1[^\n]*\n(.*?)\n[ \t]*\2[ \t]*(?=\r?\n|$)", re.S)
+PS_HERE_RE = re.compile(r"@(['\"])\r?\n(.*?)\r?\n\1@", re.S)
+SH_QUOTED_RE = re.compile(r"'((?:[^'\\]|\\.)*)'|\"((?:[^\"\\]|\\.)*)\"", re.S)
+TIME_FIELD_RE = re.compile(r"^[ \t]*(?:- )?time:[ \t]*(.*?)[ \t]*$", re.M)
+TIME_OK_RE = re.compile(r"^\d{4}-\d{2}-\d{2}(?: \d{2}:\d{2})?$")
+STORE_TAIL = os.path.normcase(os.sep + ".claude" + os.sep + "vlds")
+
+
+def _resolve(path, cwd):
+    """An absolute, normalized path for a spelling in a command — relative spellings against `cwd`."""
+    p = path.strip()
+    m = re.match(r"^/([A-Za-z])/(.*)$", p)
+    if m and os.name == "nt":          # Git Bash spells E:/ as /e/
+        p = f"{m.group(1).upper()}:/{m.group(2)}"
+    if not os.path.isabs(p) and not re.match(r"^[A-Za-z]:", p):
+        p = os.path.join(cwd, p)
+    return os.path.normpath(os.path.abspath(p))
+
+
+def _homed(abs_path):
+    """True when the file sits directly in a `.claude/vlds/` directory — this store's or a peer store's (a
+    session legitimately writes a peer store's files; a bare spelling that lands in a repo root does not)."""
+    return os.path.normcase(os.path.dirname(abs_path)).endswith(STORE_TAIL)
+
+
+def _first_group(m):
+    return next((g for g in m.groups() if g), "")
+
+
+def write_targets(payload):
+    """[(spelled, absolute)] — every store-NAMED file the call is about to write: a Write/Edit file_path, or
+    each write-position path in a shell command, resolved against the payload's cwd and any `cd` earlier in
+    the same command (that is exactly how a bare spelling goes wrong). Empty when nothing store-named is
+    written."""
+    tool = str(payload.get("tool_name") or "")
+    inp = payload.get("tool_input") or {}
+    if not isinstance(inp, dict):
+        return []
+    cwd = str(payload.get("cwd") or os.getcwd())
+    if tool in ("Write", "Edit", "NotebookEdit"):
+        fp = str(inp.get("file_path") or "")
+        if fp and os.path.basename(fp) in STORE_FILES:
+            return [(fp, _resolve(fp, cwd))]
+        return []
+    if tool not in ("Bash", "PowerShell"):
+        return []
+    cmd = str(inp.get("command") or "")
+    if not any(f in cmd for f in STORE_FILES):
+        return []
+    events = []
+    for m in CD_RE.finditer(cmd):
+        events.append((m.start(), "cd", _first_group(m)))
+    for rx in WRITE_RES:
+        for m in rx.finditer(cmd):
+            events.append((m.start(), "write", _first_group(m)))
+    for m in COPY_RE.finditer(cmd):
+        args = [a for a in re.findall(r"\"[^\"\n]*\"|'[^'\n]*'|\S+", m.group(1)) if not a.startswith("-")]
+        if len(args) >= 2:
+            dest = args[-1].strip("\"'")
+            if os.path.basename(dest) in STORE_FILES:
+                events.append((m.start(), "write", dest))
+    out, seen = [], set()
+    for _off, kind, value in sorted(events, key=lambda e: e[0]):
+        if kind == "cd":
+            cwd = _resolve(value, cwd)
+            continue
+        if not value or os.path.basename(value) not in STORE_FILES:
+            continue
+        a = _resolve(value, cwd)
+        key = os.path.normcase(a)
+        if key not in seen:
+            seen.add(key)
+            out.append((value, a))
+    return out
+
+
+def stray_targets(payload):
+    """The subset of write_targets() that lands outside every `.claude/vlds/` directory."""
+    return [(s, a) for s, a in write_targets(payload) if not _homed(a)]
+
+
+def written_text(payload):
+    """The text a call persists: a Write's content, an Edit's new_string, or — for a shell command — every
+    heredoc body, PowerShell here-string, and quoted argument (a `printf '...' >> file` persists too)."""
+    tool = str(payload.get("tool_name") or "")
+    inp = payload.get("tool_input") or {}
+    if not isinstance(inp, dict):
+        return ""
+    if tool == "Write":
+        return str(inp.get("content") or "")
+    if tool == "Edit":
+        return str(inp.get("new_string") or "")
+    if tool in ("Bash", "PowerShell"):
+        cmd = str(inp.get("command") or "")
+        bodies = [m.group(3) for m in HEREDOC_RE.finditer(cmd)]
+        bodies += [m.group(2) for m in PS_HERE_RE.finditer(cmd)]
+        bodies += [(m.group(1) or m.group(2) or "").replace("\\n", "\n") for m in SH_QUOTED_RE.finditer(cmd)]
+        return "\n".join(bodies)
+    return ""
+
+
+def placeholder_times(text):
+    """Every `time:` value in the text that is not a stamp: `YYYY-MM-DD` or `YYYY-MM-DD HH:MM`, digits only.
+    Exempt: an empty value, a bracketed template (`[YYYY-MM-DD HH:MM]` in a header shape), and a value holding
+    a runtime placeholder (`{now:...}`, `$now`, `%H`) — those do not survive as literals, which is R2's own
+    allowance. A trailing `# comment` is ignored."""
+    bad = []
+    for m in TIME_FIELD_RE.finditer(text):
+        v = re.sub(r"\s+#.*$", "", m.group(1)).strip().strip("\"'")
+        if not v or v.startswith("[") or any(c in v for c in "{$%"):
+            continue
+        if not TIME_OK_RE.match(v) and v not in bad:
+            bad.append(v)
+    return bad
 
 
 # ─── session-open ───────────────────────────────────────────────────────────────────────────────────────
@@ -271,12 +438,105 @@ def cmd_session_slot(payload, store, slot):
     return 0
 
 
+# ─── the owner-voice digest ─────────────────────────────────────────────────────────────────────────────
+
+FIELD_RE = re.compile(r"^[ \t]*(?:- )?(owner-words|fingerprint|by):[ \t]*(.*?)[ \t]*$", re.M)
+
+
+def _field_value(raw):
+    v = raw.strip()
+    if len(v) >= 2 and v[0] == v[-1] and v[0] in "\"'":
+        v = v[1:-1]
+    return v.strip()
+
+
+def _token(text):
+    t = text.lower().replace("…", " ").replace("\u2019", "'")
+    t = re.sub(r"[^\w\s'/-]", " ", t)
+    return " ".join(t.split())
+
+
+def voice_corpus(store):
+    """Every verbatim owner field in the store: owner-words and by in the hot files, fingerprint in
+    dispatch.md and every poured dispatch record under arc/. Header template lines ([...] values) are skipped."""
+    texts = []
+    paths = [os.path.join(store, f) for f in ("local-storage.md", "tombstones.md", "dispatch.md")]
+    arc = os.path.join(store, "arc")
+    if os.path.isdir(arc):
+        paths += [os.path.join(arc, f) for f in sorted(os.listdir(arc))
+                  if f.startswith("dispatch-") and f.endswith(".md")]
+    for p in paths:
+        if not os.path.exists(p):
+            continue
+        for m in FIELD_RE.finditer(read_text(p)):
+            v = _field_value(m.group(2))
+            if v and not v.startswith("["):
+                texts.append(v)
+    return texts
+
+
+def voice_rulings(store):
+    """[(time, form, owner-words)] for every local-storage ruling that carries a `form:` field or whose
+    owner-words name a delivery form — in file order, so the tail is the latest."""
+    path = os.path.join(store, "local-storage.md")
+    if not os.path.exists(path):
+        return []
+    _header, blocks = split_entries(read_text(path))
+    out = []
+    for b in blocks:
+        if not b.startswith("- "):
+            continue
+        fields = {}
+        for l in b.split("\n"):
+            mm = re.match(r"^(?:- |  )([a-z-]+):[ \t]*(.*?)[ \t]*$", l)
+            if mm and mm.group(1) not in fields:
+                fields[mm.group(1)] = mm.group(2)
+        words = _field_value(fields.get("owner-words", ""))
+        form = _field_value(fields.get("form", ""))
+        if not words or words.startswith("["):
+            continue
+        low = words.lower()
+        if form or any(w in low for w in VOICE_FORM_WORDS):
+            out.append((fields.get("time", "").strip(), form, words))
+    return out
+
+
+def owner_voice(store):
+    """The `### owner voice` block: a mechanical digest of the store's verbatim owner fields — median message
+    length, the most frequent short messages (adoption tokens), and the latest delivery-form rulings. No
+    judgment here; the model derives a short, typo'd, or truncated message's intent from it before asking."""
+    texts = voice_corpus(store)
+    if not texts:
+        return None
+    lengths = sorted(len(t) for t in texts)
+    median = lengths[len(lengths) // 2]
+    tokens = Counter(_token(t) for t in texts if 0 < len(_token(t).split()) <= VOICE_TOKEN_WORDS)
+    top = tokens.most_common(VOICE_TOKENS)
+    rulings = voice_rulings(store)[-VOICE_RULINGS:]
+    lines = [f"### owner voice (mechanical digest of {len(texts)} verbatim owner fields — derive a short, typo'd, "
+             f"or truncated message's intent from these before asking)",
+             f"- median message length: {median} characters"]
+    if top:
+        lines.append(f"- adoption tokens (most frequent messages of at most {VOICE_TOKEN_WORDS} words): "
+                     + ", ".join(f'"{t}" ×{c}' for t, c in top))
+    if rulings:
+        lines.append(f"- delivery-form rulings, latest {len(rulings)} (form: {' | '.join(VOICE_FORM_WORDS)}):")
+        for t, form, words in rulings:
+            w = words if len(words) <= 160 else words[:159] + "…"
+            lines.append(f'  - {t or "(undated)"} form={form or "(named in the words)"}: "{w}"')
+    out = "\n".join(lines)
+    if len(out) > VOICE_CAP:
+        out = out[:VOICE_CAP].rsplit("\n", 1)[0] + "\n  (digest cut at the cap)"
+    return out
+
+
 def cmd_session_open(payload, store):
     source = session_source(payload)
     held = source in HELD_SOURCES
     now = datetime.datetime.now()
     print(f"## VLDS recall (SessionStart hook, source={source}) — every item still passes the gc read barrier: "
           f"freed, stale, or unowned → surface it, do not apply it")
+    print(now_line(now))
     if held:
         sid, tag = session_tag(payload)
         if sid != "unknown":
@@ -309,6 +569,10 @@ def cmd_session_open(payload, store):
         print("\n### digest — read on demand, when an entry there is about to steer")
         for fname in digest:
             print(digest_line(store, fname))
+        voice = owner_voice(store)
+        if voice:
+            print()
+            print(voice)
     print("\n### phi.py check")
     print(check_summary(store))
     return 0
@@ -371,7 +635,7 @@ def stamp(store, prompt, tag, now):
     fp = fp.replace('"', "'")
     nl = "\r\n" if b"\r\n" in read_bytes(path)[:4096] else "\n"
     entry = (f'{nl}- fingerprint: "{fp}"{nl}'
-             f"  time: {now:%Y-%m-%d %H:%M}{nl}"
+             f"  time: {now:{NOW_FMT}}{nl}"
              f"  arrival: turn (stamped by the prompt hook, session {tag}){nl}")
     with open(path, "ab") as f:
         f.write(entry.encode("utf-8"))
@@ -385,22 +649,49 @@ def cmd_prompt_open(payload, store):
     sid, tag = session_tag(payload)
     now = datetime.datetime.now()
     os.makedirs(store, exist_ok=True)
-    lines = [f"## VLDS prompt hook (session {tag})"]
+    lines = [f"## VLDS prompt hook (session {tag})", "- " + now_line(now)]
     if record_seen(store, sid, now):
         lines.append("- " + pour_dispatch(store, sid, tag, now))
     fp = stamp(store, prompt, tag, now)
     if fp is None:
         lines.append("- stamp: dispatch.md absent — the row is yours to append")
     else:
-        lines.append(f'- stamped: dispatch.md row "{fp[:80]}" at {now:%Y-%m-%d %H:%M} — check it against the '
+        lines.append(f'- stamped: dispatch.md row "{fp[:80]}" at {now:{NOW_FMT}} — check it against the '
                      f"rows already there; complete its state: before answering and its addressed: by turn end")
     print("\n".join(lines))
+    return 0
+
+
+# ─── pre-write ──────────────────────────────────────────────────────────────────────────────────────────
+
+def cmd_pre_write(payload, store):
+    """Ask before a store-named file lands outside every `.claude/vlds/`, and before a persisted entry carries
+    a placeholder time; silent when the call writes nothing store-named."""
+    targets = write_targets(payload)
+    if not targets:
+        return 0
+    now = datetime.datetime.now()
+    reasons = []
+    for _spelled, a in targets:
+        if not _homed(a):
+            name = os.path.basename(a)
+            reasons.append(f"{name} resolves to {a}, outside the store {store}; a store entry belongs at "
+                           f"{os.path.join(store, name)} — proceed only if this file is not VLDS state")
+    for v in placeholder_times(written_text(payload)):
+        reasons.append(f"placeholder time `{v}` in a persisted entry — copy the latest `now:` from the hook "
+                       f"stream ({now_line(now)})")
+    if not reasons:
+        return 0
+    print(json.dumps({"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "ask",
+                                             "permissionDecisionReason": "; ".join(reasons)}}))
     return 0
 
 
 # ─── post-write ─────────────────────────────────────────────────────────────────────────────────────────
 
 def touched_store(payload, store):
+    """What the call wrote, when it is the store's business: a file under the store, a store-named file
+    anywhere (stray or homed — the same matcher as pre-write), or a shell command that names the store."""
     tool = str(payload.get("tool_name") or "")
     inp = payload.get("tool_input") or {}
     if not isinstance(inp, dict):
@@ -411,6 +702,13 @@ def touched_store(payload, store):
         s = os.path.normcase(os.path.abspath(store))
         if a.startswith(s + os.sep):
             return os.path.relpath(a, s)
+    targets = write_targets(payload)
+    if targets:
+        strays = [os.path.basename(a) for _s, a in targets if not _homed(a)]
+        if strays:
+            return f"a store-named file OUTSIDE the store ({', '.join(sorted(set(strays)))})"
+        return "a store file, via " + ("a shell command" if tool in ("Bash", "PowerShell") else tool)
+    if fp:
         return None
     if tool in ("Bash", "PowerShell"):
         cmd = str(inp.get("command") or "")
@@ -423,7 +721,8 @@ def cmd_post_write(payload, store):
     what = touched_store(payload, store)
     if not what or not os.path.isdir(store):
         return 0
-    text = f"VLDS check after the write to {what}:\n{check_summary(store)}"
+    now = datetime.datetime.now()
+    text = f"{now_line(now)}\nVLDS check after the write to {what}:\n{check_summary(store)}"
     print(json.dumps({"hookSpecificOutput": {"hookEventName": "PostToolUse", "additionalContext": text}}))
     return 0
 
@@ -449,6 +748,8 @@ def main():
             return cmd_session_open(payload, store)
         if sub == "prompt-open":
             return cmd_prompt_open(payload, store)
+        if sub == "pre-write":
+            return cmd_pre_write(payload, store)
         if sub == "post-write":
             return cmd_post_write(payload, store)
         print(f"vlds_hooks.py: unknown subcommand {sub!r}")

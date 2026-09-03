@@ -98,7 +98,7 @@ The audit is an allocation like any other; if its own footprint grows across pas
 
 The store's compression and session-start recall are modeled on the fib/phi-binary machinery of `zeckendorf-prune`: the hot files are an unnormalized φ-register's pour cells, `store/arc/` is the normalized register, and the gc's compaction is the codec's normalization sweep.
 The mechanical companion is `scripts/phi.py` (check / mask / verify-merge / rebuild / restore) — it computes and verifies; every judgment stays here, with the gc, in-session.
-The plugin's hooks (`hooks/vlds_hooks.py`) are its mechanical peers: the SessionStart hook injects the recall, the prompt hook stamps dispatch rows and pours `dispatch.md` whole-file at a new session's first prompt, and the post-write hook runs `check` after any store write.
+The plugin's hooks (`hooks/vlds_hooks.py`) are its mechanical peers: the SessionStart hook injects the recall, the prompt hook stamps dispatch rows and pours `dispatch.md` whole-file at a new session's first prompt, the pre-write hook asks before a store-named file is written outside a `.claude/vlds/` directory or a persisted entry carries a placeholder `time:`, and the post-write hook runs `check` after any store write or store-named write; every hook output carries the clock (`now:`) the model copies its stamps from.
 The machinery governs **structure only** — what is hot, where history lives, how it parses — never the content of entries; that boundary is the source project's own measured lesson, transferred whole.
 
 **Conventions, pinned once.**
@@ -173,7 +173,7 @@ Archive names derive from position and epoch — no timestamps, so the historica
 **What deliberately does not transfer.**
 The conserved value functional — the axiom itself: no store quantity satisfies `F(k)+F(k+1)=F(k+2)` exactly (dedup shrinks bytes), so the rules transfer as procedures, not equations, and confluence, unique normal form, and free self-correction do NOT follow — placement and uniqueness are enforced by the scans and this doctrine instead.
 Codec self-correction (the store never auto-repairs — deliberately); negative-state scannability (check #8 compensates); bit-level coding of content (it would destroy user-editability); continuous quantization (only the 0..54 grid transfers); matrix algebra as computation (the pair is bookkeeping, and no consumer composes indices); the measured 32% detection rate (the honesty transfers, the number does not).
-`phi.py check`'s coverage is structural only — placement, un-run carries, broken streams, counter drift, verbatim duplication, voided watermarks, owed borrows; paraphrase duplication, mis-scores, wrong deadness calls, and semantic staleness remain the read barrier's, this collector's, and the inspector's.
+`phi.py check`'s coverage is structural only — placement, un-run carries, broken streams, counter drift, verbatim duplication, voided watermarks, owed borrows, store-shaped files outside the store (`[STRAY]`, to depth 2 under the project root — reported, never moved); paraphrase duplication, mis-scores, wrong deadness calls, and semantic staleness remain the read barrier's, this collector's, and the inspector's.
 
 ## Composing With the Other Instruments
 

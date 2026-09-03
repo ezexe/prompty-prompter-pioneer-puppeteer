@@ -23,5 +23,8 @@ Session form: **a second instance is a class — stop judging instances and ask 
 | R15 | mandate seems to require crossing a boundary | stop; the impossibility + permit request is the deliverable |
 | R16 | citing a rule to withhold requested work | verify the boundary still stands — adoption spends decisions; a dissolved boundary excuses nothing |
 | R17 | second instance of a decision shape already judged this session | stop judging instances — name the class, say judgment is not converging, ask for the standing ruling |
+| R18 | instruction addressed to another session, agent, or engine | ONE copyable fenced block in the reply; a file only when the user names a path |
+
+The mechanical arm: a PreToolUse hook asks before a persisted heredoc, here-string, or written file carries a hedged literal — a placeholder digit in a `time:`/`date:`/`sha:` field, a bare `...`, a `TBD` (R2/R6). Everything else is prose rule.
 
 Full rules, defect classes, and case study: the `discipline` skill of the `emission-discipline` plugin.

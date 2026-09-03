@@ -41,13 +41,13 @@ No partition invalidates itself: expiry is the gc's job, per its "Invalidation �
 
 **The operative shape lives in each partition file's own header** (title, description, schema prose, yaml shape — the canonical form); this table is the teaching copy, and on divergence the file wins, because a user's edit to it is a ruling.
 One shape per partition — the filename already carries the tier, so no entry repeats it.
-Every entry carries `time` (local `YYYY-MM-DD HH:MM` at write time, date alone rather than fabricated minutes) plus the fields its own expiry rule has to read:
+Every entry carries `time` (local `YYYY-MM-DD HH:MM`, copied from the latest `now:` in the hook stream — date alone only where the file's own header shape says so, never fabricated minutes) plus the fields its own expiry rule has to read:
 
 | Partition | Entry fields beyond `time` |
 | --- | --- |
 | `virtual.md` | `inference`, `basis`, `minted`, `disposition: pending \| promoted -> <file> \| expired` |
 | `session-storage.md` | `task`, `state` |
-| `local-storage.md` | `ruling`, `owner-words`, `scope`, `status: LIVE \| SPENT \| FREED` |
+| `local-storage.md` | `ruling`, `owner-words`, `scope`, `status: LIVE \| SPENT \| FREED`, optional `form: fence \| file \| artifact \| message` — written when the owner's words name where a deliverable goes, so the SessionStart voice digest selects those rulings without parsing prose |
 | `data-store.md` | `claim`, `verified`, `source` |
 
 Two of those do load-bearing work beyond record-keeping.

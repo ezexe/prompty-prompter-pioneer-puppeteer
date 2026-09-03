@@ -6,9 +6,11 @@ what deserves keeping, never sweeps on its own, and never deletes anything. The 
 judges; this script is the arithmetic and the scans.
 
 Subcommands:
-  check         run the ten structural scans over the store; report, never repair (exit 1 = corruption,
-                exit 0 = clean or debt-only — '2'/'11' states are owed work, not corruption; shape
-                drift is notes-only, because an off-schema entry can be the user's edit — a ruling)
+  check         run the eleven structural scans over the store; report, never repair (exit 1 = corruption,
+                exit 0 = clean, debt-only, or stray-only — '2'/'11' states are owed work, not corruption;
+                a [STRAY] is a store-named, store-shaped file found OUTSIDE the store, to depth 2 under
+                the project root, owed a re-home the user performs; shape drift is notes-only, because
+                an off-schema entry can be the user's edit — a ruling)
   mask          run the literal zeckendorf_dp over model-supplied scores with pins; pure function,
                 JSON in / JSON out; asserts the exact guarantee kept <= ceil(n_i/2) per segment
   verify-merge  the merge deletion gate: every parent entry body must be verbatim-contained in the
@@ -49,6 +51,13 @@ while len(CACHE) < 40:
 
 SEED_HOT = ["local-storage.md", "index.md", "data-store.md", "ledger.md", "tombstones.md",
             "virtual.md", "session-storage.md", "logger.md"]
+# every name the store owns — the same set as hooks/vlds_hooks.py STORE_FILES; a file carrying one of these
+# names outside the store, holding store-shaped entries, is the [STRAY] class (found live: a ledger entry
+# appended to a repo root because the bare name had been true under an earlier fence's cd)
+STORE_FILES = set(SEED_HOT) | {"dispatch.md", "phi-index.md"}
+STRAY_SKIP = {".git", "node_modules", "build", "third_party", "__pycache__"}
+STRAY_DEPTH = 2
+STRAY_ENTRY_RE = re.compile(r"^- [a-z-]+: ")
 LIVENESS_HORIZON_S = 24 * 3600
 FACT_ID_RE = re.compile(r"^id: ([a-z]{2}-\d{4})( \(tombstoned\))?\s*$", re.M)
 SEG_NAME_RE = re.compile(r"^arc-(\d+)-([A-Za-z0-9]+)\.md$")
@@ -173,6 +182,55 @@ def hot_entry_count(store, fname, span=None):
                if l.startswith("- ") and not (a <= i < b))
 
 
+# ─── stray files ────────────────────────────────────────────────────────────────────────────────────────
+
+def looks_store_shaped(path):
+    """True when the first non-blank line after the file's first '---' separator (or its first line, when it
+    has none) is a store entry head — `- field: `. A docs index.md opening with prose stays out."""
+    try:
+        text = read(path)
+    except (OSError, UnicodeDecodeError):
+        return False
+    body = text.split("\n---\n", 1)[1] if "\n---\n" in text else text
+    for l in body.split("\n"):
+        if l.strip():
+            return bool(STRAY_ENTRY_RE.match(l))
+    return False
+
+
+def stray_files(store):
+    """Store-named, store-shaped files outside the store, to STRAY_DEPTH under the project root (the parent
+    of `.claude`), skipping STRAY_SKIP directories and the store itself; [] when the store is not at
+    `<root>/.claude/vlds`, since no project root is defined then."""
+    dot = os.path.dirname(os.path.abspath(store))
+    if os.path.basename(dot) != ".claude":
+        return []
+    root = os.path.dirname(dot)
+    store_abs = os.path.normcase(os.path.abspath(store))
+    found = []
+
+    def walk(d, depth):
+        try:
+            entries = sorted(os.scandir(d), key=lambda e: e.name)
+        except OSError:
+            return
+        for e in entries:
+            try:
+                is_dir = e.is_dir(follow_symlinks=False)
+            except OSError:
+                continue
+            if is_dir:
+                if e.name in STRAY_SKIP or os.path.normcase(os.path.abspath(e.path)) == store_abs:
+                    continue
+                if depth < STRAY_DEPTH:
+                    walk(e.path, depth + 1)
+            elif e.name in STORE_FILES and looks_store_shaped(e.path):
+                found.append(os.path.relpath(e.path, root))
+
+    walk(root, 0)
+    return found
+
+
 # ─── the DP (masks.py's zeckendorf_dp, transplanted line-faithfully) ───────────────────────────────────
 
 def zeckendorf_dp(scores):
@@ -214,7 +272,7 @@ def verify_mask(mask):
 # ─── subcommands ────────────────────────────────────────────────────────────────────────────────────────
 
 def cmd_check(store):
-    corrupt, debt, notes = [], [], []
+    corrupt, debt, stray, notes = [], [], [], []
     arc = os.path.join(store, "arc")
     idx = parse_index(store)
 
@@ -459,10 +517,17 @@ def cmd_check(store):
             if mm and mm.group(1) not in allowed:
                 notes.append(f"{fname}: line {i} field '{mm.group(1)}' not in the header shape — judged repair")
 
-    for tag, items in (("CORRUPT", corrupt), ("DEBT", debt), ("note", notes)):
+    # 11. stray — a store-named, store-shaped file outside the store: written to a bare path that was true
+    # under another fence's cd, it is nobody's finding unless something looks beyond the store. Reported, never
+    # moved: the user re-homes it (or says it is not VLDS state and renames it).
+    for rel in stray_files(store):
+        stray.append(f"{rel}: store-shaped file outside the store — re-home into "
+                     f"{os.path.join(store, os.path.basename(rel))} or rename")
+
+    for tag, items in (("CORRUPT", corrupt), ("DEBT", debt), ("STRAY", stray), ("note", notes)):
         for i in items:
             print(f"[{tag}] {i}")
-    print(f"phi.py check: {len(corrupt)} corruption, {len(debt)} debt, {len(notes)} notes")
+    print(f"phi.py check: {len(corrupt)} corruption, {len(debt)} debt, {len(stray)} stray, {len(notes)} notes")
     return 1 if corrupt else 0
 
 
