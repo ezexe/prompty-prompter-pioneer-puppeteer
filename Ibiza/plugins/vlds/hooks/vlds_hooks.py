@@ -26,8 +26,10 @@ whatever the console codepage says):
                           that carries a store file's NAME, ask before it lands anywhere but a `.claude/vlds/`
                           directory (the path is resolved against the call's cwd and any `cd` earlier in the
                           same command — a bare `ledger.md` that was true under one `cd` is false under
-                          another), and ask before a persisted entry carries a placeholder `time:` (`12:4x`,
-                          `TBD`) instead of a stamp copied from the stream's `now:`. Silent otherwise. Always
+                          another), ask before a persisted entry carries a placeholder `time:` (`12:4x`,
+                          `TBD`) instead of a stamp copied from the stream's `now:`, and ask before one carries
+                          a `time:` guessed AHEAD of the clock — later than the write's own `now:` by more than
+                          a minute (one session stamped rows up to fifty minutes ahead). Silent otherwise. Always
                           `ask`, never `deny`: `index.md` and `ledger.md` are legitimate names in a docs tree,
                           and only the user can say which this one is.
   post-write              PostToolUse: when a Write, Edit, Bash, or PowerShell call touched the store, or wrote
@@ -320,6 +322,30 @@ def placeholder_times(text):
         if not v or v.startswith("[") or any(c in v for c in "{$%"):
             continue
         if not TIME_OK_RE.match(v) and v not in bad:
+            bad.append(v)
+    return bad
+
+
+FUTURE_SLACK = datetime.timedelta(minutes=1)   # a write that straddles a minute boundary is not a guess
+
+
+def future_times(text, now):
+    """Every well-formed `time:` value in the text that lies LATER than `now` by more than FUTURE_SLACK — a stamp
+    guessed ahead of the clock rather than copied from it (one session stamped rows up to fifty minutes past the
+    hook stream's `now:`). A date-only value counts when its date is past today's. Same exemptions as
+    placeholder_times(); a value that does not parse is that scan's finding, not this one's."""
+    bad = []
+    limit = now + FUTURE_SLACK
+    for m in TIME_FIELD_RE.finditer(text):
+        v = re.sub(r"\s+#.*$", "", m.group(1)).strip().strip("\"'")
+        if not v or v.startswith("[") or any(c in v for c in "{$%") or not TIME_OK_RE.match(v):
+            continue
+        clocked = " " in v
+        try:
+            stamp = datetime.datetime.strptime(v, NOW_FMT if clocked else "%Y-%m-%d")
+        except ValueError:
+            continue    # well-shaped but impossible (a 13th month) — not a guess ahead, and not this scan's call
+        if (stamp > limit if clocked else stamp.date() > now.date()) and v not in bad:
             bad.append(v)
     return bad
 
@@ -665,8 +691,9 @@ def cmd_prompt_open(payload, store):
 # ─── pre-write ──────────────────────────────────────────────────────────────────────────────────────────
 
 def cmd_pre_write(payload, store):
-    """Ask before a store-named file lands outside every `.claude/vlds/`, and before a persisted entry carries
-    a placeholder time; silent when the call writes nothing store-named."""
+    """Ask before a store-named file lands outside every `.claude/vlds/`, before a persisted entry carries a
+    placeholder time, and before one carries a time guessed ahead of the clock; silent when the call writes
+    nothing store-named."""
     targets = write_targets(payload)
     if not targets:
         return 0
@@ -677,9 +704,14 @@ def cmd_pre_write(payload, store):
             name = os.path.basename(a)
             reasons.append(f"{name} resolves to {a}, outside the store {store}; a store entry belongs at "
                            f"{os.path.join(store, name)} — proceed only if this file is not VLDS state")
-    for v in placeholder_times(written_text(payload)):
+    text = written_text(payload)
+    for v in placeholder_times(text):
         reasons.append(f"placeholder time `{v}` in a persisted entry — copy the latest `now:` from the hook "
                        f"stream ({now_line(now)})")
+    for v in future_times(text, now):
+        reasons.append(f"guessed-ahead time `{v}` in a persisted entry — later than the latest `now:` "
+                       f"({now_line(now)}) by more than a minute; a stamp is copied from the hook stream, never "
+                       f"written ahead of it")
     if not reasons:
         return 0
     print(json.dumps({"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "ask",

@@ -9,6 +9,7 @@ a subprocess with the JSON payload on stdin. Exit 0 = every test green; the firs
 the test. Nothing here touches a real store.
 """
 
+import datetime
 import json
 import os
 import re
@@ -125,6 +126,11 @@ def write(path, content, cwd):
     return {"tool_name": "Write", "cwd": cwd, "tool_input": {"file_path": path, "content": content}}
 
 
+def stamped(v, cwd):
+    """A homed ledger append carrying one `time:` value — the gate's clock cases."""
+    return bash(f'cat >> .claude/vlds/ledger.md <<\'EOF\'\n- correction: x\n  time: {v}\nEOF\n', cwd)
+
+
 def norm(p):
     return os.path.normcase(os.path.normpath(p))
 
@@ -169,6 +175,22 @@ def test_pre_write():
         # (h) a runtime placeholder in a generating script is exempt
         gen = 'python - <<\'EOF\'\nwith open(".claude/vlds/ledger.md", "a") as f:\n    f.write(f"  time: {now:%Y-%m-%d %H:%M}\\n")\nEOF\n'
         assert run_hook("pre-write", bash(gen, root), root).strip() == "", "(h) runtime placeholder was flagged"
+        # (i) a stamp guessed ahead of the clock: ask, naming the value and the latest now:; a stamp behind the
+        # clock and today's date alone are silent; a date past today's asks
+        now = datetime.datetime.now()
+        ahead = (now + datetime.timedelta(minutes=50)).strftime("%Y-%m-%d %H:%M")
+        d = decision(run_hook("pre-write", stamped(ahead, root), root))
+        assert d and "guessed-ahead" in d["permissionDecisionReason"] and ahead in d["permissionDecisionReason"], \
+            f"(i) a stamp 50 minutes ahead not asked about: {d}"
+        assert re.search(r"now: \d{4}-\d{2}-\d{2} \d{2}:\d{2}", d["permissionDecisionReason"]), \
+            "(i) the latest now: not named in the ask"
+        behind = (now - datetime.timedelta(minutes=5)).strftime("%Y-%m-%d %H:%M")
+        assert run_hook("pre-write", stamped(behind, root), root).strip() == "", "(i) a stamp behind the clock was flagged"
+        assert run_hook("pre-write", stamped(now.strftime("%Y-%m-%d"), root), root).strip() == "", \
+            "(i) today's date alone was flagged"
+        tomorrow = (now + datetime.timedelta(days=1)).strftime("%Y-%m-%d")
+        d = decision(run_hook("pre-write", stamped(tomorrow, root), root))
+        assert d and "guessed-ahead" in d["permissionDecisionReason"], "(i) a date past today's not asked about"
     finally:
         shutil.rmtree(root, ignore_errors=True)
     print("pre-write: green")

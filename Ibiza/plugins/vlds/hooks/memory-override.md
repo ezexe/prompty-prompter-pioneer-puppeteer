@@ -26,7 +26,7 @@ Neither `.claude/` nor `vlds/` need pre-exist; the first Write creates them.
 The stamp is mechanical now — the prompt hook writes one on every message in every session — so the floor moved up: a row without its `state:` and `addressed:` is a message received and never recorded as addressed, and leaving every row that way is the one outcome that is always wrong.
 Do not wait to be asked; a store is built by the turns that pass through it.
 **The clock.** Every `time:` you write is copied from the latest `now:` in the hook stream — the SessionStart header, the prompt hook, and every post-write verdict carry one — never guessed; a digit you do not know is a defect, not a placeholder.
-**The gate.** A `pre-write` hook asks before a store-named file is written outside `store` or a placeholder `time:` is persisted, and `phi.py check` reports a store-shaped file found outside `store` as `[STRAY]` — re-home it into `store/<name>`; the user disposes of the stray.
+**The gate.** A `pre-write` hook asks before a store-named file is written outside `store`, a placeholder `time:` is persisted, or a `time:` is persisted later than the latest `now:` by more than a minute, and `phi.py check` reports a store-shaped file found outside `store` as `[STRAY]` — re-home it into `store/<name>`; the user disposes of the stray.
 
 ### The shape it takes
 
