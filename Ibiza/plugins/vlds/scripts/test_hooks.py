@@ -289,6 +289,18 @@ def test_session_title():
         assert len(poured) == 1 and poured[0].endswith("-first-se.md"), f"(c) pour name: {poured}"
         # (d) the check recognizes the pour as the hook's
         assert "hook-poured dispatch record" in run_check(store), "(d) the pour not recognized by check"
+        # (e) the transcript lags (no title record yet) but .sessions already holds this session's title — the
+        # ledger's title is used; (f) with neither, the prompt hook says so
+        empty = os.path.join(root, "empty.jsonl")
+        with open(empty, "w", encoding="utf-8", newline="\n") as f:
+            f.write('{"type":"mode","mode":"normal","sessionId":"third-session"}\n')
+        with open(os.path.join(store, ".sessions"), "a", encoding="utf-8", newline="\n") as f:
+            f.write("third-session 2026-09-03 20:00 Ledger title\n")
+        out = run_hook("prompt-open", {"session_id": "third-session", "prompt": "hey", "transcript_path": empty}, root)
+        assert 'session third-se "Ledger title"' in out, f"(e) the ledger's title not used when the transcript lags:\n{out}"
+        assert "title: none yet" not in out, "(e) the none-yet line printed although the ledger had a title"
+        out = run_hook("prompt-open", {"session_id": "fourth-session", "prompt": "yo", "transcript_path": empty}, root)
+        assert "session fourth-s" in out and "title: none yet" in out, f"(f) the none-yet line missing:\n{out}"
     finally:
         shutil.rmtree(root, ignore_errors=True)
     print("session title: green")

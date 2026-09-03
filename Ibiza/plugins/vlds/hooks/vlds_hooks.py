@@ -23,8 +23,10 @@ whatever the console codepage says):
                           byte-identical copy, then a reseed that preserves the file's own header (a user's
                           header edit is a ruling). Every output names the session by its short id and, when
                           the transcript's last custom-title record gives one, its chat title — the id stays
-                          for reference because a title can change, and .sessions maps id to title; the poured
-                          copy is named after the id of the session whose rows it holds.
+                          for reference because a title can change, and .sessions maps id to title; when the
+                          transcript lags the hook (it is written asynchronously), the title .sessions recorded
+                          at an earlier prompt is used; the poured copy is named after the id of the session
+                          whose rows it holds.
   pre-write               PreToolUse: when a Write, Edit, Bash, or PowerShell call is about to write a file
                           that carries a store file's NAME, ask before it lands anywhere but a `.claude/vlds/`
                           directory (the path is resolved against the call's cwd and any `cd` earlier in the
@@ -146,12 +148,27 @@ def session_title(payload):
     return title or None
 
 
-def session_tag(payload):
+def ledger_title(store, sid):
+    """The title `.sessions` last recorded for `sid`, or None — the fallback when the transcript lags the hook."""
+    if not store:
+        return None
+    ledger = os.path.join(store, ".sessions")
+    if not os.path.exists(ledger):
+        return None
+    for l in read_text(ledger).split("\n"):
+        parts = l.split(" ", 3)
+        if len(parts) > 3 and parts[0] == sid and parts[3].strip():
+            return parts[3].strip()
+    return None
+
+
+def session_tag(payload, store=None):
     """(session id, display label, title) — the label is the short id followed by the chat's title in quotes
-    when the transcript names one: the id stays for reference (a title can change), the title is what a person
-    reads, and the .sessions ledger maps one to the other."""
+    when one is known: from the transcript's last custom-title record, else from what .sessions recorded at an
+    earlier prompt (the transcript is written asynchronously and can lag the hook). The id stays for
+    reference — a title can change — and the .sessions ledger maps one to the other."""
     sid = str(payload.get("session_id") or "unknown")
-    title = session_title(payload)
+    title = session_title(payload) or ledger_title(store, sid)
     return sid, (f'{sid[:8]} "{title}"' if title else sid[:8]), title
 
 
@@ -614,7 +631,7 @@ def cmd_session_open(payload, store):
     source = session_source(payload)
     held = source in HELD_SOURCES
     now = datetime.datetime.now()
-    sid, tag, title = session_tag(payload)
+    sid, tag, title = session_tag(payload, store)
     print(f"## VLDS recall (SessionStart hook, source={source}, session {tag}) — every item still passes the gc "
           f"read barrier: freed, stale, or unowned → surface it, do not apply it")
     print(now_line(now))
@@ -727,10 +744,13 @@ def cmd_prompt_open(payload, store):
     prompt = payload.get("prompt") or payload.get("user_input") or ""
     if not str(prompt).strip():
         return 0
-    sid, tag, title = session_tag(payload)
+    sid, tag, title = session_tag(payload, store)
     now = datetime.datetime.now()
     os.makedirs(store, exist_ok=True)
     lines = [f"## VLDS prompt hook (session {tag})", "- " + now_line(now)]
+    if not title:
+        lines.append("- title: none yet — no custom-title record in the transcript at hook time (it is written "
+                     "asynchronously) and none recorded in .sessions; re-read at the next prompt")
     if record_seen(store, sid, now, title):
         lines.append("- " + pour_dispatch(store, sid, tag, now))
     fp = stamp(store, prompt, tag, now)
