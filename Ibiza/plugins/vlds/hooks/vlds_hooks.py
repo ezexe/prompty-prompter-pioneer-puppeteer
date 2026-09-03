@@ -21,7 +21,10 @@ whatever the console codepage says):
                           time / arrival; the model completes state and addressed) and, on the FIRST prompt a
                           session id ever submits, pour dispatch.md whole-file into arc/ — a sha-verified
                           byte-identical copy, then a reseed that preserves the file's own header (a user's
-                          header edit is a ruling).
+                          header edit is a ruling). Every output names the session by its short id and, when
+                          the transcript's last custom-title record gives one, its chat title — the id stays
+                          for reference because a title can change, and .sessions maps id to title; the poured
+                          copy is named after the id of the session whose rows it holds.
   pre-write               PreToolUse: when a Write, Edit, Bash, or PowerShell call is about to write a file
                           that carries a store file's NAME, ask before it lands anywhere but a `.claude/vlds/`
                           directory (the path is resolved against the call's cwd and any `cd` earlier in the
@@ -120,9 +123,36 @@ def sha12(data):
     return hashlib.sha256(data).hexdigest()[:12]
 
 
+def session_title(payload):
+    """The chat's title, from the transcript's last custom-title record — the app rewrites that record on every
+    turn, so a rename lands; None when the payload names no transcript or the transcript carries no title."""
+    path = payload.get("transcript_path")
+    if not path or not os.path.exists(str(path)):
+        return None
+    title = None
+    try:
+        with open(str(path), encoding="utf-8", errors="replace") as f:
+            for line in f:
+                if '"custom-title"' not in line:
+                    continue
+                try:
+                    rec = json.loads(line)
+                except ValueError:
+                    continue
+                if isinstance(rec, dict) and rec.get("type") == "custom-title" and rec.get("customTitle"):
+                    title = " ".join(str(rec["customTitle"]).split())
+    except OSError:
+        return None
+    return title or None
+
+
 def session_tag(payload):
+    """(session id, display label, title) — the label is the short id followed by the chat's title in quotes
+    when the transcript names one: the id stays for reference (a title can change), the title is what a person
+    reads, and the .sessions ledger maps one to the other."""
     sid = str(payload.get("session_id") or "unknown")
-    return sid, sid[:8]
+    title = session_title(payload)
+    return sid, (f'{sid[:8]} "{title}"' if title else sid[:8]), title
 
 
 def now_line(now):
@@ -179,17 +209,41 @@ def check_summary(store):
     return "\n".join(keep)
 
 
-def record_seen(store, sid, now):
-    """True when this session id was not yet in `.sessions`; records it either way."""
+def record_seen(store, sid, now, title=None):
+    """True when this session id was not yet in `.sessions`; records it either way as `sid time [title]`, the
+    title refreshed on every prompt so a rename lands (a line without one keeps whatever it had)."""
     ledger = os.path.join(store, ".sessions")
-    seen = set()
-    if os.path.exists(ledger):
-        seen = {l.split(" ", 1)[0] for l in read_text(ledger).split("\n") if l.strip()}
-    if sid in seen:
-        return False
-    with open(ledger, "a", encoding="utf-8", newline="\n") as f:
-        f.write(f"{sid} {now:{NOW_FMT}}\n")
-    return True
+    lines = [l for l in read_text(ledger).split("\n") if l.strip()] if os.path.exists(ledger) else []
+    fresh, out = True, []
+    for l in lines:
+        parts = l.split(" ", 3)
+        if parts[0] == sid and len(parts) >= 3:
+            fresh = False
+            kept = parts[3] if len(parts) > 3 else ""
+            l = f"{parts[0]} {parts[1]} {parts[2]}" + (f" {title or kept}" if (title or kept) else "")
+        out.append(l)
+    if fresh:
+        out.append(f"{sid} {now:{NOW_FMT}}" + (f" {title}" if title else ""))
+    with open(ledger, "w", encoding="utf-8", newline="\n") as f:
+        f.write("\n".join(out) + "\n")
+    return fresh
+
+
+def previous_session_id(store, sid):
+    """The short id of the last session recorded before `sid` — the owner of the rows a pour closes; None when
+    `sid` is the first. The .sessions ledger maps the id to that session's title."""
+    ledger = os.path.join(store, ".sessions")
+    if not os.path.exists(ledger):
+        return None
+    prev = None
+    for l in read_text(ledger).split("\n"):
+        parts = l.split(" ", 3)
+        if len(parts) < 3 or not parts[0].strip():
+            continue
+        if parts[0] == sid:
+            break
+        prev = parts[0][:8]
+    return prev
 
 
 # ─── the store-path matcher (pre-write and post-write share it) ─────────────────────────────────────────
@@ -560,14 +614,14 @@ def cmd_session_open(payload, store):
     source = session_source(payload)
     held = source in HELD_SOURCES
     now = datetime.datetime.now()
-    print(f"## VLDS recall (SessionStart hook, source={source}) — every item still passes the gc read barrier: "
-          f"freed, stale, or unowned → surface it, do not apply it")
+    sid, tag, title = session_tag(payload)
+    print(f"## VLDS recall (SessionStart hook, source={source}, session {tag}) — every item still passes the gc "
+          f"read barrier: freed, stale, or unowned → surface it, do not apply it")
     print(now_line(now))
     if held:
-        sid, tag = session_tag(payload)
         if sid != "unknown":
             os.makedirs(store, exist_ok=True)
-            fresh = record_seen(store, sid, now)
+            fresh = record_seen(store, sid, now, title)
             print(f"{source}: session {tag} {'recorded as seen' if fresh else 'already seen'} — its next prompt "
                   f"pours nothing; the conversation holds its own recall, so digest and verdict only")
     index_path = os.path.join(store, "phi-index.md")
@@ -636,7 +690,8 @@ def pour_dispatch(store, sid, tag, now):
                 f"stay hot until the next new session's first prompt or an in-session sweep")
     arc = os.path.join(store, "arc")
     os.makedirs(arc, exist_ok=True)
-    name = f"dispatch-{now:%Y%m%d-%H%M%S}-{tag}.md"
+    owner = previous_session_id(store, sid) or sid[:8]
+    name = f"dispatch-{now:%Y%m%d-%H%M%S}-{owner}.md"
     target = os.path.join(arc, name)
     if os.path.exists(target):
         return f"pour: skipped — arc/{name} already exists"
@@ -672,11 +727,11 @@ def cmd_prompt_open(payload, store):
     prompt = payload.get("prompt") or payload.get("user_input") or ""
     if not str(prompt).strip():
         return 0
-    sid, tag = session_tag(payload)
+    sid, tag, title = session_tag(payload)
     now = datetime.datetime.now()
     os.makedirs(store, exist_ok=True)
     lines = [f"## VLDS prompt hook (session {tag})", "- " + now_line(now)]
-    if record_seen(store, sid, now):
+    if record_seen(store, sid, now, title):
         lines.append("- " + pour_dispatch(store, sid, tag, now))
     fp = stamp(store, prompt, tag, now)
     if fp is None:

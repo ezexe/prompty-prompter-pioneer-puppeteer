@@ -264,9 +264,40 @@ def test_owner_voice():
     print("owner voice: green")
 
 
+def test_session_title():
+    root, store = seed_project()
+    try:
+        # (a) the chat title comes from the transcript's LAST custom-title record and names the session, beside
+        # its short id, in the prompt hook's header and in the stamp; (b) the .sessions ledger carries it
+        transcript = os.path.join(root, "first.jsonl")
+        with open(transcript, "w", encoding="utf-8", newline="\n") as f:
+            f.write('{"type":"custom-title","customTitle":"Old name","sessionId":"first-session"}\n'
+                    '{"type":"user","message":"a line that is not a title"}\n'
+                    '{"type":"custom-title","customTitle":"First  session:  the real title","sessionId":"first-session"}\n')
+        out = run_hook("prompt-open", {"session_id": "first-session", "prompt": "hello", "transcript_path": transcript}, root)
+        assert 'session first-se "First session: the real title"' in out, f"(a) id + title not in the prompt-hook header:\n{out}"
+        with open(os.path.join(store, "dispatch.md"), encoding="utf-8") as f:
+            assert 'session first-se "First session: the real title"' in f.read(), "(a) id + title not in the stamp"
+        with open(os.path.join(store, ".sessions"), encoding="utf-8") as f:
+            ledger = f.read()
+        assert ledger.strip().endswith("First session: the real title"), f"(b) .sessions lacks the title: {ledger}"
+        # (c) a second session with no transcript is named by its short id alone, and its first prompt's pour is
+        # named after the id of the session whose rows it holds — the first one
+        out = run_hook("prompt-open", {"session_id": "second-session", "prompt": "hi"}, root)
+        assert "session second-s" in out and '"' not in out.split("\n")[0], f"(c) short id alone expected:\n{out}"
+        poured = [f for f in os.listdir(os.path.join(store, "arc")) if f.startswith("dispatch-")]
+        assert len(poured) == 1 and poured[0].endswith("-first-se.md"), f"(c) pour name: {poured}"
+        # (d) the check recognizes the pour as the hook's
+        assert "hook-poured dispatch record" in run_check(store), "(d) the pour not recognized by check"
+    finally:
+        shutil.rmtree(root, ignore_errors=True)
+    print("session title: green")
+
+
 if __name__ == "__main__":
     test_pre_write()
     test_stray_scan()
     test_clock_and_post_write()
     test_owner_voice()
+    test_session_title()
     print("test_hooks.py: all green")
