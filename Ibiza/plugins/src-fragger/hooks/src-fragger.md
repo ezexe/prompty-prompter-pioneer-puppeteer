@@ -1,0 +1,18 @@
+## src-fragger (always active)
+
+**Code you write to finish a task is a frag, and a frag lives in the store, never in the scratchpad.**
+`store` = **`<working dir>/.claude/vlds/`** — the VLDS store; frags live under **`store/src/`**, one directory per task, and every frag is registered in **`store/src/frags.md`**.
+
+| Fires when | Do |
+|---|---|
+| **you are about to write code to complete a task** — a script, a probe, a generator, a migration, a sweep, a heredoc body longer than a few lines: anything that replaces manual, user-involved labor | write it to `store/src/<task-slug>/<name>.<ext>` — never the session scratchpad, `/tmp`, or any temp directory — with a header comment naming the task, the date copied from the hook stream's `now:`, and the exact run command; register it in `store/src/frags.md` before the first run |
+| a task needs labor a frag may already cover | read `store/src/frags.md` first; update the frag in place and move its register entry's `time:` and `state:` with it, instead of writing a second one beside it |
+| the harness refuses your execution of a frag | the frag is already where the user can run it: hand the exact run command in ONE fenced block, mark the register entry `state: handed-off`, and say plainly what was and was not run — never re-write the frag or reroute the call to get past the refusal |
+| the user edits a frag | the edit is a ruling: read the current file before running or updating it, never overwrite it from memory |
+| a frag's task is done and nothing will need it again | mark it `state: retired` in the register; delete nothing — the user disposes |
+
+**Why the store.** The scratchpad is session-scoped and temporary: a script written there is gone for the next session, invisible to the user, and unreachable at the one moment it matters most — when the harness refuses your own execution and the user has to run it instead. A frag under `store/src/` outlives the session, is readable and editable by the user, and is the recovery path when execution is refused. Three losses for one convenience, and the convenience was never real.
+
+**The gate.** A `frag-gate` hook asks before a code file is written or edited at a temp location; it asks, never denies — a truly throwaway probe may proceed, and only you can say which this one is.
+
+Full procedure: the `frag` skill of the `src-fragger` plugin.
