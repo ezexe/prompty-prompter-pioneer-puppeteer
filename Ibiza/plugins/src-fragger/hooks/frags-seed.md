@@ -11,6 +11,7 @@ Append one entry per frag, in this shape, one field to a line — never folded o
   task: [the task it completes, and the manual labor it replaces]
   run: [the exact command, from the project root]
   state: live | handed-off | superseded | retired
+  retry: [optional — when a refused execution was retried unchanged, after what (resume, compact, fresh call), and its outcome; required before state: handed-off]
 ```
 
 ---

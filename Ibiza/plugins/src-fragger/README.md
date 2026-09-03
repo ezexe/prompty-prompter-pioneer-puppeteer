@@ -16,7 +16,11 @@ A frag under `<working dir>/.claude/vlds/src/<task>/` fixes all three: it outliv
 
 - [`hooks/src-fragger.md`](hooks/src-fragger.md) — the contract, injected at every SessionStart by [`hooks/session-open.sh`](hooks/session-open.sh), which also creates `store/src/` and seeds the register from [`hooks/frags-seed.md`](hooks/frags-seed.md) when absent (never overwriting it).
 - [`hooks/frag_gate.py`](hooks/frag_gate.py) — the `PreToolUse` gate, run through [`hooks/run-hook.sh`](hooks/run-hook.sh): asks before a Write, Edit, Bash, or PowerShell call writes a code file (by extension) to a temp location (the scratchpad, `/tmp`, the user's temp directory). Asks, never denies. Acceptance tests in [`hooks/test_frag_gate.py`](hooks/test_frag_gate.py).
-- [`skills/frag`](skills/frag/SKILL.md) — the procedure: reuse before rewrite, the header comment, the register shape, the hand-off when execution is refused, the user's edits as rulings, retirement without deletion. Direct-invoke (`/src-fragger:frag`); the hook carries the residency.
+- [`skills/frag`](skills/frag/SKILL.md) — the procedure: reuse before rewrite, the header comment, the register shape, the double-check before any hand-off, the user's edits as rulings, retirement without deletion. Direct-invoke (`/src-fragger:frag`); the hook carries the residency.
+
+## Before interrupting the user
+
+A hand-off costs the user exactly the labor the frag exists to remove, so it is the last resort, and the contract makes the agent verify four things first: the frag is registered under `src/` (one click, not a search); the refusal is durable — the same call is retried once, unchanged, after a resume, a compact, or in a fresh tool call, because a refusal announced "for the rest of this conversation" is bound to the process that announced it, and one did not survive a resume; the user's word already given still covers the act; and the interruption is a decision only the user can make rather than labor the agent could still do. The retry is recorded in the register's `retry:` field, and `state: handed-off` is not written without it. When the hand-off does happen it is one `bash`-tagged fence per command, so the chat can run it on click.
 
 ## The register
 

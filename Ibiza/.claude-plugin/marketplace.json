@@ -42,8 +42,8 @@
     {
       "name": "src-fragger",
       "source": "./plugins/src-fragger",
-      "description": "src-fragger (frags-outlive-the-session) — every piece of code the agent writes to complete a task, anything that replaces manual, user-involved labor with a script the agent builds and runs, is a frag, and a frag is written to the VLDS store's src/ directory and registered in src/frags.md, never to the session scratchpad or a temp directory. The scratchpad dies with the session; a frag outlives it, so the next task updates it instead of rewriting it, the user can read and edit it (an edit is a ruling), and when the harness refuses the agent's own execution the frag is already where the user can run it. A SessionStart hook injects the contract and seeds the register; a PreToolUse gate asks before a code file is written to a temp location. Shares the VLDS store; no other dependency.",
-      "version": "0.0.1",
+      "description": "src-fragger (frags-outlive-the-session) — every piece of code the agent writes to complete a task, anything that replaces manual, user-involved labor with a script the agent builds and runs, is a frag, and a frag is written to the VLDS store's src/ directory and registered in src/frags.md, never to the session scratchpad or a temp directory. The scratchpad dies with the session; a frag outlives it, so the next task updates it instead of rewriting it, the user can read and edit it (an edit is a ruling), and when the harness refuses the agent's own execution the frag is already where the user can run it — and before any hand-off the agent double-checks that the frag is registered, that the refusal survives a retry of the same call after a resume, compact, or fresh call, that the user's word already covers the act, and that the interruption is a decision rather than labor. A SessionStart hook injects the contract and seeds the register; a PreToolUse gate asks before a code file is written to a temp location. Shares the VLDS store; no other dependency.",
+      "version": "0.0.2",
       "category": "prompt-engineering",
       "keywords": ["prompt-engineering", "agent", "scripts", "persistence", "p4", "vlds"]
     },
