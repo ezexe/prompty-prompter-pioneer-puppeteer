@@ -1,6 +1,6 @@
 # src-fragger — code the agent writes to finish a task lives in the store, not the scratchpad
 
-A small plugin with one rule and one gate: every piece of code the agent authors to complete a task — a sweep, a migration, a probe, a generator, anything that replaces manual, user-involved labor with a script the agent builds and runs — is a **frag**, and a frag is written to the VLDS store's `src/` directory, registered in `src/frags.md`, and never to the session scratchpad or a temp directory.
+A small plugin with one rule, one floor, and one gate: every piece of code the agent authors to complete a task — a sweep, a migration, a probe, a generator, anything that replaces manual, user-involved labor with a script the agent builds and runs, and whose job no single tool call does — is a **frag**, and a frag is written to the VLDS store's `src/` directory, registered in `src/frags.md`, and never to the session scratchpad or a temp directory.
 
 ## Why
 
@@ -12,12 +12,19 @@ The agent's scratchpad is session-scoped and temporary. Code written there has t
 
 A frag under `<working dir>/.claude/vlds/src/<task>/` fixes all three: it outlives the session, the user can open and edit it (an edit is a ruling), and when execution is refused the hand-off is one registered command.
 
+## The floor
+
+A frag is measured by its job, not by its length.
+An exact-match replacement is an Edit call; an append, a store row, or a whole-file write is a Write call; one shell command is a Bash call — and none of these is a frag, however long the text.
+The script that does one of those jobs anyway is the tool call in costume, written nearly always because a heredoc failed on the text's backslashes, quotes, or `$`; the fallback from a failing heredoc is the dedicated tool, never a script that does the tool's job.
+Such a script is worse than the call it replaces — it keys on text that moves, lands twice when its new text contains its old, and carries a header, a register entry, a state, and a retirement the call never needed — and a per-turn record is a Write call for a second reason: a frag is kept to be run again, and a record written once never is.
+
 ## What ships
 
 - [`hooks/src-fragger.md`](hooks/src-fragger.md) — the contract, injected at every SessionStart by [`hooks/session-open.sh`](hooks/session-open.sh), which also creates `store/src/` and seeds the register from [`hooks/frags-seed.md`](hooks/frags-seed.md) when absent (never overwriting it).
 - [`hooks/frag_gate.py`](hooks/frag_gate.py) — the `PreToolUse` gate, run through [`hooks/run-hook.sh`](hooks/run-hook.sh): asks before a Write, Edit, Bash, or PowerShell call writes ANY file into the harness's per-session scratchpad, or a code file (by extension) to any other temp location (`/tmp`, the user's temp directory). Asks, never denies. Acceptance tests in [`hooks/test_frag_gate.py`](hooks/test_frag_gate.py).
 - **Working files that are not code** go under the project's own `.claude/scratchpad/`, created by the SessionStart hook: the harness's temp scratchpad is named after a session id, invisible to the user, and gone with the session, so nothing lives there.
-- [`skills/frag`](skills/frag/SKILL.md) — the procedure: reuse before rewrite, the header comment, the register shape, the double-check before any hand-off, the user's edits as rulings, retirement without deletion. Direct-invoke (`/src-fragger:frag`); the hook carries the residency.
+- [`skills/frag`](skills/frag/SKILL.md) — the procedure: the floor, reuse before rewrite, the header comment, the register shape, the double-check before any hand-off, the user's edits as rulings, retirement without deletion. Direct-invoke (`/src-fragger:frag`); the hook carries the residency.
 
 ## Before interrupting the user
 

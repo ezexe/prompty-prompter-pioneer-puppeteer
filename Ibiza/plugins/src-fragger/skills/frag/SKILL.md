@@ -1,6 +1,6 @@
 ---
 name: frag
-description: "src-fragger — the procedure for frags: code the agent writes to complete a task, kept under the VLDS store's src/ directory and registered in src/frags.md so it outlives the session, can be reused and updated instead of rewritten, can be edited by the user (an edit is a ruling), and is already in the user's hands when the harness refuses the agent's own execution. Use when about to write a script or program to complete a task, when a task repeats labor a frag may already cover, when an execution was refused, or to list, update, hand off, or retire a frag."
+description: "src-fragger — the procedure for frags: code the agent writes to complete a task whose job no single tool call does (an edit, an append, a whole-file write, or one shell command is the tool's own call, never a frag), kept under the VLDS store's src/ directory and registered in src/frags.md so it outlives the session, can be reused and updated instead of rewritten, can be edited by the user (an edit is a ruling), and is already in the user's hands when the harness refuses the agent's own execution. Use when about to write a script or program to complete a task, when a task repeats labor a frag may already cover, when an execution was refused, or to list, update, hand off, or retire a frag."
 argument-hint: "[list | new <task-slug>/<name.ext> | update <frag> | handoff <frag> | retire <frag>]"
 disable-model-invocation: true
 ---
@@ -16,6 +16,14 @@ Any code the agent authors to complete a task rather than to ship as product: a 
 Product code is not a frag; it belongs in the project tree under the project's own conventions.
 Notes, plans, and data files are not frags either; they may live in the scratchpad.
 
+## The floor
+
+A frag is measured by its job, not by its length: it is code whose job no single tool call does.
+An exact-match replacement is an Edit call; an append, a store row, or a whole-file write is a Write call; one shell command is a Bash call — none of these is a frag, however many lines the text runs to.
+A script that reads a file, swaps a few literal spans, and writes it back is an Edit call in costume, written nearly always because a heredoc failed on the text's backslashes, quotes, or `$` — and the fallback from a failing heredoc is the dedicated tool, never a script that does the tool's job.
+Such a script is worse than the call: it keys on text that moves, it lands twice when its new text contains its old, and it carries a header, a register entry, a state, and a retirement the call never needed.
+A per-turn record — store rows, a turn's completions — is a Write call for a second reason: a frag is kept to be run again, and a record written once never is.
+
 ## Where it lives
 
 - **Directory:** `<working dir>/.claude/vlds/src/<task-slug>/` — one directory per task, inside the VLDS store, so it rides with the store's other state and stays out of the project tree and out of version control with it.
@@ -25,7 +33,7 @@ Notes, plans, and data files are not frags either; they may live in the scratchp
 
 ## The procedure
 
-1. **Before writing:** read `src/frags.md`. A frag that already covers the labor is updated in place; its register entry's `time:` and `state:` move with it.
+1. **Before writing:** the floor first — if one tool call does the job, make the call and write no file. Then read `src/frags.md`. A frag that already covers the labor is updated in place; its register entry's `time:` and `state:` move with it.
 2. **Writing:** the file goes under `src/<task-slug>/`; the register entry is appended before the first run, `state: live`.
 3. **Running:** run it from the project root with the registered command. Dry-run flags first when the frag deletes, moves, or rewrites anything.
 4. **When execution is refused by the harness — double-check before interrupting the user.** An interruption costs the user the labor the frag exists to remove, so it is the last resort, and four things are verified first:
