@@ -61,6 +61,30 @@ def is_code(path):
     return os.path.splitext(path)[1].lower().lstrip(".") in CODE_EXT
 
 
+# The floor's mechanical arm. A frag is code whose job no single tool call does; a program that reads one
+# file, swaps a span, and writes it back is an Edit call in costume — it keys on text that moves, lands twice
+# when its new text contains its old, and carries a register entry the call never needed. Detected by shape,
+# not by location: the costume is just as wrong under `store/src/` as in a scratchpad, and location was the
+# only thing the gate could see before. Conservative by construction — all three of read, swap and write-back
+# must be present in a short body, so a script that merely writes an output file is untouched. It asks, never
+# denies: a false positive costs one prompt, and the honest throwaway proceeds.
+_C_READ = re.compile(r"\.read_text\s*\(|\.read\s*\(\s*\)|\.readlines\s*\(\s*\)")
+_C_SWAP = re.compile(r"\.replace\s*\(|\bre\.sub\s*\(")
+_C_WRITE = re.compile(r"\.write_text\s*\(|\.write\s*\(|\bopen\s*\([^)]*[\"'][aw]")
+COSTUME_MAX_LINES = 40
+
+
+def costume_kind(body):
+    if not body:
+        return None
+    lines = [ln for ln in body.splitlines() if ln.strip() and not ln.strip().startswith("#")]
+    if len(lines) > COSTUME_MAX_LINES:
+        return None
+    if _C_READ.search(body) and _C_SWAP.search(body) and _C_WRITE.search(body):
+        return "an Edit call"
+    return None
+
+
 def _norm(path):
     return path.replace("\\", "/").lower()
 
@@ -78,6 +102,30 @@ def in_temp(path):
 def in_project_pad(path):
     p = _norm(path)
     return "/.claude/scratchpad/" in p or p.startswith(".claude/scratchpad/")
+
+
+# Scratch data dropped straight into the project root: untracked, unswept, and found by the user long after the
+# agent that wrote it is gone. The known root manifests are exempt by name — those are the project's own.
+DATA_EXT = {"json", "jsonl", "ndjson", "csv", "tsv", "txt", "log", "out", "tmp", "dat", "dump"}
+KNOWN_ROOT = {"package.json", "package-lock.json", "tsconfig.json", "jsconfig.json", "composer.json",
+              "composer.lock", "deno.json", "deno.lock", "biome.json", "angular.json", "nx.json", "turbo.json",
+              "renovate.json", "manifest.json", "marketplace.json", "plugin.json", "settings.json",
+              "settings.local.json", "requirements.txt", "constraints.txt", "changelog.txt", "license.txt",
+              "readme.txt", "notice.txt", "authors.txt", "codeowners.txt", "bun.lockb", "pnpm-lock.yaml"}
+
+
+def is_data(path):
+    return os.path.splitext(path)[1].lower().lstrip(".") in DATA_EXT
+
+
+def in_project_root(path, root):
+    if not path or not root:
+        return False
+    try:
+        full = path if os.path.isabs(path) else os.path.join(root, path)
+        return _norm(os.path.normpath(os.path.dirname(full))) == _norm(os.path.normpath(root))
+    except Exception:
+        return False
 
 
 def _first(m):
@@ -104,7 +152,34 @@ def written_paths(payload):
     return [p for p in out if p]
 
 
+def code_body(payload, path):
+    """The text about to become `path`, for the costume check: a Write's content, or the whole command for a
+    shell write (a heredoc's body lives inside it)."""
+    inp = payload.get("tool_input") or {}
+    if not isinstance(inp, dict):
+        return ""
+    tool = str(payload.get("tool_name") or "")
+    if tool == "Write":
+        return str(inp.get("content") or "")
+    if tool in ("Bash", "PowerShell"):
+        return str(inp.get("command") or "")
+    return ""
+
+
 def cmd_frag_gate(payload):
+    # A subagent never receives the SessionStart contracts — no hook event injects text into a spawned
+    # subagent's context (SubagentStart's stdout goes to the debug log, not the agent), so its writer was
+    # never told a frag belongs under `store/src/`. The gate's ask, though, is answered by the human, who
+    # cannot redirect an agent that is already running. Asking anyway produces a prompt with no actionable
+    # recipient — one per scratch file, which is a stream, not a gate. `agent_id` is present only inside a
+    # subagent call, so it is the tell.
+    #
+    # The silence is scoped to the EPHEMERAL cases, not to the subagent. A scratchpad or temp file dies with
+    # the session, so an unanswerable prompt buys nothing; a file dropped in the project root outlives every
+    # agent that could have been told, and the human who finds it is exactly the right person to ask. That
+    # asymmetry — not the writer's identity — is what decides. When an injection channel for subagents
+    # exists, the contract should reach them and this scoping should go.
+    is_sub = bool(payload.get("agent_id"))
     root = project_root(payload)
     src = os.path.join(root, ".claude", "vlds", "src")
     pad = os.path.join(root, ".claude", "scratchpad")
@@ -115,7 +190,13 @@ def cmd_frag_gate(payload):
             continue
         seen.add(p)
         name = os.path.basename(p)
-        if in_scratchpad(p):
+        if in_project_root(p, root) and is_data(p) and name.lower() not in KNOWN_ROOT:
+            reasons.append(f"{name} is a data file headed for the project root ({p}) — scratch data belongs under "
+                           f"{pad}{os.sep}, which is git-ignored and swept, not beside the project's own manifests where "
+                           f"it lands untracked and is found later by the user rather than by whoever wrote it")
+        elif is_sub:
+            continue
+        elif in_scratchpad(p):
             home = f"{src}{os.sep}<task>{os.sep} as a registered frag" if is_code(p) else pad
             reasons.append(f"{name} is headed for the harness's per-session scratchpad ({p}) — it belongs under {home}: "
                            f"that directory is named after a session id, invisible to the user, and gone with the session")
@@ -127,6 +208,15 @@ def cmd_frag_gate(payload):
                            f"files that are not code: a program whose job no single tool call does is a frag under "
                            f"{src}{os.sep}<task>{os.sep} registered in src{os.sep}frags.md, and an edit, an append, a whole-file "
                            f"write, or one shell command is the tool's own call and no file")
+        elif is_code(p):
+            kind = costume_kind(code_body(payload, p))
+            if kind:
+                reasons.append(f"{name} reads a file, swaps a span in it and writes it back — that is {kind} in costume "
+                               f"({p}). The floor is the job, not the length: an edit is an Edit call, an append or a "
+                               f"whole-file write is a Write call, and one shell command is a Bash call — none of them "
+                               f"becomes a file. A swap script keys on text that moves, lands twice when its new text "
+                               f"contains its old, and needs a header, a register entry and a retirement the call never "
+                               f"needed. If a heredoc tripped on the text, the fallback is the dedicated tool")
     if not reasons:
         return 0
     reason = "src-fragger: " + "; ".join(reasons[:3]) + ". Proceed only if this file is truly throwaway."
