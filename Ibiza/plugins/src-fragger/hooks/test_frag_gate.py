@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """test_frag_gate.py — acceptance tests for the frag gate: anything into the harness scratchpad asks, code into
-any other temp location asks, files under the store's src/, the project's .claude/scratchpad/, or the project
-tree pass. Run from anywhere: python hooks/test_frag_gate.py — exit 0 = green."""
+any other temp location asks, code into any project's .claude/scratchpad/ asks (the floor: a frag or a tool
+call, never a script there), and files under the store's src/, non-code files in the project's scratchpad, or
+the project tree pass. Run from anywhere: python hooks/test_frag_gate.py — exit 0 = green."""
 
 import json
 import os
@@ -46,8 +47,16 @@ def main():
     # the project's own homes pass
     assert run(write(f"{STORE_SRC}/sweep.py")) is None, "store frag asked"
     assert run(write(f"{PROJECT_PAD}/commit-msg.txt")) is None, "project scratchpad asked"
-    assert run(write(f"{PROJECT_PAD}/probe.py")) is None, "code in the project scratchpad asked"
+    assert run(write(f"{PROJECT_PAD}/run.log")) is None, "a log in the project scratchpad asked"
     assert run(write("E:/projects/x/tools/build.py")) is None, "project code asked"
+    # code in a project scratchpad asks, and the ask carries the floor
+    d = run(write(f"{PROJECT_PAD}/probe.py"))
+    assert d and d["permissionDecision"] == "ask" and "probe.py" in d["permissionDecisionReason"], "code in the project scratchpad passed"
+    assert "tool's own call" in d["permissionDecisionReason"] and "frags.md" in d["permissionDecisionReason"], d
+    assert run(write(".claude/scratchpad/edit.py")) is not None, "relative code path in the project scratchpad passed"
+    assert run(bash("cat > .claude/scratchpad/gen.py <<'EOF'\nprint(1)\nEOF\n")) is not None, "bash heredoc code into the project scratchpad passed"
+    assert run(write("E:/other/.claude/scratchpad/swap.py")) is not None, "code in another project's scratchpad passed"
+    assert run(write(f"{PROJECT_PAD}/notes.md")) is None, "notes in the project scratchpad asked"
     # other temp locations: code asks, data passes
     assert run(bash("cat > /tmp/probe.sh <<'EOF'\necho hi\nEOF\n")) is not None, "bash temp script passed"
     assert run(bash("cat > /tmp/out.json <<'EOF'\n{}\nEOF\n")) is None, "data in /tmp asked"

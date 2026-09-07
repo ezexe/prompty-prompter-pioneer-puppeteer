@@ -47,7 +47,7 @@ A per-turn record — store rows, a turn's completions — is a Write call for a
 
 ## The gate
 
-The plugin's `PreToolUse` hook (`hooks/frag_gate.py`) asks before a Write, Edit, Bash, or PowerShell call writes a code file to a temp location — the session scratchpad, `/tmp`, the user's temp directory. It asks, never denies: a truly throwaway probe may proceed, and only the agent knows which this one is. Markdown and data files in the scratchpad pass; code under the project tree passes.
+The plugin's `PreToolUse` hook (`hooks/frag_gate.py`) asks before a Write, Edit, Bash, or PowerShell call writes a code file to a temp location — the session scratchpad, `/tmp`, the user's temp directory — or to any project's `.claude/scratchpad/`, where a swap script lands once it has stopped calling itself a frag; that ask carries the floor. It asks, never denies: a truly throwaway probe may proceed, and only the agent knows which this one is. Markdown, logs, and data files in a scratchpad pass; code under the project tree and under `src/` passes.
 
 ## Relation to vlds
 

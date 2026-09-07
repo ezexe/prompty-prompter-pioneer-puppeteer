@@ -3,7 +3,7 @@
 
 Subcommand `frag-gate`, reading the harness's JSON payload on stdin (decoded as UTF-8): for a Write or Edit,
 the file_path; for a Bash or PowerShell command, every write-position path (redirects, tee, the PowerShell
-content cmdlets, python's open() in a write mode, cp / mv destinations). Two cases ask — never deny:
+content cmdlets, python's open() in a write mode, cp / mv destinations). Three cases ask — never deny:
 
   the harness scratchpad   ANY file written into the per-session temp directory the system prompt names
                            (`.../Temp/claude/<project>/<session>/scratchpad/`): code belongs under
@@ -11,9 +11,14 @@ content cmdlets, python's open() in a write mode, cp / mv destinations). Two cas
                            `.claude/scratchpad/`, which the user can see and which outlives the session
   any other temp location  a CODE file (by extension) written to /tmp, the user's temp directory, and their
                            spellings — a frag belongs under `<store>/src/<task>/`
+  a project scratchpad     a CODE file (by extension) written under any `.claude/scratchpad/` — where a swap
+                           script lands once it has stopped calling itself a frag; the ask carries the floor:
+                           a program whose job no single tool call does is a frag under `<store>/src/<task>/`,
+                           and an edit, an append, a whole-file write, or one shell command is the tool's own
+                           call and no file
 
-Silent for everything else: files under the project tree are the project's; data a tool drops in /tmp is
-normal. Every failure prints a one-line notice and exits 0 — a gate that crashes the call it guards is worse
+Silent for everything else: files under the project tree are the project's; a scratchpad's notes, logs, and
+fixtures are working files; data a tool drops in /tmp is normal. Every failure prints a one-line notice and exits 0 — a gate that crashes the call it guards is worse
 than no gate.
 """
 
@@ -70,6 +75,11 @@ def in_temp(path):
     return any(m in p for m in TEMP_MARKERS)
 
 
+def in_project_pad(path):
+    p = _norm(path)
+    return "/.claude/scratchpad/" in p or p.startswith(".claude/scratchpad/")
+
+
 def _first(m):
     return next((g for g in m.groups() if g), "")
 
@@ -112,6 +122,11 @@ def cmd_frag_gate(payload):
         elif in_temp(p) and is_code(p):
             reasons.append(f"{name} is code headed for a temp location ({p}) — a frag belongs under {src}{os.sep}<task>{os.sep} "
                            f"and in src{os.sep}frags.md")
+        elif in_project_pad(p) and is_code(p):
+            reasons.append(f"{name} is code headed for a project's .claude/scratchpad ({p}) — the scratchpad is for working "
+                           f"files that are not code: a program whose job no single tool call does is a frag under "
+                           f"{src}{os.sep}<task>{os.sep} registered in src{os.sep}frags.md, and an edit, an append, a whole-file "
+                           f"write, or one shell command is the tool's own call and no file")
     if not reasons:
         return 0
     reason = "src-fragger: " + "; ".join(reasons[:3]) + ". Proceed only if this file is truly throwaway."
