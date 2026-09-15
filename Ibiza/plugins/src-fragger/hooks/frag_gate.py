@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""frag_gate.py — src-fragger's mechanical arm: a PreToolUse ask before agent-written files land where they die.
+"""frag_gate.py — src-fragger's mechanical arms: a PreToolUse ask before agent-written files land where they die,
+and a SessionStart check of the register against src/.
+
+Subcommand `register-lint`, run at SessionStart: one line when src/ holds code the register does not name, or the
+register names a path that is gone without a retired / superseded / moved / deleted state; silent otherwise.
 
 Subcommand `frag-gate`, reading the harness's JSON payload on stdin (decoded as UTF-8): for a Write or Edit,
 the file_path; for a Bash or PowerShell command, every write-position path (redirects, tee, the PowerShell
@@ -32,7 +36,7 @@ import sys
 
 CODE_EXT = {"py", "pyw", "sh", "bash", "zsh", "ps1", "psm1", "bat", "cmd", "js", "mjs", "cjs", "ts", "rb", "pl",
             "lua", "php", "go", "rs", "c", "cc", "cpp", "h", "hpp", "cs", "java", "kt", "swift", "sql", "awk",
-            "r", "jl", "scala", "groovy", "tcl", "vbs", "cmake", "gn", "gni"}
+            "r", "jl", "scala", "groovy", "tcl", "vbs", "cmake", "gn", "gni", "html", "htm"}
 # Code by name rather than by extension: a probe project's build file is a program the build runs, and by
 # extension alone CMakeLists.txt is a `.txt` note.
 CODE_NAMES = {"cmakelists.txt", "makefile", "gnumakefile", "dockerfile", "justfile", "rakefile"}
@@ -218,7 +222,8 @@ def cmd_frag_gate(payload):
                            f"git-ignored notebook, for notes, logs, output and copies kept for reading; code worth keeping is "
                            f"not a note: a program whose job no single tool call does is a frag under {src}{os.sep}<task>{os.sep} "
                            f"registered in src{os.sep}frags.md and tracked with the project, and an edit, an append, a "
-                           f"whole-file write, or one shell command is the tool's own call and no file")
+                           f"whole-file write, or one shell command is the tool's own call and no file; a page or source "
+                           f"captured from elsewhere and kept for reading is a note and may proceed")
         elif is_code(p):
             kind = costume_kind(code_body(payload, p))
             if kind:
@@ -236,6 +241,72 @@ def cmd_frag_gate(payload):
     return 0
 
 
+# The register's mechanical check, run at SessionStart: a frag under src/ the register does not name is code
+# that survives the session with nothing saying what it does or how it runs; an entry whose path is gone is a
+# register that lies. Entries whose state says the frag was retired, superseded, moved or deleted are not drift —
+# a retired entry keeps the path it had. Non-code files under src/ (a README, a sheet, a design page's data) are
+# the task directory's own and are never expected in the register. Entries begin after the header's `---`
+# separator: the header's own yaml shape starts with the same `- frag:` prefix and must not be read as one.
+GONE_STATES = ("retired", "superseded", "moved", "deleted")
+
+
+def register_entries(text):
+    """[(path, state)] from a register's body — the lines after the first `---`."""
+    lines = text.split("\n")
+    try:
+        sep = lines.index("---")
+    except ValueError:
+        return []
+    out, path, state = [], None, ""
+    for ln in lines[sep + 1:]:
+        if ln.startswith("- frag:"):
+            if path:
+                out.append((path, state))
+            path, state = ln[len("- frag:"):].strip(), ""
+        elif path and ln.startswith("  state:"):
+            state = ln[len("  state:"):].strip()
+    if path:
+        out.append((path, state))
+    return out
+
+
+def register_drift(src):
+    """(unregistered code under src/, registered paths that are gone) — both as paths relative to src/."""
+    reg_path = os.path.join(src, "frags.md")
+    if not os.path.isdir(src) or not os.path.isfile(reg_path):
+        return [], []
+    with open(reg_path, encoding="utf-8", errors="replace") as f:
+        entries = register_entries(f.read())
+    registered = {p.replace("\\", "/") for p, _ in entries}
+    on_disk = []
+    for root_dir, _dirs, files in os.walk(src):
+        for name in files:
+            rel = os.path.relpath(os.path.join(root_dir, name), src).replace("\\", "/")
+            if rel != "frags.md":
+                on_disk.append(rel)
+    unregistered = sorted(p for p in on_disk if is_code(p) and p not in registered)
+    gone = sorted(p for p, state in entries
+                  if not os.path.exists(os.path.join(src, p)) and not any(g in state.lower() for g in GONE_STATES))
+    return unregistered, gone
+
+
+def cmd_register_lint(payload):
+    root = project_root(payload)
+    src = os.path.join(root, ".claude", "vlds", "src")
+    unregistered, gone = register_drift(src)
+    if not unregistered and not gone:
+        return 0
+    parts = []
+    if unregistered:
+        parts.append("code under src/ the register does not name: " + ", ".join(unregistered[:8])
+                     + (f" (+{len(unregistered) - 8} more)" if len(unregistered) > 8 else ""))
+    if gone:
+        parts.append("entries whose path is gone and not retired: " + ", ".join(gone[:8])
+                     + (f" (+{len(gone) - 8} more)" if len(gone) > 8 else ""))
+    print("src-fragger: register drift — " + "; ".join(parts) + ". Register the frag, or mark the entry retired.")
+    return 0
+
+
 def main():
     for stream in (sys.stdout, sys.stderr):
         if hasattr(stream, "reconfigure"):
@@ -245,6 +316,8 @@ def main():
     try:
         if sub == "frag-gate":
             return cmd_frag_gate(payload)
+        if sub == "register-lint":
+            return cmd_register_lint(payload)
         print(f"frag_gate.py: unknown subcommand {sub!r}")
         return 0
     except Exception as e:  # noqa: BLE001 — a gate degrades, never raises

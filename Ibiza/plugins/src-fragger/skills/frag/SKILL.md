@@ -24,6 +24,7 @@ Two homes, one axis — worth, not file type.
 The **notebook**, `<working dir>/.claude/scratchpad/`, is always git-ignored: the SessionStart hook seeds a `.gitignore` of `*` inside it, so it ignores itself wherever the project's root `.gitignore` stands, and a note there is never committed and costs nothing.
 The **store's `src/`**, `<working dir>/.claude/vlds/src/`, is git-tracked: every reusable and worthwhile output of the work — code or not, whatever someone will run, read, or edit again — lives there and rides in the project's history.
 What the work produced on the way stays in the notebook; what it produced that is worth keeping graduates to `src/`.
+A reading — a log, a capture, a report — stays a note even when a claim cites it: the claim's own store entry carries what was read, and the instrument that produced the reading is the output that graduates.
 
 ## The floor
 
@@ -53,12 +54,14 @@ A per-turn record — store rows, a turn's completions — is a Write call for a
    - the interruption is a decision only the user can make, not labor the agent could still do.
    The retry and its outcome go in the register entry's `retry:` field. Only then: hand the registered command in ONE `bash`-tagged fence, one command per fence so the chat can run it on click — written for the user's own shell, since the click runs there and not in the agent's — mark the entry `state: handed-off`, and say plainly what was and was not run. Never rewrite the frag, and never reroute the call through another tool or agent to get past a refusal — a retry is the same call again, nothing else.
 5. **When the user edits a frag:** the edit is a ruling. Re-read the file before running or updating it; never overwrite it from memory or from an earlier copy.
-6. **When a notebook file turns out to be worth keeping** — a later task reuses it, a claim cites it as its evidence, the user edits it, or it is about to be committed: it is an output, not a note. Move it to `src/<task-slug>/`, register it, and leave a one-line pointer where the notebook refers to it. Nothing in the notebook is force-added to git; a note that seems to need committing is an output that needs moving.
+6. **When a notebook file turns out to be worth keeping** — a later task runs or edits it, the user edits it, or a commit is about to carry it: it is an output, not a note. Move it to `src/<task-slug>/`, register it, and leave a one-line pointer where the notebook refers to it. A reading a claim cites is not made an output by the citation: the claim's own entry carries what was read, and the instrument that produced the reading is the output. Nothing in the notebook is force-added to git; a note that seems to need committing is an output that needs moving.
 7. **When the task is done for good:** mark the entry `state: retired`. Delete nothing; the user disposes of frags.
 
 ## The gate
 
-The plugin's `PreToolUse` hook (`hooks/frag_gate.py`) asks before a Write, Edit, Bash, or PowerShell call writes a code file — by extension, or by a name such as `CMakeLists.txt` or `Makefile` — to a temp location (the session scratchpad, `/tmp`, the user's temp directory) or to any project's `.claude/scratchpad/`, where a swap script lands once it has stopped calling itself a frag; that ask carries the split and the floor. It asks, never denies: a truly throwaway probe may proceed, a copy of someone else's source kept for reading is a note, and only the agent knows which this one is. Markdown, logs, and data files in a notebook pass; code under the project tree and under `src/` passes.
+The plugin's `PreToolUse` hook (`hooks/frag_gate.py`) asks before a Write, Edit, Bash, or PowerShell call writes a code file — by extension, a page (`.html`) included, or by a name such as `CMakeLists.txt` or `Makefile` — to a temp location (the session scratchpad, `/tmp`, the user's temp directory) or to any project's `.claude/scratchpad/`, where a swap script lands once it has stopped calling itself a frag; that ask carries the split and the floor. It asks, never denies: a truly throwaway probe may proceed, a page or source captured from elsewhere and kept for reading is a note, and only the agent knows which this one is. Markdown, logs, and data files in a notebook pass; code under the project tree and under `src/` passes.
+
+The same script's `register-lint` runs at every SessionStart: one line when `src/` holds code the register does not name, or the register names a path that is gone without a retired, superseded, moved or deleted state — silent otherwise. Non-code files beside a task's frags are never expected in the register.
 
 ## Relation to vlds
 

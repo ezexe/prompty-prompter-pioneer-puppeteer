@@ -71,6 +71,12 @@ def main():
     assert run(write(f"{PROJECT_PAD}/probe/Makefile")) is not None, "a Makefile in the project scratchpad passed"
     assert run(write(f"{STORE_SRC}/CMakeLists.txt")) is None, "CMakeLists.txt under store/src asked"
     assert run(write(f"{PROJECT_PAD}/cmdlines.txt")) is None, "a .txt note in the project scratchpad asked"
+    # a page is code: a harness page in a notebook asks (the ask says a captured page may proceed), under src/
+    # and in the project tree it passes
+    d = run(write(f"{PROJECT_PAD}/harness.html"))
+    assert d and d["permissionDecision"] == "ask" and "captured" in d["permissionDecisionReason"], "an .html page in the project scratchpad passed"
+    assert run(write(f"{STORE_SRC}/latency.html")) is None, "a harness page under store/src asked"
+    assert run(write("E:/projects/x/web/index.html")) is None, "a page in the project tree asked"
     # other temp locations: code asks, data passes
     assert run(bash("cat > /tmp/probe.sh <<'EOF'\necho hi\nEOF\n")) is not None, "bash temp script passed"
     assert run(bash("cat > /tmp/out.json <<'EOF'\n{}\nEOF\n")) is None, "data in /tmp asked"
@@ -149,8 +155,53 @@ def main():
             "tool_input": {"file_path": "E:/projects/x/CMakeLists.txt", "old_string": "a", "new_string": "b"}}
     assert run(edit) is None, "an Edit of the project's root CMakeLists.txt asked"
     print("test_frag_gate.py: gate cases green")
+    register_lint()
     session_open()
     print("test_frag_gate.py: all green")
+
+
+def register_lint():
+    """The register check: silent on a clean store; one line naming unregistered code under src/ and entries
+    whose path is gone — never a non-code file, never a retired entry."""
+    root = tempfile.mkdtemp(prefix="src-fragger-lint-")
+    src = os.path.join(root, ".claude", "vlds", "src")
+    os.makedirs(os.path.join(src, "sweep-20260903"))
+    os.makedirs(os.path.join(src, "claims-20260909"))
+
+    def put(rel, text="x\n"):
+        with open(os.path.join(src, rel), "w", encoding="utf-8", newline="\n") as f:
+            f.write(text)
+
+    def lint():
+        r = subprocess.run([sys.executable, GATE, "register-lint"], input=b"{}", capture_output=True, timeout=60,
+                           env=dict(os.environ, CLAUDE_PROJECT_DIR=root))
+        return r.stdout.decode("utf-8", "replace").strip()
+
+    with open(os.path.join(HERE, "frags-seed.md"), encoding="utf-8") as f:
+        seed = f.read()
+    put("sweep-20260903/sweep.py")
+    put("claims-20260909/sheets.md")
+    put("frags.md", seed + "\n- frag: sweep-20260903/sweep.py\n  time: 2026-09-03 13:13\n  task: t\n  run: r\n  state: live\n"
+        "\n- frag: claims-20260909/claims.html\n  time: 2026-09-09 13:01\n  task: t\n  run: r\n"
+        "  state: RETIRED AS A FRAG, MOVED NOT DELETED - now under tests/web\n")
+    assert lint() == "", "a clean register (a registered frag, an unregistered sheet, a retired entry at a gone path) drifted"
+    # the header's own `- frag:` shape line is not an entry: the seed alone is clean too
+    put("frags.md", seed)
+    os.remove(os.path.join(src, "sweep-20260903", "sweep.py"))
+    assert lint() == "", "the seed's shape line was read as an entry"
+    # unregistered code under src/ is named; a live entry whose path is gone is named
+    put("sweep-20260903/holder.ps1")
+    put("frags.md", seed + "\n- frag: sweep-20260903/gone.py\n  time: 2026-09-03 13:13\n  task: t\n  run: r\n  state: live\n")
+    out = lint()
+    assert out.startswith("src-fragger: register drift"), out
+    assert "sweep-20260903/holder.ps1" in out and "gone.py" in out, out
+    assert "sheets.md" not in out, "a non-code file under src/ was called unregistered"
+    assert "\n" not in out, "the notice is more than one line"
+    # no store at all: silent
+    shutil.rmtree(os.path.join(root, ".claude"))
+    assert lint() == "", "lint spoke without a store"
+    shutil.rmtree(root, ignore_errors=True)
+    print("test_frag_gate.py: register-lint cases green")
 
 
 NOTICE = "src-fragger: this project's own rules git-ignore the store's src/"
