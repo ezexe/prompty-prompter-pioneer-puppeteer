@@ -189,6 +189,12 @@ def register_lint():
     put("frags.md", seed)
     os.remove(os.path.join(src, "sweep-20260903", "sweep.py"))
     assert lint() == "", "the seed's shape line was read as an entry"
+    # code under a task's out/ is what the frag reads or produced, never an unregistered frag
+    os.makedirs(os.path.join(src, "claims-20260909", "out", "docs"))
+    put("claims-20260909/out/upstream_tool.py")
+    put("claims-20260909/out/docs/patcher.py")
+    put("claims-20260909/out/captured.html")
+    assert lint() == "", "code under out/ was called unregistered"
     # unregistered code under src/ is named; a live entry whose path is gone is named
     put("sweep-20260903/holder.ps1")
     put("frags.md", seed + "\n- frag: sweep-20260903/gone.py\n  time: 2026-09-03 13:13\n  task: t\n  run: r\n  state: live\n")

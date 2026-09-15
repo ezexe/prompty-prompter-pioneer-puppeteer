@@ -19,10 +19,10 @@ content cmdlets, python's open() in a write mode, cp / mv destinations). Three c
   a project scratchpad     a CODE file (by extension or by name) written under any `.claude/scratchpad/` —
                            where a swap script lands once it has stopped calling itself a frag; the ask
                            carries the split and the floor: the notebook is git-ignored and holds notes,
-                           logs, output and copies kept for reading; a program whose job no single tool
-                           call does is a frag under `<store>/src/<task>/`, tracked with the project, and
-                           an edit, an append, a whole-file write, or one shell command is the tool's own
-                           call and no file
+                           logs and caches; a program whose job no single tool call does is a frag under
+                           `<store>/src/<task>/`, tracked with the project, what it reads or produced that
+                           is worth keeping lives in that task's out/, and an edit, an append, a whole-file
+                           write, or one shell command is the tool's own call and no file
 
 Silent for everything else: files under the project tree are the project's; a notebook's notes, logs, and
 fixtures are working files; data a tool drops in /tmp is normal. Every failure prints a one-line notice and
@@ -223,7 +223,8 @@ def cmd_frag_gate(payload):
                            f"not a note: a program whose job no single tool call does is a frag under {src}{os.sep}<task>{os.sep} "
                            f"registered in src{os.sep}frags.md and tracked with the project, and an edit, an append, a "
                            f"whole-file write, or one shell command is the tool's own call and no file; a page or source "
-                           f"captured from elsewhere and kept for reading is a note and may proceed")
+                           f"captured from elsewhere belongs in the task's out{os.sep} under src{os.sep}, beside the frag that "
+                           f"reads it")
         elif is_code(p):
             kind = costume_kind(code_body(payload, p))
             if kind:
@@ -245,9 +246,16 @@ def cmd_frag_gate(payload):
 # that survives the session with nothing saying what it does or how it runs; an entry whose path is gone is a
 # register that lies. Entries whose state says the frag was retired, superseded, moved or deleted are not drift —
 # a retired entry keeps the path it had. Non-code files under src/ (a README, a sheet, a design page's data) are
-# the task directory's own and are never expected in the register. Entries begin after the header's `---`
-# separator: the header's own yaml shape starts with the same `- frag:` prefix and must not be read as one.
+# the task directory's own and are never expected in the register, and neither is anything under a task's
+# out/ — what its frags read (a fetched spec, a captured page, a downloaded source, code included) and what they
+# produced that is worth keeping. Entries begin after the header's `---` separator: the header's own yaml shape
+# starts with the same `- frag:` prefix and must not be read as one.
 GONE_STATES = ("retired", "superseded", "moved", "deleted")
+OUT_DIR = "out"
+
+
+def in_out(rel):
+    return OUT_DIR in rel.split("/")[:-1]
 
 
 def register_entries(text):
@@ -284,7 +292,7 @@ def register_drift(src):
             rel = os.path.relpath(os.path.join(root_dir, name), src).replace("\\", "/")
             if rel != "frags.md":
                 on_disk.append(rel)
-    unregistered = sorted(p for p in on_disk if is_code(p) and p not in registered)
+    unregistered = sorted(p for p in on_disk if is_code(p) and not in_out(p) and p not in registered)
     gone = sorted(p for p, state in entries
                   if not os.path.exists(os.path.join(src, p)) and not any(g in state.lower() for g in GONE_STATES))
     return unregistered, gone
