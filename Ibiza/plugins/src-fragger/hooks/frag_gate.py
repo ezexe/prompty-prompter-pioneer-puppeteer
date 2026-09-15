@@ -8,18 +8,21 @@ content cmdlets, python's open() in a write mode, cp / mv destinations). Three c
   the harness scratchpad   ANY file written into the per-session temp directory the system prompt names
                            (`.../Temp/claude/<project>/<session>/scratchpad/`): code belongs under
                            `<store>/src/<task>/` as a frag; everything else belongs under the project's own
-                           `.claude/scratchpad/`, which the user can see and which outlives the session
-  any other temp location  a CODE file (by extension) written to /tmp, the user's temp directory, and their
-                           spellings — a frag belongs under `<store>/src/<task>/`
-  a project scratchpad     a CODE file (by extension) written under any `.claude/scratchpad/` — where a swap
-                           script lands once it has stopped calling itself a frag; the ask carries the floor:
-                           a program whose job no single tool call does is a frag under `<store>/src/<task>/`,
-                           and an edit, an append, a whole-file write, or one shell command is the tool's own
+                           `.claude/scratchpad/` — the notebook, which the user can see and which outlives
+                           the session
+  any other temp location  a CODE file (by extension or by name) written to /tmp, the user's temp directory,
+                           and their spellings — a frag belongs under `<store>/src/<task>/`
+  a project scratchpad     a CODE file (by extension or by name) written under any `.claude/scratchpad/` —
+                           where a swap script lands once it has stopped calling itself a frag; the ask
+                           carries the split and the floor: the notebook is git-ignored and holds notes,
+                           logs, output and copies kept for reading; a program whose job no single tool
+                           call does is a frag under `<store>/src/<task>/`, tracked with the project, and
+                           an edit, an append, a whole-file write, or one shell command is the tool's own
                            call and no file
 
-Silent for everything else: files under the project tree are the project's; a scratchpad's notes, logs, and
-fixtures are working files; data a tool drops in /tmp is normal. Every failure prints a one-line notice and exits 0 — a gate that crashes the call it guards is worse
-than no gate.
+Silent for everything else: files under the project tree are the project's; a notebook's notes, logs, and
+fixtures are working files; data a tool drops in /tmp is normal. Every failure prints a one-line notice and
+exits 0 — a gate that crashes the call it guards is worse than no gate.
 """
 
 import json
@@ -29,7 +32,10 @@ import sys
 
 CODE_EXT = {"py", "pyw", "sh", "bash", "zsh", "ps1", "psm1", "bat", "cmd", "js", "mjs", "cjs", "ts", "rb", "pl",
             "lua", "php", "go", "rs", "c", "cc", "cpp", "h", "hpp", "cs", "java", "kt", "swift", "sql", "awk",
-            "r", "jl", "scala", "groovy", "tcl", "vbs"}
+            "r", "jl", "scala", "groovy", "tcl", "vbs", "cmake", "gn", "gni"}
+# Code by name rather than by extension: a probe project's build file is a program the build runs, and by
+# extension alone CMakeLists.txt is a `.txt` note.
+CODE_NAMES = {"cmakelists.txt", "makefile", "gnumakefile", "dockerfile", "justfile", "rakefile"}
 SCRATCHPAD_MARKERS = ("/temp/claude/", "/tmp/claude/")          # the harness's per-session scratchpad
 TEMP_MARKERS = ("/tmp/", "/appdata/local/temp/", "/var/folders/", "/private/tmp/", "%temp%", "%tmp%",
                 "$tmpdir", "${tmpdir}", "$env:temp", "$env:tmp")
@@ -58,7 +64,8 @@ def project_root(payload):
 
 
 def is_code(path):
-    return os.path.splitext(path)[1].lower().lstrip(".") in CODE_EXT
+    return (os.path.splitext(path)[1].lower().lstrip(".") in CODE_EXT
+            or os.path.basename(path).lower() in CODE_NAMES)
 
 
 # The floor's mechanical arm. A frag is code whose job no single tool call does; a program that reads one
@@ -174,11 +181,12 @@ def cmd_frag_gate(payload):
     # recipient — one per scratch file, which is a stream, not a gate. `agent_id` is present only inside a
     # subagent call, so it is the tell.
     #
-    # The silence is scoped to the EPHEMERAL cases, not to the subagent. A scratchpad or temp file dies with
-    # the session, so an unanswerable prompt buys nothing; a file dropped in the project root outlives every
-    # agent that could have been told, and the human who finds it is exactly the right person to ask. That
-    # asymmetry — not the writer's identity — is what decides. When an injection channel for subagents
-    # exists, the contract should reach them and this scoping should go.
+    # The silence is scoped to the IGNORED cases, not to the subagent. A harness-scratchpad, temp, or notebook
+    # file reaches neither the project's history nor its status, so an unanswerable prompt buys nothing; a
+    # file dropped in the project root lands in status, outlives every agent that could have been told, and
+    # the human who finds it is exactly the right person to ask. That asymmetry — not the writer's identity —
+    # is what decides. When an injection channel for subagents exists, the contract should reach them and this
+    # scoping should go.
     is_sub = bool(payload.get("agent_id"))
     root = project_root(payload)
     src = os.path.join(root, ".claude", "vlds", "src")
@@ -190,24 +198,27 @@ def cmd_frag_gate(payload):
             continue
         seen.add(p)
         name = os.path.basename(p)
-        if in_project_root(p, root) and is_data(p) and name.lower() not in KNOWN_ROOT:
+        # A build file is code by name, never a `.txt` dump: the project's own CMakeLists.txt is not scratch.
+        if in_project_root(p, root) and is_data(p) and not is_code(p) and name.lower() not in KNOWN_ROOT:
             reasons.append(f"{name} is a data file headed for the project root ({p}) — scratch data belongs under "
                            f"{pad}{os.sep}, which is git-ignored and swept, not beside the project's own manifests where "
                            f"it lands untracked and is found later by the user rather than by whoever wrote it")
         elif is_sub:
             continue
         elif in_scratchpad(p):
-            home = f"{src}{os.sep}<task>{os.sep} as a registered frag" if is_code(p) else pad
+            home = (f"{src}{os.sep}<task>{os.sep} as a registered frag, tracked with the project" if is_code(p)
+                    else f"{pad}{os.sep}, the project's git-ignored notebook")
             reasons.append(f"{name} is headed for the harness's per-session scratchpad ({p}) — it belongs under {home}: "
                            f"that directory is named after a session id, invisible to the user, and gone with the session")
         elif in_temp(p) and is_code(p):
             reasons.append(f"{name} is code headed for a temp location ({p}) — a frag belongs under {src}{os.sep}<task>{os.sep} "
                            f"and in src{os.sep}frags.md")
         elif in_project_pad(p) and is_code(p):
-            reasons.append(f"{name} is code headed for a project's .claude/scratchpad ({p}) — the scratchpad is for working "
-                           f"files that are not code: a program whose job no single tool call does is a frag under "
-                           f"{src}{os.sep}<task>{os.sep} registered in src{os.sep}frags.md, and an edit, an append, a whole-file "
-                           f"write, or one shell command is the tool's own call and no file")
+            reasons.append(f"{name} is code headed for a project's .claude/scratchpad ({p}) — the scratchpad is the project's "
+                           f"git-ignored notebook, for notes, logs, output and copies kept for reading; code worth keeping is "
+                           f"not a note: a program whose job no single tool call does is a frag under {src}{os.sep}<task>{os.sep} "
+                           f"registered in src{os.sep}frags.md and tracked with the project, and an edit, an append, a "
+                           f"whole-file write, or one shell command is the tool's own call and no file")
         elif is_code(p):
             kind = costume_kind(code_body(payload, p))
             if kind:

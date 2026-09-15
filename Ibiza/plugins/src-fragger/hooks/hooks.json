@@ -5,7 +5,12 @@
         "hooks": [
           {
             "type": "command",
-            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/hooks/session-open.sh\"",
+            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/hooks/session-open.sh\" seed",
+            "timeout": 20
+          },
+          {
+            "type": "command",
+            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/hooks/session-open.sh\" contract",
             "timeout": 20
           }
         ]

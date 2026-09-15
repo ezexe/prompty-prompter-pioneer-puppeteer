@@ -1,13 +1,19 @@
 #!/usr/bin/env python3
-"""test_frag_gate.py — acceptance tests for the frag gate: anything into the harness scratchpad asks, code into
-any other temp location asks, code into any project's .claude/scratchpad/ asks (the floor: a frag or a tool
-call, never a script there), and files under the store's src/, non-code files in the project's scratchpad, or
-the project tree pass. Run from anywhere: python hooks/test_frag_gate.py — exit 0 = green."""
+"""test_frag_gate.py — acceptance tests for the frag gate: anything into the harness scratchpad asks, code
+into any other temp location asks, code (by extension or by name) into any project's .claude/scratchpad/
+asks (the split and the floor: the notebook is git-ignored, a frag is tracked under src/, and a tool call is
+no file), and files under the store's src/, non-code files in the project's scratchpad, or the project tree
+pass. Then the SessionStart hook: it seeds src/frags.md and the notebook's own `.gitignore` of `*`,
+overwrites neither, and says in one line when the project's root rules ignore src/. Run from anywhere:
+python hooks/test_frag_gate.py — exit 0 = green (the hook cases skip, saying so, without sh or git on
+PATH)."""
 
 import json
 import os
+import shutil
 import subprocess
 import sys
+import tempfile
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 GATE = os.path.join(HERE, "frag_gate.py")
@@ -57,6 +63,14 @@ def main():
     assert run(bash("cat > .claude/scratchpad/gen.py <<'EOF'\nprint(1)\nEOF\n")) is not None, "bash heredoc code into the project scratchpad passed"
     assert run(write("E:/other/.claude/scratchpad/swap.py")) is not None, "code in another project's scratchpad passed"
     assert run(write(f"{PROJECT_PAD}/notes.md")) is None, "notes in the project scratchpad asked"
+    # the ask carries the split: the notebook is git-ignored, a frag is tracked
+    assert "git-ignored notebook" in d["permissionDecisionReason"] and "tracked" in d["permissionDecisionReason"], d
+    # code by a build-language extension or by name asks in a notebook too, and passes under src/
+    assert run(write(f"{PROJECT_PAD}/envtest.cmake")) is not None, "a .cmake probe in the project scratchpad passed"
+    assert run(write(f"{PROJECT_PAD}/probe/CMakeLists.txt")) is not None, "CMakeLists.txt in the project scratchpad passed"
+    assert run(write(f"{PROJECT_PAD}/probe/Makefile")) is not None, "a Makefile in the project scratchpad passed"
+    assert run(write(f"{STORE_SRC}/CMakeLists.txt")) is None, "CMakeLists.txt under store/src asked"
+    assert run(write(f"{PROJECT_PAD}/cmdlines.txt")) is None, "a .txt note in the project scratchpad asked"
     # other temp locations: code asks, data passes
     assert run(bash("cat > /tmp/probe.sh <<'EOF'\necho hi\nEOF\n")) is not None, "bash temp script passed"
     assert run(bash("cat > /tmp/out.json <<'EOF'\n{}\nEOF\n")) is None, "data in /tmp asked"
@@ -127,9 +141,87 @@ def main():
     # the project's own root files are not scratch, and neither is anything in a subdirectory
     for ok in ("E:/projects/x/package.json", "E:/projects/x/settings.json", "E:/projects/x/requirements.txt",
                "E:/projects/x/Ibiza/.claude-plugin/marketplace.json", "E:/projects/x/data/rows.json",
-               "E:/projects/x/README.md", "E:/projects/x/tools/build.py"):
+               "E:/projects/x/README.md", "E:/projects/x/tools/build.py",
+               # a build file is code by name, not a .txt dump — the project's own CMakeLists.txt never asks
+               "E:/projects/x/CMakeLists.txt", "CMakeLists.txt", "E:/projects/x/Makefile"):
         assert run(write(ok)) is None, f"a legitimate file asked: {ok}"
+    edit = {"tool_name": "Edit", "cwd": "E:/projects/x",
+            "tool_input": {"file_path": "E:/projects/x/CMakeLists.txt", "old_string": "a", "new_string": "b"}}
+    assert run(edit) is None, "an Edit of the project's root CMakeLists.txt asked"
+    print("test_frag_gate.py: gate cases green")
+    session_open()
     print("test_frag_gate.py: all green")
+
+
+NOTICE = "src-fragger: this project's own rules git-ignore the store's src/"
+
+
+def session_open():
+    """The SessionStart hook seeds src/frags.md and the notebook's own .gitignore of `*`, overwrites neither
+    (a user's edit is a ruling), and says in one line when the project's root rules ignore src/."""
+    sh = shutil.which("sh")
+    if not sh:
+        print("test_frag_gate.py: session-open cases SKIPPED — no sh on PATH")
+        return
+    root = tempfile.mkdtemp(prefix="src-fragger-test-")
+    env = dict(os.environ, CLAUDE_PROJECT_DIR=root, CLAUDE_PLUGIN_ROOT=os.path.dirname(HERE))
+
+    def open_session(*step):
+        r = subprocess.run([sh, os.path.join(HERE, "session-open.sh"), *step], env=env, capture_output=True,
+                           timeout=60)
+        return r.stdout.decode("utf-8", "replace")
+
+    def read(*parts):
+        with open(os.path.join(*parts), encoding="utf-8") as f:
+            return f.read()
+
+    def put(text, *parts):
+        with open(os.path.join(*parts), "w", encoding="utf-8", newline="\n") as f:
+            f.write(text)
+
+    out = open_session()
+    assert "## src-fragger (always active)" in out, out[:300]
+    assert NOTICE not in out, "notice printed outside a git work tree"
+    assert read(root, ".claude", "scratchpad", ".gitignore") == "*\n", "the notebook's .gitignore was not seeded as *"
+    assert read(root, ".claude", "vlds", "src", "frags.md") == read(HERE, "frags-seed.md"), "the register was not seeded"
+    # a user's edit to either seed is a ruling: neither is overwritten
+    put("# tracked on purpose\n", root, ".claude", "scratchpad", ".gitignore")
+    put("# my register\n", root, ".claude", "vlds", "src", "frags.md")
+    open_session()
+    assert read(root, ".claude", "scratchpad", ".gitignore") == "# tracked on purpose\n", "the user's .gitignore edit was overwritten"
+    assert read(root, ".claude", "vlds", "src", "frags.md") == "# my register\n", "the user's register was overwritten"
+    put("*\n", root, ".claude", "scratchpad", ".gitignore")
+    git = shutil.which("git")
+    if not git:
+        print("test_frag_gate.py: session-open git cases SKIPPED — no git on PATH")
+        shutil.rmtree(root, ignore_errors=True)
+        return
+
+    def g(*args):
+        return subprocess.run([git, "-C", root, *args], capture_output=True, timeout=60).returncode
+
+    assert g("init", "-q") == 0, "git init failed"
+    # the seed ignores the notebook by itself, with no root rule — and src/ stays trackable
+    assert g("check-ignore", "-q", ".claude/scratchpad/notes.md") == 0, "the notebook does not ignore itself"
+    assert g("check-ignore", "-q", ".claude/scratchpad/probe.py") == 0, "code in the notebook is not ignored"
+    assert g("check-ignore", "-q", ".claude/vlds/src/frags.md") == 1, "src/ is ignored with no root rule"
+    assert NOTICE not in open_session(), "notice printed while src/ is trackable"
+    # a root rule that ignores .claude/ wholesale ignores src/ too, and the hook says so in one line
+    put(".claude/\n", root, ".gitignore")
+    out = open_session()
+    assert f"{NOTICE} (.gitignore:1:.claude/)" in out, out[:400]
+    assert out.count(NOTICE) == 1, "the notice is more than one line"
+    assert "## src-fragger (always active)" in out, "the contract was lost behind the notice"
+    # the two hook commands: `seed` carries the notice and nothing of the contract, `contract` the reverse, so
+    # each rides under the harness's per-hook output cap on its own
+    seed_out, contract_out = open_session("seed"), open_session("contract")
+    assert NOTICE in seed_out and "## src-fragger" not in seed_out, seed_out[:300]
+    assert "## src-fragger (always active)" in contract_out and NOTICE not in contract_out, contract_out[:300]
+    assert len(contract_out) < 10000, f"the contract alone is {len(contract_out)} chars — over the hook output cap"
+    os.remove(os.path.join(root, ".gitignore"))
+    assert NOTICE not in open_session(), "notice printed after the root rule was removed"
+    shutil.rmtree(root, ignore_errors=True)
+    print("test_frag_gate.py: session-open cases green")
 
 
 if __name__ == "__main__":

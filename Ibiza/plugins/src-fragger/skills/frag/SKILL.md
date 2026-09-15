@@ -1,20 +1,29 @@
 ---
 name: frag
-description: "src-fragger — the procedure for frags: code the agent writes to complete a task whose job no single tool call does (an edit, an append, a whole-file write, or one shell command is the tool's own call, never a frag), kept under the VLDS store's src/ directory and registered in src/frags.md so it outlives the session, can be reused and updated instead of rewritten, can be edited by the user (an edit is a ruling), and is already in the user's hands when the harness refuses the agent's own execution. Use when about to write a script or program to complete a task, when a task repeats labor a frag may already cover, when an execution was refused, or to list, update, hand off, or retire a frag."
-argument-hint: "[list | new <task-slug>/<name.ext> | update <frag> | handoff <frag> | retire <frag>]"
+description: "src-fragger — the procedure for frags: code the agent writes to complete a task whose job no single tool call does (an edit, an append, a whole-file write, or one shell command is the tool's own call, never a frag), kept under the VLDS store's src/ directory — the git-tracked home of the work's reusable and worthwhile outputs, beside the project's always-ignored .claude/scratchpad/ notebook — and registered in src/frags.md so it outlives the session, can be reused and updated instead of rewritten, can be edited by the user (an edit is a ruling), and is already in the user's hands when the harness refuses the agent's own execution. Use when about to write a script or program to complete a task, when a task repeats labor a frag may already cover, when a notebook file turns out to be worth keeping, when an execution was refused, or to list, update, hand off, or retire a frag."
+argument-hint: "[list | new <task-slug>/<name.ext> | update <frag> | graduate <notebook-file> | handoff <frag> | retire <frag>]"
 disable-model-invocation: true
 ---
 
-# frag — code the agent writes to finish a task, kept where it can be reused, edited, and run
+# frag — code the agent writes to finish a task, kept where it can be reused, edited, run, and tracked
 
-> The scratchpad is a convenience for the agent and a loss for everyone else.
-> A frag is the same code written where it survives the session, where the user can read and change it, and where it can still be run when the agent cannot run it.
+> A scratchpad is a convenience for the agent and a loss for everyone else.
+> A frag is the same code written where it survives the session, where the user can read and change it, where it can still be run when the agent cannot run it — and where the project's history carries it.
 
 ## What a frag is
 
-Any code the agent authors to complete a task rather than to ship as product: a sweep, a migration, a probe, a generator, a bulk edit, a verification harness — anything that replaces manual, user-involved labor with a script the agent builds and executes.
+Any code the agent authors to complete a task rather than to ship as product: a sweep, a migration, a probe, a generator, a bulk edit, a verification harness, a harness page, a workflow script, a probe project's build files — anything that replaces manual, user-involved labor with a program the agent builds and executes.
 Product code is not a frag; it belongs in the project tree under the project's own conventions.
-Notes, plans, and data files are not frags either; they may live in the scratchpad.
+Notes, plans, logs, captured output, fixtures, and downloaded sources kept for reading are not frags either; they live in the notebook, the project's git-ignored `.claude/scratchpad/`.
+A worthwhile output that is not code — a design landed as a page, a sheet or README a later task reads — is not a frag but lives beside the task's frags under `src/<task-slug>/`, tracked: the register names the frags, the directory carries the rest.
+A truly throwaway probe — run once to answer a question and never again — may stay in the notebook after the gate's ask; the ask exists because "throwaway" is what every kept script called itself first.
+
+## The split
+
+Two homes, one axis — worth, not file type.
+The **notebook**, `<working dir>/.claude/scratchpad/`, is always git-ignored: the SessionStart hook seeds a `.gitignore` of `*` inside it, so it ignores itself wherever the project's root `.gitignore` stands, and a note there is never committed and costs nothing.
+The **store's `src/`**, `<working dir>/.claude/vlds/src/`, is git-tracked: every reusable and worthwhile output of the work — code or not, whatever someone will run, read, or edit again — lives there and rides in the project's history.
+What the work produced on the way stays in the notebook; what it produced that is worth keeping graduates to `src/`.
 
 ## The floor
 
@@ -26,10 +35,11 @@ A per-turn record — store rows, a turn's completions — is a Write call for a
 
 ## Where it lives
 
-- **Directory:** `<working dir>/.claude/vlds/src/<task-slug>/` — one directory per task, inside the VLDS store, so it rides with the store's other state and stays out of the project tree and out of version control with it.
+- **Directory:** `<working dir>/.claude/vlds/src/<task-slug>/` — one directory per task, inside the VLDS store, so it rides with the store's other state, out of the project tree and in version control: `src/` is the tracked home of the work's reusable outputs.
 - **Register:** `<working dir>/.claude/vlds/src/frags.md` — one entry per frag in the shape its header declares (`frag`, `time`, `task`, `run`, `state`, and `retry` once a refusal has been retried). The SessionStart hook seeds it and never overwrites it.
 - **Header comment:** every frag opens with the task it completes, the date copied from the hook stream's `now:`, and the exact command that runs it from the project root.
-- **Working files that are not code** — commit messages, plans, notes, fixtures, captured output — go under `<working dir>/.claude/scratchpad/`, which the SessionStart hook creates. The harness's per-session scratchpad (a temp path named after the session id) is never used for anything: it is invisible to the user and gone with the session, and `.claude/` is git-ignored, so the project's own scratchpad costs nothing.
+- **Working files that are not reusable outputs** — commit messages, plans, notes, fixtures, captured output, logs, downloaded sources kept for reading — go under the notebook, `<working dir>/.claude/scratchpad/`, which the SessionStart hook creates and seeds with its own `.gitignore`. The harness's per-session scratchpad (a temp path named after the session id) is never used for anything: it is invisible to the user and gone with the session.
+- **Where the project's root rules ignore `.claude/` wholesale**, `src/` is not tracked either; the hook says so in one line at session start, and narrowing that rule is the user's edit — surfaced, never made for them. The hook never touches the index and never edits the root `.gitignore`; files a project committed into its notebook before the seed stay tracked until the user removes them from the index.
 
 ## The procedure
 
@@ -43,11 +53,12 @@ A per-turn record — store rows, a turn's completions — is a Write call for a
    - the interruption is a decision only the user can make, not labor the agent could still do.
    The retry and its outcome go in the register entry's `retry:` field. Only then: hand the registered command in ONE `bash`-tagged fence, one command per fence so the chat can run it on click — written for the user's own shell, since the click runs there and not in the agent's — mark the entry `state: handed-off`, and say plainly what was and was not run. Never rewrite the frag, and never reroute the call through another tool or agent to get past a refusal — a retry is the same call again, nothing else.
 5. **When the user edits a frag:** the edit is a ruling. Re-read the file before running or updating it; never overwrite it from memory or from an earlier copy.
-6. **When the task is done for good:** mark the entry `state: retired`. Delete nothing; the user disposes of frags.
+6. **When a notebook file turns out to be worth keeping** — a later task reuses it, a claim cites it as its evidence, the user edits it, or it is about to be committed: it is an output, not a note. Move it to `src/<task-slug>/`, register it, and leave a one-line pointer where the notebook refers to it. Nothing in the notebook is force-added to git; a note that seems to need committing is an output that needs moving.
+7. **When the task is done for good:** mark the entry `state: retired`. Delete nothing; the user disposes of frags.
 
 ## The gate
 
-The plugin's `PreToolUse` hook (`hooks/frag_gate.py`) asks before a Write, Edit, Bash, or PowerShell call writes a code file to a temp location — the session scratchpad, `/tmp`, the user's temp directory — or to any project's `.claude/scratchpad/`, where a swap script lands once it has stopped calling itself a frag; that ask carries the floor. It asks, never denies: a truly throwaway probe may proceed, and only the agent knows which this one is. Markdown, logs, and data files in a scratchpad pass; code under the project tree and under `src/` passes.
+The plugin's `PreToolUse` hook (`hooks/frag_gate.py`) asks before a Write, Edit, Bash, or PowerShell call writes a code file — by extension, or by a name such as `CMakeLists.txt` or `Makefile` — to a temp location (the session scratchpad, `/tmp`, the user's temp directory) or to any project's `.claude/scratchpad/`, where a swap script lands once it has stopped calling itself a frag; that ask carries the split and the floor. It asks, never denies: a truly throwaway probe may proceed, a copy of someone else's source kept for reading is a note, and only the agent knows which this one is. Markdown, logs, and data files in a notebook pass; code under the project tree and under `src/` passes.
 
 ## Relation to vlds
 
