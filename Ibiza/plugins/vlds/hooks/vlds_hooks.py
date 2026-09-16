@@ -3,23 +3,50 @@
 
 Subcommands, each reading the harness's JSON payload on stdin (decoded as UTF-8 — the harness writes UTF-8
 whatever the console codepage says):
-  session-open            SessionStart, the recall's index slot: print the clock (`now:`), phi-index.md, the
-                          inject/digest lists, a digest line per digest file, the owner-voice digest, and the
-                          verdict of `phi.py check`. On `source` resume, fork, or compact print only the clock,
-                          the digest lines, and the verdict — the conversation already holds its own recall —
-                          and record the session id in `.sessions`, so a fork's first prompt (a new id over a
-                          live conversation) and a pre-hook session's next prompt do not pour rows that are
-                          still live.
-  session-open --slot N   SessionStart, one chunk slot: the index's `inject:` files are split at entry boundaries
-                          into chunks under the harness's per-hook output cap, and slot N prints the N-th chunk
-                          (header with the first chunk of each file). Nothing on resume / fork / compact, nothing
-                          when the plan is shorter than N+1. One hook per slot, because the harness caps EACH
-                          hook's output at 10,000 characters: one process printing everything would be spilled
-                          to a file and replaced by a preview. A single entry over the cap, or a chunk beyond the
-                          registered slots, arrives as a marker line to read by hand.
+  session-open            SessionStart, the recall's index slot: print the clock (`now:`), the recall mode, a
+                          digest of phi-index.md (register, hot rows, updated), a digest line per hot file, the
+                          owner-voice digest, and the verdict of `phi.py check`. In the POOLED mode — the
+                          default — the hot files are not injected at all: the slot prints the directive under
+                          which the judged store operations are the operator subagent's (hooks/operator-prompt.md
+                          is its brief) and its derivation is what the model acts on — open (the pool at the first
+                          prompt per hooks/pool-prompt.md, scoped to the task the model derives in one line, pulled
+                          into context in place of the files; the barrier on a candidate row; the intent of an
+                          unknown short message) and sweep (scoring what is cold; scripts/normalize.py --pour places
+                          it) — while the close is mechanical: the model writes the turn's record and
+                          scripts/record.py applies it. One operator per session, continued for at most
+                          `operator-moments:` moments then relaunched. `pool: inject` in the index's `## recall`
+                          section restores the slot injection of every inject file; `operator-model:`, `pool-model:`
+                          and `sweep-model:` name the models. On
+                          `source` resume, fork, or compact print only the clock, the digest lines, and the
+                          verdict — the conversation already holds its own recall — and on a compact re-inject
+                          store/recall-pool.md when it is this session's, since the compaction may have
+                          summarized the recall away; and record the session id in `.sessions`, so a fork's
+                          first prompt (a new id over a live conversation) and a pre-hook session's next prompt
+                          do not pour rows that are still live.
+  session-open --slot N   SessionStart, one chunk slot (the `pool: inject` mode only; silent when pooled): the
+                          index's `inject:` files are split at entry boundaries into chunks under the harness's
+                          per-hook output cap, and slot N prints the N-th chunk (header with the first chunk of
+                          each file). Nothing on resume / fork / compact, nothing when the plan is shorter than
+                          N+1. One hook per slot, because the harness caps EACH hook's output at 10,000
+                          characters: one process printing everything would be spilled to a file and replaced by
+                          a preview. A single entry over the cap, or a chunk beyond the registered slots, arrives
+                          as a marker line to read by hand.
   prompt-open             UserPromptSubmit: print the clock, stamp the message's dispatch row (fingerprint /
-                          time / arrival; the model completes state and addressed) and, on the FIRST prompt a
-                          session id ever submits, pour dispatch.md whole-file into arc/ — a sha-verified
+                          time / arrival) and run the mechanical half of the dispatch barrier: when no earlier
+                          row's fingerprint resembles the message (token overlap under BARRIER_JACCARD, or not
+                          identical for a message under BARRIER_MIN_TOKENS tokens) the row gets `state: FRESH`
+                          here; when one does, the candidate is named and `state:` is left for the operator
+                          subagent's judgment — ECHO, SUPERSEDED, or a fresh ask that merely reads alike. A
+                          message of at most SHORT_WORDS words is called short: one the store's owner corpus
+                          already holds KNOWN_SHORT_MIN times is a known command — never a candidate, its last
+                          addressed: printed as the derivation, no operator — and an unknown one goes to the
+                          operator for its intent before the model answers; `addressed:` is the record's at the
+                          turn's close. A
+                          task notification (a background task's completion, delivered as a prompt) is never an
+                          ask: its row is stamped complete on arrival — arrival `task notification`, FRESH,
+                          addressed as consumed — because a row left open there would be closed by an operator
+                          whose own completion arrives the same way, a loop with no floor.
+                          Then, on the FIRST prompt a session id ever submits, pour dispatch.md whole-file into arc/ — a sha-verified
                           byte-identical copy, then a reseed that preserves the file's own header (a user's
                           header edit is a ruling). Every output names the session by its short id and, when
                           the transcript's last custom-title record gives one, its chat title — the id stays
@@ -40,15 +67,23 @@ whatever the console codepage says):
   post-write              PostToolUse: when a Write, Edit, Bash, or PowerShell call touched the store, or wrote
                           a store-named file anywhere, print the clock and run `phi.py check`, handing its
                           verdict back as additionalContext — a mis-homed write is followed at once by a check
-                          whose `[STRAY]` line names the file.
+                          whose `[STRAY]` line names the file. The full verdict is handed back when it differs
+                          from the last one this session saw; an unchanged verdict comes back as one line, so a
+                          turn of store writes does not re-paste the same debt list into the context each time.
+  turn-close              Stop: the light normalize sweep, mechanical — scripts/normalize.py --light under the
+                          sweep lock: attach a hook-poured dispatch record where a live segment has room, expire
+                          and pour the virtual entries another session minted, pour the logger's oldest past its
+                          budget — every step through phi.py's gates — then leave its one-line report in
+                          store/.turn-close for the next prompt hook to print, since a Stop hook's stdout never
+                          reaches the model. Nothing to move: silent. Lock held elsewhere: skipped, said so.
 
 Everything here is mechanical. The stamp carries no judgment; the pour moves a file whose every entry belongs to
 a conversation that is not this one (a new id that reaches its first prompt unrecorded) and destroys nothing (the
 copy is verified before the reseed, and the copy stays); the check only reports; the pre-write gate only asks.
 What the hooks never do: register the poured file in the index (a sweep's judged act), pour any other hot file
-(cold spans are scored, not counted), complete a dispatch row (state and addressed are the model's), delete or
-move a stray file (the user disposes of it), or block a prompt — every failure prints a one-line notice and
-exits 0.
+by judgment (the light classes are counted, not scored), judge a dispatch row (the hook writes FRESH only when no
+earlier row resembles the message; the judged state and addressed are the operator subagent's), delete or move a
+stray file (the user disposes of it), or block a prompt — every failure prints a one-line notice and exits 0.
 
 The clock: every subcommand's output carries a `now: YYYY-MM-DD HH:MM` line, so a store write anywhere in the
 turn has an authoritative stamp to copy — the model never guesses a digit.
@@ -81,8 +116,21 @@ HELD_SOURCES = ("resume", "fork", "compact")   # SessionStart sources whose conv
 # the store's file names — the same set as scripts/phi.py STORE_FILES; a file carrying one of these names
 # outside a `.claude/vlds/` directory is what the pre-write gate asks about and the check reports as [STRAY]
 STORE_FILES = {"dispatch.md", "index.md", "ledger.md", "logger.md", "tombstones.md", "virtual.md",
-               "session-storage.md", "local-storage.md", "data-store.md", "phi-index.md"}
+               "session-storage.md", "local-storage.md", "data-store.md", "phi-index.md", "recall-pool.md"}
 NOW_FMT = "%Y-%m-%d %H:%M"
+POOL_FILE = "recall-pool.md"        # the recall subagent's pooled report — derived, one per store, session-named
+POOL_MODES = ("subagent", "inject")
+DEFAULT_POOL = "subagent"
+DEFAULT_OPERATOR_MODEL = "haiku"    # the operator's open moment (barrier, intent); the index's `operator-model:` overrides
+DEFAULT_POOL_MODEL = "sonnet"       # the pool, once per session — the one judged read a whole session leans on; `pool-model:`
+DEFAULT_SWEEP_MODEL = "sonnet"      # the sweep moment's scoring; `sweep-model:`
+DEFAULT_OPERATOR_MOMENTS = 4        # continuations before a fresh launch, so a grown context stops compounding; `operator-moments:`
+KNOWN_SHORT_MIN = 2                 # a short message seen this many times in the store's owner corpus is a known command
+BARRIER_MIN_TOKENS = 3      # a message with fewer tokens matches an earlier row only when identical
+BARRIER_JACCARD = 0.5       # token overlap at or above which an earlier row is a candidate for the operator's judgment
+SHORT_WORDS = 5             # a message of at most this many words is called short: the operator derives its intent
+TURN_CLOSE = ".turn-close"          # the Stop hook's reports, one line per session, printed by the next prompt hook
+CHECK_LAST = ".check-last"          # the last check summary each session saw, so an unchanged one comes back as a line
 VOICE_CAP = 1200            # the owner-voice digest's size cap, in characters
 VOICE_TOKEN_WORDS = 3       # a message of at most this many words counts as an adoption token
 VOICE_TOKENS = 10           # how many adoption tokens the digest lists
@@ -424,8 +472,14 @@ def future_times(text, now):
 # ─── session-open ───────────────────────────────────────────────────────────────────────────────────────
 
 def recall_lists(index_text):
-    """(inject, digest, from_index) — the lists under the index's `## recall` section, or the defaults."""
-    inject, digest = None, None
+    """(inject, digest, from_index, pool, models) — the lists and the mode under the index's `## recall` section,
+    or the defaults: `pool: subagent` (the hot files pooled by the operator subagent, not injected) or
+    `pool: inject` (every inject file chunked into the slots); `operator-model:` the open moment's model,
+    `pool-model:` the pool's, `sweep-model:` the sweep's, `operator-moments:` the continuations before a fresh
+    launch — `models` carries all four."""
+    inject, digest, pool = None, None, None
+    models = {"operator": DEFAULT_OPERATOR_MODEL, "pool": DEFAULT_POOL_MODEL, "sweep": DEFAULT_SWEEP_MODEL,
+              "moments": DEFAULT_OPERATOR_MOMENTS}
     in_recall = False
     for l in index_text.split("\n"):
         if l.startswith("## "):
@@ -433,16 +487,130 @@ def recall_lists(index_text):
             continue
         if not in_recall:
             continue
-        m = re.match(r"^(inject|digest):\s*(.*)$", l.strip())
-        if m:
-            names = [n.strip() for n in m.group(2).split(",") if n.strip()]
-            if m.group(1) == "inject":
+        m = re.match(r"^(inject|digest|pool|pool-model|operator-model|sweep-model|operator-moments):\s*(.*)$", l.strip())
+        if not m:
+            continue
+        key, value = m.group(1), m.group(2).strip()
+        if key == "pool":
+            pool = value.lower() if value.lower() in POOL_MODES else None
+        elif key == "operator-moments":
+            try:
+                models["moments"] = max(0, int(value))
+            except ValueError:
+                pass
+        elif key.endswith("-model"):
+            if value:
+                models[key[:-len("-model")]] = value
+        else:
+            names = [n.strip() for n in value.split(",") if n.strip()]
+            if key == "inject":
                 inject = names
             else:
                 digest = names
     return (inject if inject is not None else DEFAULT_INJECT,
             digest if digest is not None else DEFAULT_DIGEST,
-            inject is not None or digest is not None)
+            inject is not None or digest is not None,
+            pool or DEFAULT_POOL,
+            models)
+
+
+def pool_session(store):
+    """The short id named on store/recall-pool.md's `session:` line, or None."""
+    path = os.path.join(store, POOL_FILE)
+    if not os.path.exists(path):
+        return None
+    for l in read_text(path).split("\n"):
+        m = re.match(r"^session:\s*([0-9A-Za-z-]+)", l)
+        if m:
+            return m.group(1)[:8]
+    return None
+
+
+def operator_directive(store, tag, now, models):
+    """The one block the pooled mode injects in place of the hot files: judged operations are the operator
+    subagent's and its derivation is what the model acts on; the close is the record script's, mechanical."""
+    root = plugin_root()
+    brief = os.path.join(root, "hooks", "operator-prompt.md")
+    pool = os.path.join(root, "hooks", "pool-prompt.md")
+    record = os.path.join(root, "scripts", "record.py")
+    normalize = os.path.join(root, "scripts", "normalize.py")
+    return (
+        "### recall, and every store operation — the operator subagent, never this context\n"
+        "The hot files are not in this context, and no store file is read or written here. Two instruments carry "
+        "the work. The OPERATOR — the Agent tool, subagent_type general-purpose, in the foreground — for what needs "
+        f"judgment: open (the pool at the first prompt, on {models['pool']}; the barrier when the prompt hook names "
+        f"a candidate row, and the intent of an unknown short message, on {models['operator']}) and sweep (naming "
+        f"what is cold when the check shows judged debt, on {models['sweep']}; the placement is `python {normalize} "
+        "--store <store> --session <id> --pour <file>:<head lines>`). Send it one message:\n"
+        f"  Read {brief} and do what it says. store: {store} | session: {tag} | now: <the latest now:> | "
+        "moment: open or sweep | <the facts only this context holds>\n"
+        "Launch it once per session; continue it for later moments with SendMessage (to: the launch result's agent "
+        f"id; message: the moment, the latest now:, the facts) — at most {models['moments']} continuations, then "
+        "launch fresh, and fresh whenever a continuation fails; its derivation is what you act on. The CLOSE — every "
+        "turn, before the closing — is mechanical: write the turn's record to the notebook (one `## <file>` block per "
+        "entry in the file's own shape; a dispatch row by its fingerprint's opening plus the fields to add) and run "
+        f"`python {record} --store {store} --session <id> --now <the latest now:> --record <path>`; its derivation "
+        "is what you report. A known short command needs no operator: the prompt hook derives it from the store's own "
+        f"adoption tokens. The pool per {pool} is the recall, every item still through the gc read barrier; the "
+        f"operator writes store/{POOL_FILE}, which a compact re-injects. When a derivation is not enough to steer, "
+        "ask the operator for the entry, never open the file here. No Agent tool in this session → the degraded "
+        "path: do the operation here and say so. The index's ## recall section rules it: `pool: inject` restores "
+        "the slot injection of every inject file; `operator-model:`, `pool-model:`, `sweep-model:` pick the models; "
+        "`operator-moments:` the continuations before a fresh launch."
+    )
+
+
+def known_short(store, preview):
+    """(count, prior) — how often the store's owner corpus holds this exact short message, and the last dispatch
+    row that carried it with what was done: the mechanical derivation of a known command, so no operator is
+    launched for 'commit' or 'push it'. (0, None) when the message is not a known command."""
+    token = _token(preview)
+    if not token:
+        return 0, None
+    count = sum(1 for t in voice_corpus(store) if _token(t) == token)
+    if count < KNOWN_SHORT_MIN:
+        return 0, None
+    prior = None
+    paths = [os.path.join(store, "dispatch.md")]
+    arc = os.path.join(store, "arc")
+    if os.path.isdir(arc):
+        paths = [os.path.join(arc, f) for f in sorted(os.listdir(arc))
+                 if f.startswith("dispatch-") and f.endswith(".md")] + paths
+    for p in paths:
+        if not os.path.exists(p):
+            continue
+        _header, blocks = split_entries(read_text(p))
+        for b in blocks:
+            if not b.startswith("- fingerprint:"):
+                continue
+            fp = _field_value(b.split("\n", 1)[0][len("- fingerprint:"):])
+            if _token(fp) != token:
+                continue
+            m = re.search(r"^  addressed:[ \t]*(.*?)[ \t]*$", b, re.M)
+            if m and m.group(1):
+                prior = m.group(1)
+    return count, prior
+
+
+def index_digest(index_text):
+    """The index in a few lines: the register, one line of hot rows (file live/budget), the updated: line."""
+    out = []
+    m = re.search(r"^register:\s*(\S*)", index_text, re.M)
+    out.append(f"register: {m.group(1) if m else '(none)'}")
+    section, hot = None, []
+    for l in index_text.split("\n"):
+        if l.startswith("## "):
+            section = l[3:].strip()
+            continue
+        if section == "hot" and l.startswith("|") and not set(l.replace("|", "").strip()) <= {"-", " ", ":"}:
+            cells = [c.strip() for c in l.strip("|").split("|")]
+            if cells and cells[0] != "file" and len(cells) > 4:
+                hot.append(f"{cells[0]} {cells[1]}/{cells[4]}")
+        if l.startswith("updated:"):
+            out.append(l)
+    if hot:
+        out.insert(1, "hot (live/budget): " + ", ".join(hot))
+    return "\n".join(out)
 
 
 def digest_line(store, fname):
@@ -510,13 +678,15 @@ def plan_label(item):
 
 
 def cmd_session_slot(payload, store, slot):
-    """One chunk per hook output — the only way past the per-hook cap."""
+    """One chunk per hook output — the only way past the per-hook cap; silent in the pooled mode."""
     if session_source(payload) in HELD_SOURCES:
         return 0
     index_path = os.path.join(store, "phi-index.md")
     if not os.path.exists(index_path):
         return 0
-    inject, _digest, _from_index = recall_lists(read_text(index_path))
+    inject, _digest, _from_index, pool, _models = recall_lists(read_text(index_path))
+    if pool != "inject":
+        return 0
     plan = chunk_plan(store, inject)
     if slot >= len(plan):
         return 0
@@ -646,12 +816,41 @@ def cmd_session_open(payload, store):
         print("no phi-index.md yet — cold-start: read store/* yourself, then bootstrap the register per /vlds:gc")
         return 0
     index_text = read_text(index_path)
-    inject, digest, from_index = recall_lists(index_text)
+    inject, digest, from_index, pool, models = recall_lists(index_text)
+    model_note = (f" (operator {models['operator']}, pool {models['pool']}, sweep {models['sweep']}; "
+                  f"{models['moments']} continuations)" if pool == "subagent" else "")
     print(f"lists from {'the index’s ## recall section' if from_index else 'the hook defaults (the index has no ## recall section)'}"
-          f" — inject: {', '.join(inject)}; digest: {', '.join(digest)}")
+          f" — pool: {pool}{model_note}; "
+          f"{'read' if pool == 'subagent' else 'inject'}: {', '.join(inject)}; digest: {', '.join(digest)}")
     if held:
         for fname in inject + digest:
             print(digest_line(store, fname))
+        if source == "compact" and pool == "subagent":
+            owner = pool_session(store)
+            pool_path = os.path.join(store, POOL_FILE)
+            if owner and owner == sid[:8]:
+                text = read_text(pool_path).rstrip("\n")
+                print(f"\n### {POOL_FILE} — this session's pooled recall, re-injected after the compact")
+                if len(text) > SLOT_BUDGET:
+                    print(f"NOT re-injected: {len(text):,} characters, over the hook-output cap — read store/{POOL_FILE} "
+                          "by hand before anything in it steers")
+                else:
+                    print(text)
+            elif owner:
+                print(f"- {POOL_FILE} belongs to session {owner}, not this one — re-pool per the SessionStart directive "
+                      "if the compact took the recall with it")
+    elif pool == "subagent":
+        print()
+        print(operator_directive(store, tag, now, models))
+        print("\n### phi-index.md — digest (the subagent reads it whole)")
+        print(index_digest(index_text))
+        print("\n### read list — digest lines (the subagent reads each whole; open one by hand only when an entry there is about to steer)")
+        for fname in inject + digest:
+            print(digest_line(store, fname))
+        voice = owner_voice(store)
+        if voice:
+            print()
+            print(voice)
     else:
         print("\n### phi-index.md")
         print(index_text.rstrip("\n"))
@@ -723,7 +922,37 @@ def pour_dispatch(store, sid, tag, now):
             f"next sweep")
 
 
-def stamp(store, prompt, tag, now):
+def barrier_candidates(store, preview):
+    """The earlier dispatch rows whose fingerprint resembles the message — the mechanical half of the dispatch
+    barrier. Identical token sets always match; otherwise a Jaccard overlap at or above BARRIER_JACCARD on a message
+    of at least BARRIER_MIN_TOKENS tokens. The judgment — ECHO, SUPERSEDED, or a fresh ask that merely reads alike —
+    is the operator subagent's, so a candidate leaves `state:` open for it."""
+    path = os.path.join(store, "dispatch.md")
+    if not os.path.exists(path):
+        return []
+    new = set(_token(preview).split())
+    if not new:
+        return []
+    out = []
+    for l in entry_lines(read_text(path)):
+        m = re.match(r'^- fingerprint:\s*"?(.*?)"?\s*$', l)
+        if not m:
+            continue
+        old = set(_token(m.group(1)).split())
+        if not old:
+            continue
+        overlap = len(old & new) / len(old | new)
+        if old == new or (len(new) >= BARRIER_MIN_TOKENS and overlap >= BARRIER_JACCARD):
+            out.append(m.group(1)[:60])
+    return out
+
+
+NOTIFICATION_PREFIX = "<task-notification>"   # a background task's completion, delivered as a prompt
+NOTIFICATION_ADDRESSED = ("a task notification — consumed by the session's next reply; no ask to answer, nothing "
+                          "for the operator")
+
+
+def stamp(store, prompt, tag, now, state=None, arrival="turn", addressed=None):
     path = os.path.join(store, "dispatch.md")
     if not os.path.exists(path):
         return None
@@ -734,10 +963,36 @@ def stamp(store, prompt, tag, now):
     nl = "\r\n" if b"\r\n" in read_bytes(path)[:4096] else "\n"
     entry = (f'{nl}- fingerprint: "{fp}"{nl}'
              f"  time: {now:{NOW_FMT}}{nl}"
-             f"  arrival: turn (stamped by the prompt hook, session {tag}){nl}")
+             f"  arrival: {arrival} (stamped by the prompt hook, session {tag}){nl}")
+    if state:
+        entry += f"  state: {state}{nl}"
+    if addressed:
+        entry += f"  addressed: {addressed}{nl}"
     with open(path, "ab") as f:
         f.write(entry.encode("utf-8"))
     return fp
+
+
+def take_turn_close_reports(store, sid):
+    """This session's lines from store/.turn-close, removed as they are taken — the Stop hook wrote them, and
+    the prompt that follows is where the model and the user learn what the light sweep did."""
+    path = os.path.join(store, TURN_CLOSE)
+    if not os.path.exists(path):
+        return []
+    mine, others = [], []
+    for l in read_text(path).split("\n"):
+        if not l.strip():
+            continue
+        parts = l.split(" ", 3)
+        (mine if parts[0] == sid else others).append(l)
+    with open(path, "w", encoding="utf-8", newline="\n") as f:
+        f.write("\n".join(others) + ("\n" if others else ""))
+    out = []
+    for l in mine:
+        parts = l.split(" ", 3)
+        if len(parts) > 3:
+            out.append(f"- turn-close ({parts[2]}): {parts[3]}")
+    return out
 
 
 def cmd_prompt_open(payload, store):
@@ -751,14 +1006,51 @@ def cmd_prompt_open(payload, store):
     if not title:
         lines.append("- title: none yet — no custom-title record in the transcript at hook time (it is written "
                      "asynchronously) and none recorded in .sessions; re-read at the next prompt")
+    lines += take_turn_close_reports(store, sid)
     if record_seen(store, sid, now, title):
         lines.append("- " + pour_dispatch(store, sid, tag, now))
-    fp = stamp(store, prompt, tag, now)
+        index_path = os.path.join(store, "phi-index.md")
+        if os.path.exists(index_path) and recall_lists(read_text(index_path))[3] == "subagent":
+            lines.append("- operator (open) owed now: the pool — not yet pooled for this session; derive this first "
+                         "prompt's task in one line and launch the operator before answering, per the SessionStart "
+                         "directive (the Agent tool, the brief at hooks/operator-prompt.md, the pool's model); its "
+                         "derivation carries the recall")
+    preview = " ".join(str(prompt).split())
+    if preview.startswith(NOTIFICATION_PREFIX):
+        # a background task's completion is not an ask: the barrier has no question to put, and a row left open
+        # here would be closed by an operator whose own completion arrives the same way — a loop; the row is the
+        # hook's whole, stamped complete on arrival
+        fp = stamp(store, prompt, tag, now, state="FRESH", arrival="task notification", addressed=NOTIFICATION_ADDRESSED)
+        if fp is not None:
+            lines.append(f'- stamped: dispatch.md row "{fp[:80]}" at {now:{NOW_FMT}} — a task notification: its row '
+                         "is complete on arrival (FRESH, consumed); nothing for the operator")
+        print("\n".join(lines))
+        return 0
+    words = len(preview.split())
+    known, prior = known_short(store, preview) if words <= SHORT_WORDS else (0, None)
+    # a known short command is a repeated act by nature — the owner's own adoption token — never an echo: the
+    # barrier has no question to put, and its intent is the store's to give
+    cands = [] if known else barrier_candidates(store, preview)
+    fp = stamp(store, prompt, tag, now, state=None if cands else "FRESH")
     if fp is None:
-        lines.append("- stamp: dispatch.md absent — the row is yours to append")
+        lines.append("- stamp: dispatch.md absent — the row is the operator's to append")
+    elif cands:
+        lines.append(f'- stamped: dispatch.md row "{fp[:80]}" at {now:{NOW_FMT}} — barrier: it resembles '
+                     f'{len(cands)} earlier row{"s" if len(cands) > 1 else ""} (latest: "{cands[-1]}"); state: left '
+                     "open — hand the message to the operator (open) before answering; its derivation says FRESH, "
+                     "ECHO, or SUPERSEDED, and the operator completes the row")
     else:
-        lines.append(f'- stamped: dispatch.md row "{fp[:80]}" at {now:{NOW_FMT}} — check it against the '
-                     f"rows already there; complete its state: before answering and its addressed: by turn end")
+        lines.append(f'- stamped: dispatch.md row "{fp[:80]}" at {now:{NOW_FMT}} — barrier: no earlier row '
+                     "resembles it; state: FRESH written; addressed: is the record's at the turn's close")
+    if fp is not None and words <= SHORT_WORDS:
+        if known:
+            lines.append(f"- short message, known: \"{preview[:40]}\" ×{known} in this store's owner corpus — derive "
+                         "it as before, no operator" + (f"; the last time it was addressed: {prior[:160]}" if prior
+                                                         else "; no earlier row records what was done"))
+        else:
+            lines.append(f"- short message ({words} word{'s' if words != 1 else ''}), not a known command: the "
+                         "operator (open) derives its intent from the store before you answer; state the derivation "
+                         "in one line at the top of the reply")
     print("\n".join(lines))
     return 0
 
@@ -824,13 +1116,62 @@ def touched_store(payload, store):
     return None
 
 
+def check_delta(store, sid, summary):
+    """The summary when it differs from the last one this session was handed, else its verdict line alone — the
+    context the model works in is finite, and the same debt list pasted after every store write spends it."""
+    path = os.path.join(store, CHECK_LAST)
+    digest = sha12(summary.encode("utf-8"))
+    seen = {}
+    if os.path.exists(path):
+        try:
+            seen = json.loads(read_text(path)) or {}
+        except ValueError:
+            seen = {}
+    if seen.get(sid) == digest:
+        verdict = next((l for l in summary.split("\n") if l.startswith("phi.py check")), summary.split("\n")[-1])
+        return f"{verdict} — unchanged since the last check this session"
+    seen[sid] = digest
+    with open(path, "w", encoding="utf-8", newline="\n") as f:
+        f.write(json.dumps(seen))
+    return summary
+
+
 def cmd_post_write(payload, store):
     what = touched_store(payload, store)
     if not what or not os.path.isdir(store):
         return 0
     now = datetime.datetime.now()
-    text = f"{now_line(now)}\nVLDS check after the write to {what}:\n{check_summary(store)}"
+    sid = str(payload.get("session_id") or "unknown")
+    text = f"{now_line(now)}\nVLDS check after the write to {what}:\n{check_delta(store, sid, check_summary(store))}"
     print(json.dumps({"hookSpecificOutput": {"hookEventName": "PostToolUse", "additionalContext": text}}))
+    return 0
+
+
+# ─── turn-close ─────────────────────────────────────────────────────────────────────────────────────────
+
+def cmd_turn_close(payload, store):
+    """Stop: run the light normalize sweep and leave its report for the next prompt hook. Silent when there is
+    nothing to move; every other outcome — moved, skipped for a lock, stopped at a gate, owed — is a line."""
+    if not os.path.exists(os.path.join(store, "phi-index.md")):
+        return 0
+    sid = str(payload.get("session_id") or "unknown")
+    now = datetime.datetime.now()
+    script = os.path.join(plugin_root(), "scripts", "normalize.py")
+    if not os.path.exists(script):
+        return 0
+    try:
+        r = subprocess.run([sys.executable or "python3", script, "--store", store, "--session", sid, "--light",
+                            "--now", f"{now:{NOW_FMT}}"], capture_output=True, text=True, encoding="utf-8",
+                           errors="replace", timeout=50)
+        out = (r.stdout or "") + (r.stderr or "")
+    except Exception as e:  # noqa: BLE001 — a hook degrades, never raises
+        out = f"turn-close: could not run normalize.py — {type(e).__name__}: {e}"
+    report = next((l for l in reversed(out.split("\n")) if l.startswith("turn-close:")), "").strip()
+    if not report or report.startswith("turn-close: nothing to move") and "owed" not in report:
+        return 0
+    with open(os.path.join(store, TURN_CLOSE), "a", encoding="utf-8", newline="\n") as f:
+        f.write(f"{sid} {now:{NOW_FMT}} {report[len('turn-close: '):]}\n")
+    print(report)
     return 0
 
 
@@ -859,6 +1200,8 @@ def main():
             return cmd_pre_write(payload, store)
         if sub == "post-write":
             return cmd_post_write(payload, store)
+        if sub == "turn-close":
+            return cmd_turn_close(payload, store)
         print(f"vlds_hooks.py: unknown subcommand {sub!r}")
         return 0
     except Exception as e:  # noqa: BLE001 — a hook degrades, never raises

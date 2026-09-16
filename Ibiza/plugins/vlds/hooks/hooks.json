@@ -110,6 +110,17 @@
           }
         ]
       }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/hooks/run-hook.sh\" turn-close",
+            "timeout": 60
+          }
+        ]
+      }
     ]
   }
 }

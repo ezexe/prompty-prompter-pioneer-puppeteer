@@ -54,7 +54,7 @@ SEED_HOT = ["local-storage.md", "index.md", "data-store.md", "ledger.md", "tombs
 # every name the store owns — the same set as hooks/vlds_hooks.py STORE_FILES; a file carrying one of these
 # names outside the store, holding store-shaped entries, is the [STRAY] class (found live: a ledger entry
 # appended to a repo root because the bare name had been true under an earlier fence's cd)
-STORE_FILES = set(SEED_HOT) | {"dispatch.md", "phi-index.md"}
+STORE_FILES = set(SEED_HOT) | {"dispatch.md", "phi-index.md", "recall-pool.md"}
 STRAY_SKIP = {".git", "node_modules", "build", "third_party", "__pycache__"}
 STRAY_DEPTH = 2
 STRAY_ENTRY_RE = re.compile(r"^- [a-z-]+: ")

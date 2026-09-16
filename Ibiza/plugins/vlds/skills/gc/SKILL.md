@@ -44,12 +44,13 @@ The **write barrier** is its prevention — before persisting any standing rule,
 ## When the collector runs
 
 1. **On free** — the user retracts, corrects, or supersedes: sweep TRANSITIVELY along the reference graph in both directions — everything derived from the freed decision, and every store that cites the swept items. A sweep that leaves an inbound reference has manufactured a dangling pointer.
-2. **On recall (the read barrier)** — before a stored rule, memory, or assumption shapes an in-session decision, trace its provenance to a root; unreachable → do not apply, surface instead. A tier-scoped entry whose scope has closed is collected here, which is how turn-end expiry is realized without a turn-end event to hook.
+2. **On recall (the read barrier)** — before a stored rule, memory, or assumption shapes an in-session decision, trace its provenance to a root; unreachable → do not apply, surface instead. A tier-scoped entry whose scope has closed is collected here — the operator subagent's pool applies the barrier to the whole store at the session's first prompt and lists what it surfaced — and what rule alone can expire is also collected at the turn's close (trigger 8).
 3. **On dispatch (the dispatch barrier)** — before the thought stream commits to answering a message, check it against the dispatch record: already addressed → answer the delta, not the message; superseded → surface the free instead of acting.
 4. **On completion** — a landed arc collects what it obsoleted.
 5. **Full collection** — `/vlds:gc full`: mark-and-sweep the whole store.
 6. **On pressure** — when a landed arc or a full audit shows growth running one way, run the cycle test: per-item tracing cannot see a cluster that only references itself. It previews, never sweeps — [reference.md](reference.md).
-7. **On normalize** — `/vlds:gc normalize <file | 'register'>`: the φ-register sweep — pour cold spans, then BORROW → RESOLVE → CARRY until settled; owed when the index reads `pressure: owed` or the register scan shows '2'/'11' debt. Rules, budgets, commit protocol, and scans: [reference.md](reference.md).
+7. **On normalize** — `/vlds:gc normalize <file | 'register'>`: the judged φ-register sweep — pour cold spans, then BORROW → RESOLVE → CARRY until settled; owed when the index reads `pressure: owed` or the register scan shows '2'/'11' debt, and run then on its own, never held for the user's word: the operator's sweep moment scores what is cold and the normalizer's `--pour` places it. Rules, budgets, commit protocol, and scans: [reference.md](reference.md).
+8. **At the turn's close** — the light sweep, mechanical: the plugin's Stop hook attaches a hook-poured dispatch record where a live segment has room, expires and pours the virtual entries another session minted, and pours the logger's oldest past its budget — the classes decided by rule alone — through the same gates and lock, and the next prompt prints its report. What needs a score rather than a count waits for trigger 7.
 
 ## The hazard ranking
 
@@ -67,7 +68,7 @@ The gate's storage tiers persist to partition files, and no partition invalidate
 Two of them are collection triggers already in the list above, met at tier scope: `session-storage.md` clearing at task completion is trigger 4, and `local-storage.md` freeing on retraction is trigger 1.
 
 Persisting an ephemeral tier gives Gen 0 state a Gen 1 body — exactly why its expiry has to be checked rather than assumed: an un-expired `virtual.md` entry is the tenuring hazard on disk.
-Nothing here fires on a timer — the expiry is **lazy, enforced at recall**, which is what makes it real without a turn-end event to hook: an entry past its scope never steers, whatever bytes remain on disk.
+Nothing here fires on a timer — the expiry is **lazy, enforced at recall**, so an entry past its scope never steers, whatever bytes remain on disk; and for what rule alone decides — a virtual entry minted by a session that is not this one — the turn's close pours it mechanically, so the bytes leave too.
 
 Which expiries take a tombstone is not uniform, and the split follows what was lost:
 
@@ -83,7 +84,7 @@ A message, once addressed, is stored state like any other: re-addressing it dere
 
 | State | Meaning | Do |
 | --- | --- | --- |
-| `FRESH` | no matching entry in the record before this message's own stamped row | address it, then complete its row — the stamp is the hook's, `state:` and `addressed:` are yours |
+| `FRESH` | no matching entry in the record before this message's own stamped row | address it — the stamp is the hook's, and so is `state: FRESH` when no earlier row resembles the message; a candidate row leaves the state to the operator subagent's judgment, and `addressed:` is the operator's at the turn's close |
 | `ECHO` | already addressed, and nothing about it changed | answer the delta only — never re-answer the message whole |
 | `SUPERSEDED` | addressed, then freed by a later message | surface the free; acting on it is a use-after-free |
 
