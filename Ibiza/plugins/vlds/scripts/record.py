@@ -50,7 +50,7 @@ except Exception:  # noqa: BLE001 — the hooks file is beside this one; without
 import datetime  # noqa: E402
 
 STORE_FILES = {"dispatch.md", "index.md", "ledger.md", "logger.md", "tombstones.md", "virtual.md",
-               "session-storage.md", "local-storage.md", "data-store.md"}
+               "session-storage.md", "local-storage.md", "data-store.md", "briefs.md"}
 LOGGER_ENTRY_RE = re.compile(r"^- `\[(?:gate|guide|gc|inspector|looper)\]` 20\d\d-\d\d-\d\d(?: \d\d:\d\d)? — \*\*")
 HEAD_RE = re.compile(r"^- ([a-z-]+):")
 FIELD_RE = re.compile(r"^  ([a-z-]+):")
@@ -128,8 +128,20 @@ class StoreFile:
         return out
 
     def find(self, head):
+        """The entries whose head line begins with the block's head — or whose head is a TRUNCATED prefix of it:
+        the prompt hook caps a fingerprint at FINGERPRINT_CHARS and closes it with `…`, so a block that gives
+        the message whole must still find the row the hook stamped."""
         key = head.rstrip().rstrip('"').rstrip("…")
-        return [(s, e) for s, e in self.entries() if self.lines[s].startswith(key)]
+        out = []
+        for s, e in self.entries():
+            line = self.lines[s]
+            if line.startswith(key):
+                out.append((s, e))
+                continue
+            stored = line.rstrip().rstrip('"')
+            if stored.endswith("…") and len(stored) > 20 and key.startswith(stored[:-1]):
+                out.append((s, e))
+        return out
 
     def append(self, block):
         while self.lines and not self.lines[-1].strip():

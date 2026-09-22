@@ -64,6 +64,22 @@ whatever the console codepage says):
                           a minute (one session stamped rows up to fifty minutes ahead). Silent otherwise. Always
                           `ask`, never `deny`: `index.md` and `ledger.md` are legitimate names in a docs tree,
                           and only the user can say which this one is.
+  pre-ask                 PreToolUse on AskUserQuestion and any mcp__*__show_widget: when briefs.md holds a
+                          standing label (a class the owner ruled standing at its second instance), every
+                          option's brief — a widget's `.elicit-pill` inner text, a panel option's description
+                          — must carry one `<label>:` line; a picker missing one is DENIED with the labels, the
+                          count that made each standing, and the options that lack them, so the model re-issues
+                          the informed picker and the owner never sees the thin one. Keyed once per picker
+                          fingerprint (the widget's title, the panel's question texts) in store/.pre-ask: the
+                          re-issue passes even if still thin — a bounce is a nudge, not a wall. Silent when
+                          nothing is standing, when every option carries every label, and on meta options
+                          (all of the above, other). The recorder half is prompt-open's: a prompt that is neither
+                          the elicitation shell's submit line nor its skip, arriving right after a served
+                          picker, is stamped `kind: detail-ask` / `on: <picker>` (a submit whose textbox carries
+                          a question, `kind: submit+detail-ask`), and the close names the omitted class in
+                          briefs.md — the judgment no hook can make, since transcripts keep no reasoning; a
+                          picker's submit or skip whose resembling rows are all addressed is written FRESH by
+                          construction, never handed to the operator.
   post-write              PostToolUse: when a Write, Edit, Bash, or PowerShell call touched the store, or wrote
                           a store-named file anywhere, print the clock and run `phi.py check`, handing its
                           verdict back as additionalContext — a mis-homed write is followed at once by a check
@@ -104,7 +120,7 @@ import sys
 from collections import Counter
 
 DEFAULT_INJECT = ["local-storage.md", "index.md", "tombstones.md", "ledger.md", "session-storage.md",
-                  "virtual.md"]
+                  "virtual.md", "briefs.md"]
 DEFAULT_DIGEST = ["data-store.md", "logger.md"]
 LOCK_STALE_S = 3600
 FINGERPRINT_CHARS = 200
@@ -116,7 +132,15 @@ HELD_SOURCES = ("resume", "fork", "compact")   # SessionStart sources whose conv
 # the store's file names — the same set as scripts/phi.py STORE_FILES; a file carrying one of these names
 # outside a `.claude/vlds/` directory is what the pre-write gate asks about and the check reports as [STRAY]
 STORE_FILES = {"dispatch.md", "index.md", "ledger.md", "logger.md", "tombstones.md", "virtual.md",
-               "session-storage.md", "local-storage.md", "data-store.md", "phi-index.md", "recall-pool.md"}
+               "session-storage.md", "local-storage.md", "data-store.md", "phi-index.md", "recall-pool.md",
+               "briefs.md"}
+BRIEFS_FILE = "briefs.md"           # what a picker left out, named when the owner asked — hooks/briefs-seed.md
+PRE_ASK_SEEN = ".pre-ask"           # picker fingerprints the pre-ask gate has bounced once; the re-issue passes
+# the two picker tools — the closing's built widget and the fork's native panel — as PreToolUse names them
+PICKER_TOOL_RE = re.compile(r"^(AskUserQuestion|mcp__[A-Za-z0-9_-]+__show_widget)$")
+# the elicitation shell's own submit line ("<Title> details — Label: value · Label: value") and its skip
+SUBMIT_RE = re.compile(r"^(.{1,120}?) details — (.+)$")
+SKIP_RE = re.compile(r"^\(Skipped the form\b")
 NOW_FMT = "%Y-%m-%d %H:%M"
 POOL_FILE = "recall-pool.md"        # the recall subagent's pooled report — derived, one per store, session-named
 POOL_MODES = ("subagent", "inject")
@@ -954,7 +978,7 @@ NOTIFICATION_ADDRESSED = ("a task notification — consumed by the session's nex
                           "for the operator")
 
 
-def stamp(store, prompt, tag, now, state=None, arrival="turn", addressed=None):
+def stamp(store, prompt, tag, now, state=None, arrival="turn", addressed=None, fields=None):
     path = os.path.join(store, "dispatch.md")
     if not os.path.exists(path):
         return None
@@ -966,6 +990,8 @@ def stamp(store, prompt, tag, now, state=None, arrival="turn", addressed=None):
     entry = (f'{nl}- fingerprint: "{fp}"{nl}'
              f"  time: {now:{NOW_FMT}}{nl}"
              f"  arrival: {arrival} (stamped by the prompt hook, session {tag}){nl}")
+    for k, v in (fields or {}).items():
+        entry += f"  {k}: {v}{nl}"
     if state:
         entry += f"  state: {state}{nl}"
     if addressed:
@@ -973,6 +999,154 @@ def stamp(store, prompt, tag, now, state=None, arrival="turn", addressed=None):
     with open(path, "ab") as f:
         f.write(entry.encode("utf-8"))
     return fp
+
+
+def barrier_rows(store, preview):
+    """[(fingerprint, addressed)] for the earlier rows barrier_candidates names — `addressed` True when the row
+    carries an addressed: field, which is what makes a picker's later submit FRESH by construction."""
+    path = os.path.join(store, "dispatch.md")
+    if not os.path.exists(path):
+        return []
+    new = set(_token(preview).split())
+    if not new:
+        return []
+    out, cur = [], None
+    for l in read_text(path).split("\n"):
+        m = re.match(r'^- fingerprint:\s*"?(.*?)"?\s*$', l)
+        if m:
+            old = set(_token(m.group(1)).split())
+            hit = bool(old) and (old == new or (len(new) >= BARRIER_MIN_TOKENS
+                                                and len(old & new) / len(old | new) >= BARRIER_JACCARD))
+            cur = [m.group(1)[:60], False] if hit else None
+            if cur:
+                out.append(cur)
+        elif cur is not None and l.startswith("  addressed:") and l.split(":", 1)[1].strip():
+            cur[1] = True
+    return [(fp, done) for fp, done in out]
+
+
+def picker_shape(preview):
+    """('submit', title, question_riding) for the elicitation shell's submit line, ('skip', None, False) for its
+    skip, None for anything else. A `?` inside the submitted values is a detail-ask riding on a ruling."""
+    m = SUBMIT_RE.match(preview)
+    if m:
+        return ("submit", m.group(1).strip(), "?" in m.group(2))
+    if SKIP_RE.match(preview):
+        return ("skip", None, False)
+    return None
+
+
+def last_picker(payload, preview):
+    """('widget' | 'panel', title) when a picker was the last act of the transcript's last assistant turn — a
+    show_widget or AskUserQuestion call with no later tool call and no later user prompt but the current one
+    (which may or may not be recorded yet at hook time) — else None."""
+    path = payload.get("transcript_path")
+    if not path or not os.path.exists(str(path)):
+        return None
+    picker, prompts_after = None, 0
+    try:
+        with open(str(path), encoding="utf-8", errors="replace") as f:
+            for line in f:
+                if '"tool_use"' not in line and '"user"' not in line:
+                    continue
+                try:
+                    rec = json.loads(line)
+                except ValueError:
+                    continue
+                msg = rec.get("message") if isinstance(rec, dict) else None
+                if not isinstance(msg, dict):
+                    continue
+                role, content = msg.get("role"), msg.get("content")
+                if role == "assistant" and isinstance(content, list):
+                    for b in content:
+                        if not (isinstance(b, dict) and b.get("type") == "tool_use"):
+                            continue
+                        name = str(b.get("name") or "")
+                        inp = b.get("input") if isinstance(b.get("input"), dict) else {}
+                        if not PICKER_TOOL_RE.match(name):
+                            picker = None          # a later act: the picker was not the turn's close
+                            continue
+                        if name == "AskUserQuestion":
+                            qs = inp.get("questions") or []
+                            q0 = qs[0] if qs and isinstance(qs[0], dict) else {}
+                            title = q0.get("header") or q0.get("question") or ""
+                            picker = ("panel", " ".join(str(title).split())[:80])
+                        else:
+                            picker = ("widget", " ".join(str(inp.get("title") or "").split())[:80])
+                        prompts_after = 0
+                elif role == "user" and picker is not None:
+                    text = content if isinstance(content, str) else None
+                    if text is None and isinstance(content, list) and content and \
+                            all(isinstance(x, dict) and x.get("type") == "text" for x in content):
+                        text = " ".join(str(x.get("text") or "") for x in content)
+                    if text is None:
+                        continue               # a tool_result
+                    t = " ".join(text.split())
+                    if not t or t.startswith("<") or t == preview:
+                        continue               # a system reminder, a notification, or the prompt being stamped
+                    prompts_after += 1
+    except OSError:
+        return None
+    return picker if picker is not None and prompts_after == 0 else None
+
+
+def standing_labels(store):
+    """The labels briefs.md holds as standing — an entry whose `standing:` carries a time — with their counts."""
+    path = os.path.join(store, BRIEFS_FILE)
+    if not os.path.exists(path):
+        return {}
+    counts, ruled, label, standing = {}, set(), None, False
+    for l in entry_body_lines(read_text(path)) + ["- end:"]:
+        if l.startswith("- "):
+            if label:
+                counts[label] = counts.get(label, 0) + 1
+                if standing:
+                    ruled.add(label)
+            label, standing = None, False
+        elif l.startswith("  omitted:"):
+            v = l.split(":", 1)[1].strip()
+            label = _field_value(v).split()[0].strip(",;").lower() if v else None
+        elif l.startswith("  standing:"):
+            standing = bool(re.match(r"20\d\d-\d\d-\d\d", l.split(":", 1)[1].strip()))
+    return {k: counts[k] for k in sorted(ruled)}
+
+
+def entry_body_lines(text):
+    """The lines after the header separator — the entries, never the header's own shape template."""
+    lines = text.replace("\r\n", "\n").split("\n")
+    try:
+        return lines[lines.index("---") + 1:]
+    except ValueError:
+        return lines
+
+
+def ensure_dispatch_shape(store):
+    """Add `kind:` and `on:` to a dispatch.md header written before the detail-ask recorder existed — the header
+    is the shape's authority, the pour reseeds from it, and a row carrying a field the header lacks is drift."""
+    path = os.path.join(store, "dispatch.md")
+    if not os.path.exists(path):
+        return False
+    data = read_bytes(path)
+    parts = split_header(data)
+    if not parts:
+        return False
+    header, sep, body = parts
+    if b"\n  kind:" in header or b"\n  arrival:" not in header:
+        return False
+    nl = b"\r\n" if b"\r\n" in header else b"\n"
+    lines = header.split(nl)
+    for i, l in enumerate(lines):
+        if l.startswith(b"  arrival:"):
+            lines[i:i + 1] = [l,
+                              "  kind: [detail-ask | submit+detail-ask — the prompt hook's, when a question about a "
+                              "served picker arrives; absent otherwise]".encode("utf-8"),
+                              "  on: [the picker it asks about — widget «title» | panel «header»; absent "
+                              "otherwise]".encode("utf-8")]
+            break
+    else:
+        return False
+    write_bytes(path, nl.join(lines) + sep + body)
+    return True
 
 
 def take_turn_close_reports(store, sid):
@@ -1033,10 +1207,40 @@ def cmd_prompt_open(payload, store):
     known, prior = known_short(store, preview) if words <= SHORT_WORDS else (0, None)
     # a known short command is a repeated act by nature — the owner's own adoption token — never an echo: the
     # barrier has no question to put, and its intent is the store's to give
-    cands = [] if known else barrier_candidates(store, preview)
-    fp = stamp(store, prompt, tag, now, state=None if cands else "FRESH")
+    rows = [] if known else barrier_rows(store, preview)
+    cands = [fp_ for fp_, _done in rows]
+    # the detail-ask recorder: a picker was the last act of the last assistant turn, and this prompt is neither
+    # the elicitation shell's submit line nor its skip — a question about the picker, which the close names in
+    # briefs.md; a submit whose textbox carries a question is the third case, a ruling with a detail-ask riding
+    shape = picker_shape(preview)
+    picker = last_picker(payload, preview)
+    fields = {}
+    if shape is not None:
+        kind, title, riding = shape
+        if riding:
+            fields = {"kind": "submit+detail-ask", "on": f"widget «{title}»"}
+    elif picker is not None:
+        fields = {"kind": "detail-ask", "on": f"{picker[0]} «{picker[1]}»"}
+    if fields and ensure_dispatch_shape(store):
+        lines.append("- dispatch.md header: `kind:` and `on:` added to the row shape (the detail-ask recorder's fields)")
+    # a picker's submit or skip resembling an earlier row: served fresh after that row was addressed, it is FRESH
+    # by construction (the owner's ruling of 2026-09-22) — the hook writes FRESH when every resembling row is
+    # addressed; an open one leaves the call to this context, never the operator
+    fresh_by_construction = bool(shape) and bool(rows) and all(done for _fp, done in rows)
+    state = "FRESH" if (not cands or fresh_by_construction) else None
+    fp = stamp(store, prompt, tag, now, state=state, fields=fields)
     if fp is None:
         lines.append("- stamp: dispatch.md absent — the row is the operator's to append")
+    elif cands and fresh_by_construction:
+        lines.append(f'- stamped: dispatch.md row "{fp[:80]}" at {now:{NOW_FMT}} — barrier: it resembles '
+                     f'{len(cands)} earlier row{"s" if len(cands) > 1 else ""} (latest: "{cands[-1]}"), every one '
+                     "addressed — a picker's submit served after them is FRESH by construction; state: FRESH written, "
+                     "nothing for the operator")
+    elif cands and shape is not None:
+        lines.append(f'- stamped: dispatch.md row "{fp[:80]}" at {now:{NOW_FMT}} — barrier: it resembles '
+                     f'{len(cands)} earlier row{"s" if len(cands) > 1 else ""} (latest: "{cands[-1]}"), at least one '
+                     "still open — a picker's submit is judged HERE, in one line, never by the operator: FRESH "
+                     "unless it re-submits the very picker the open row came from; complete the row at the close")
     elif cands:
         lines.append(f'- stamped: dispatch.md row "{fp[:80]}" at {now:{NOW_FMT}} — barrier: it resembles '
                      f'{len(cands)} earlier row{"s" if len(cands) > 1 else ""} (latest: "{cands[-1]}"); state: left '
@@ -1045,6 +1249,19 @@ def cmd_prompt_open(payload, store):
     else:
         lines.append(f'- stamped: dispatch.md row "{fp[:80]}" at {now:{NOW_FMT}} — barrier: no earlier row '
                      "resembles it; state: FRESH written; addressed: is the record's at the turn's close")
+    if fp is not None and fields:
+        on = fields["on"]
+        what = ("a question riding on the submit's textbox" if fields["kind"] == "submit+detail-ask"
+                else "a question about the picker, not its submit")
+        lines.append(f"- detail-ask on {on}: {what} — answer it, and the close owes store/briefs.md an entry: "
+                     "`asked:` verbatim, `on:` as stamped, `at:` closing or fork, `omitted:` the class the picker's "
+                     "briefs left out, as one label; the second instance of a class → the closing picker offers to "
+                     "make that label standing")
+    standing = standing_labels(store)
+    if standing:
+        lines.append("- standing brief lines: " + ", ".join(f"`{k}:` (×{v})" for k, v in sorted(standing.items()))
+                     + " — every option of a picker carries one line per label; the pre-ask gate bounces a picker "
+                     "missing one, once")
     if fp is not None and words <= SHORT_WORDS:
         if known:
             lines.append(f"- short message, known: \"{preview[:40]}\" ×{known} in this store's owner corpus — derive "
@@ -1087,6 +1304,80 @@ def cmd_pre_write(payload, store):
         return 0
     print(json.dumps({"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "ask",
                                              "permissionDecisionReason": "; ".join(reasons)}}))
+    return 0
+
+
+# ─── pre-ask ────────────────────────────────────────────────────────────────────────────────────────────
+
+PILL_RE = re.compile(r"<button\b[^>]*\bclass=\"[^\"]*\belicit-pill\b[^\"]*\"[^>]*>(.*?)</button>", re.S | re.I)
+DATA_VALUE_RE = re.compile(r"\bdata-value=\"([^\"]*)\"", re.I)
+TAG_RE = re.compile(r"<[^>]+>")
+META_OPTIONS = ("all of the above", "other", "skip", "none")
+
+
+def picker_options(payload):
+    """[(option, brief_text)] for the picker a PreToolUse payload is about to serve — the widget's `.elicit-pill`
+    buttons (data-value, inner text) or the native panel's options (label, description) — and its fingerprint
+    source (the widget's title, or the question texts). Meta options (all of the above, other) carry no brief."""
+    name = str(payload.get("tool_name") or "")
+    inp = payload.get("tool_input") if isinstance(payload.get("tool_input"), dict) else {}
+    opts, key = [], ""
+    if name == "AskUserQuestion":
+        for q in inp.get("questions") or []:
+            if not isinstance(q, dict):
+                continue
+            key += " " + str(q.get("question") or "")
+            for o in q.get("options") or []:
+                if isinstance(o, dict):
+                    opts.append((str(o.get("label") or ""), str(o.get("description") or "")))
+    elif PICKER_TOOL_RE.match(name):
+        key = str(inp.get("title") or "")
+        html = str(inp.get("widget_code") or "")
+        for m in PILL_RE.finditer(html):
+            attrs_start = html.rfind("<button", 0, m.start(1))
+            attrs = html[attrs_start:m.start(1)]
+            v = DATA_VALUE_RE.search(attrs)
+            label = v.group(1) if v else TAG_RE.sub(" ", m.group(1))
+            if "data-other" in attrs.lower():
+                continue
+            opts.append((" ".join(label.split()), " ".join(TAG_RE.sub(" ", m.group(1)).split())))
+    return opts, " ".join(key.split())
+
+
+def cmd_pre_ask(payload, store):
+    """Bounce a picker whose option briefs lack a standing label — once per picker fingerprint, so the enriched
+    re-issue passes — naming the labels and the count that made each standing; silent when nothing is standing,
+    when every option carries every label, and on the second call for the same picker. A deny reaches the model
+    before the owner sees the picker, which is what the single-submit, served-fresh closing requires."""
+    standing = standing_labels(store)
+    if not standing:
+        return 0
+    opts, key = picker_options(payload)
+    real = [(o, b) for o, b in opts if o.strip().rstrip(".").lower().split(" (")[0] not in META_OPTIONS]
+    if not real:
+        return 0
+    missing = {}
+    for option, brief in real:
+        low = brief.lower()
+        lacking = [k for k in standing if not re.search(r"(?<![a-z])" + re.escape(k) + r"\s*:", low)]
+        if lacking:
+            missing[option] = lacking
+    if not missing:
+        return 0
+    fp = sha12((key or json.dumps(opts, sort_keys=True)).encode("utf-8"))
+    seen_path = os.path.join(store, PRE_ASK_SEEN)
+    seen = set(read_text(seen_path).split()) if os.path.exists(seen_path) else set()
+    if fp in seen:
+        return 0
+    with open(seen_path, "a", encoding="utf-8", newline="\n") as f:
+        f.write(fp + "\n")
+    labels = ", ".join(f"`{k}:` (standing since its {v}{'nd' if v == 2 else 'th'} instance)" for k, v in sorted(standing.items()))
+    where = "; ".join(f"{o[:40]} lacks {', '.join(ls)}" for o, ls in list(missing.items())[:6])
+    print(json.dumps({"hookSpecificOutput": {
+        "hookEventName": "PreToolUse", "permissionDecision": "deny",
+        "permissionDecisionReason": (f"VLDS pre-ask: the picker's briefs lack a standing line — {labels}; "
+                                     f"{where}. Re-issue it with one `<label>: …` line per option (store/briefs.md "
+                                     "names the class each label stands for); the re-issue of this picker passes.")}}))
     return 0
 
 
@@ -1202,6 +1493,8 @@ def main():
             return cmd_prompt_open(payload, store)
         if sub == "pre-write":
             return cmd_pre_write(payload, store)
+        if sub == "pre-ask":
+            return cmd_pre_ask(payload, store)
         if sub == "post-write":
             return cmd_post_write(payload, store)
         if sub == "turn-close":

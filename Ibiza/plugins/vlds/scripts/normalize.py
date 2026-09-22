@@ -56,11 +56,13 @@ while len(CACHE) < 40:
     CACHE.append(CACHE[-1] + CACHE[-2])
 
 DEFAULT_BUDGET = {"local-storage.md": 21, "index.md": 21, "data-store.md": 34, "ledger.md": 21,
-                  "tombstones.md": 21, "virtual.md": 13, "session-storage.md": 13, "logger.md": 34}
+                  "tombstones.md": 21, "virtual.md": 13, "session-storage.md": 13, "logger.md": 34,
+                  "briefs.md": 21}
 HOT_ORDER = ["local-storage.md", "index.md", "data-store.md", "ledger.md", "tombstones.md", "virtual.md",
-             "session-storage.md", "logger.md", "dispatch.md"]
+             "session-storage.md", "logger.md", "briefs.md", "dispatch.md"]
 ID_PREFIX = {"data-store.md": "ds", "ledger.md": "le", "logger.md": "lg", "virtual.md": "vr",
-             "local-storage.md": "ls", "session-storage.md": "ss", "tombstones.md": "ts", "index.md": "ix"}
+             "local-storage.md": "ls", "session-storage.md": "ss", "tombstones.md": "ts", "index.md": "ix",
+             "briefs.md": "br"}
 SEG_NAME_RE = re.compile(r"^arc-(\d+)-([a-z]+)\.md$")
 SEG_TOKEN_RE = re.compile(r"\barc-(\d+)-([a-z]+)\b")
 POURED_DISPATCH_RE = re.compile(r"^dispatch-\d{8}-\d{6}-[0-9A-Za-z-]{1,12}\.md$")

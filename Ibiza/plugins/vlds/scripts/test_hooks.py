@@ -661,6 +661,176 @@ def test_check_delta():
     print("check delta: green")
 
 
+def _transcript(root, records):
+    path = os.path.join(root, "transcript.jsonl")
+    with open(path, "w", encoding="utf-8", newline="\n") as f:
+        for r in records:
+            f.write(json.dumps(r) + "\n")
+    return path
+
+
+def _asst(*blocks):
+    return {"type": "assistant", "message": {"role": "assistant", "content": list(blocks)}}
+
+
+def _user(text):
+    return {"type": "user", "message": {"role": "user", "content": text}}
+
+
+WIDGET_USE = {"type": "tool_use", "name": "mcp__visualize__show_widget",
+              "input": {"title": "release_acts_picker", "widget_code": "<form class=\"elicit\"></form>"}}
+PANEL_USE = {"type": "tool_use", "name": "AskUserQuestion",
+             "input": {"questions": [{"header": "Road", "question": "Which road?", "options": []}]}}
+BASH_USE = {"type": "tool_use", "name": "Bash", "input": {"command": "git status"}}
+BRIEFS_SEED = os.path.join(PLUGIN, "hooks", "briefs-seed.md")
+
+
+def _prompt(root, text, transcript):
+    return {"session_id": "detail-test", "cwd": root, "prompt": text, "transcript_path": transcript}
+
+
+def test_detail_ask():
+    """The recorder: a question right after a served picker is stamped kind: detail-ask / on: <picker>; the
+    shell's submit and skip are not; a submit whose textbox carries a question is submit+detail-ask; a later
+    tool call or a later prompt means the picker was not the turn's close; a picker's submit resembling an
+    addressed row is FRESH by construction; an old dispatch header gains kind:/on: once."""
+    root, store = seed_project()
+    try:
+        dispatch = os.path.join(store, "dispatch.md")
+        # an old header, written before the recorder existed: the hook adds the two fields once
+        with open(dispatch, encoding="utf-8") as f:
+            old = "\n".join(l for l in f.read().split("\n") if not l.startswith("  kind:") and not l.startswith("  on:"))
+        with open(dispatch, "w", encoding="utf-8", newline="\n") as f:
+            f.write(old)
+        t = _transcript(root, [_user("fix the widget"), _asst({"type": "text", "text": "done"}, WIDGET_USE),
+                               _asst({"type": "text", "text": "the picker carries the acts"})])
+        out = run_hook("prompt-open", _prompt(root, "what are the diffs of each selection?", t), root)
+        assert "detail-ask on widget «release_acts_picker»" in out, out
+        assert "header: `kind:` and `on:` added" in out, out
+        rows = open(dispatch, encoding="utf-8").read()
+        assert "  kind: detail-ask\n" in rows.replace("\r\n", "\n") and "  on: widget «release_acts_picker»" in rows, rows[-600:]
+        assert "  kind: [detail-ask" in rows.split("---")[0], "(detail-ask) the header did not gain the fields"
+        out2 = run_hook("prompt-open", _prompt(root, "and the second question?", t), root)
+        assert "header:" not in out2, "(detail-ask) the header migration ran twice"
+        # the shell's submit line and its skip are not detail-asks
+        out = run_hook("prompt-open", _prompt(root, "Release acts details — Acts: Commit, Push", t), root)
+        assert "detail-ask" not in out, out
+        out = run_hook("prompt-open", _prompt(root, "(Skipped the form — proceed with defaults or ask me in plain text)", t), root)
+        assert "detail-ask" not in out, out
+        # a question riding in a submitted textbox
+        out = run_hook("prompt-open", _prompt(root, "Release acts details — Acts: Commit · Notes: why is push separate?", t), root)
+        assert "detail-ask on widget «Release acts»" in out and "riding on the submit" in out, out
+        assert "  kind: submit+detail-ask" in open(dispatch, encoding="utf-8").read(), "(detail-ask) submit+detail-ask not stamped"
+        # a later tool call: the picker was not the turn's close
+        t2 = _transcript(root, [_user("fix it"), _asst(WIDGET_USE), _asst(BASH_USE), _asst({"type": "text", "text": "ok"})])
+        out = run_hook("prompt-open", _prompt(root, "what about the diffs?", t2), root)
+        assert "detail-ask" not in out, out
+        # a later prompt: the picker belongs to an earlier turn
+        t3 = _transcript(root, [_user("fix it"), _asst(WIDGET_USE), _user("thanks"), _asst({"type": "text", "text": "welcome"})])
+        out = run_hook("prompt-open", _prompt(root, "what about the diffs?", t3), root)
+        assert "detail-ask" not in out, out
+        # the native panel as the turn's last act
+        t4 = _transcript(root, [_user("fix it"), _asst(PANEL_USE)])
+        out = run_hook("prompt-open", _prompt(root, "what do the roads cost?", t4), root)
+        assert "detail-ask on panel «Road»" in out, out
+        # a picker's submit resembling an ADDRESSED row is FRESH by construction; resembling an OPEN one is this context's call
+        with open(dispatch, "a", encoding="utf-8", newline="\n") as f:
+            f.write('\n- fingerprint: "Acts details — Acts: All of the above"\n  time: 2026-09-22 05:08\n  arrival: turn\n'
+                    "  state: FRESH\n  addressed: both acts done\n")
+        out = run_hook("prompt-open", _prompt(root, "Acts details — Acts: All of the above", t), root)
+        assert "FRESH by construction" in out and "state: FRESH written" in out and "hand the message to the operator" not in out, out
+        with open(dispatch, "a", encoding="utf-8", newline="\n") as f:
+            f.write('\n- fingerprint: "Acts details — Acts: Other"\n  time: 2026-09-22 05:09\n  arrival: turn\n')
+        out = run_hook("prompt-open", _prompt(root, "Acts details — Acts: Other", t), root)
+        assert "judged HERE" in out and "never by the operator" in out, out
+        # a plain resembling message still goes to the operator
+        with open(dispatch, "a", encoding="utf-8", newline="\n") as f:
+            f.write('\n- fingerprint: "please rebuild the whole tree now"\n  time: 2026-09-22 05:10\n  arrival: turn\n  state: FRESH\n  addressed: rebuilt\n')
+        out = run_hook("prompt-open", _prompt(root, "please rebuild the whole tree now", t), root)
+        assert "hand the message to the operator" in out, out
+    finally:
+        shutil.rmtree(root, ignore_errors=True)
+    print("detail-ask recorder: green")
+
+
+def test_record_truncated_head():
+    """A record block that gives a long message whole completes the row the hook stamped with a fingerprint capped
+    at 200 characters and closed with `…` — never a second row beside it."""
+    root, store = seed_project()
+    try:
+        long_prompt = ("Barrier ruling and next build details — Barrier: Main context judges a fresh picker's submit "
+                       "(recommended) · Acts: Start the 0.0.36 AI-note-triggers build · Notes: i thought this was just "
+                       "worked on and finalized? - what changed?")
+        assert len(long_prompt) > 200
+        run_hook("prompt-open", {"session_id": "trunc", "cwd": root, "prompt": long_prompt}, root)
+        dispatch = open(os.path.join(store, "dispatch.md"), encoding="utf-8").read()
+        assert "…\"" in dispatch and long_prompt not in dispatch, "(truncated head) the hook did not cap the fingerprint"
+        rec = os.path.join(root, "rec.md")
+        with open(rec, "w", encoding="utf-8", newline="\n") as f:
+            f.write(f'## dispatch.md\n- fingerprint: "{long_prompt}"\n  addressed: answered whole\n')
+        now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
+        r = subprocess.run([sys.executable, os.path.join(HERE, "record.py"), "--store", store, "--session", "trunc",
+                            "--now", now, "--record", rec], capture_output=True, timeout=60)
+        out = r.stdout.decode("utf-8", "replace")
+        assert "rows: dispatch.md" in out and "written: nothing" in out, out
+        dispatch = open(os.path.join(store, "dispatch.md"), encoding="utf-8").read()
+        assert dispatch.count("- fingerprint: \"Barrier ruling") == 1 and "  addressed: answered whole" in dispatch, dispatch[-500:]
+    finally:
+        shutil.rmtree(root, ignore_errors=True)
+    print("record truncated head: green")
+
+
+def _widget(title, briefs):
+    pills = "".join(f'<button type="button" class="elicit-pill" data-value="{o}"><span>{o}</span><br>'
+                    f'<span>{b}</span></button>' for o, b in briefs)
+    pills += '<button type="button" class="elicit-pill" data-value="Other" data-other>Other</button>'
+    return {"tool_name": "mcp__visualize__show_widget", "cwd": "", "tool_input": {"title": title, "widget_code": f'<form class="elicit"><div class="elicit-pills">{pills}</div></form>'}}
+
+
+def _panel(question, options):
+    return {"tool_name": "AskUserQuestion", "cwd": "",
+            "tool_input": {"questions": [{"header": "Acts", "question": question,
+                                          "options": [{"label": o, "description": d} for o, d in options]}]}}
+
+
+def test_pre_ask():
+    """The applier: silent with no briefs.md or no standing label; a picker whose option briefs lack a standing
+    label is denied once, naming the label and the options; the same picker passes on re-issue; briefs that
+    carry the label pass; meta options carry no brief; the panel is checked like the widget."""
+    root, store = seed_project()
+    try:
+        payload = _widget("release_acts", [("Commit", "one commit of the eight files"), ("Push", "main to origin")])
+        payload["cwd"] = root
+        assert run_hook("pre-ask", payload, root).strip() == "", "(pre-ask) spoke with no briefs.md"
+        shutil.copy(BRIEFS_SEED, os.path.join(store, "briefs.md"))
+        with open(os.path.join(store, "briefs.md"), "a", encoding="utf-8", newline="\n") as f:
+            f.write('\n- asked: "what are the diffs of each selection i made?"\n  time: 2026-09-22 04:46\n'
+                    "  on: widget «closing_popup_fix_picker»\n  at: closing\n  omitted: diff\n")
+        assert run_hook("pre-ask", payload, root).strip() == "", "(pre-ask) spoke with no standing label"
+        with open(os.path.join(store, "briefs.md"), "a", encoding="utf-8", newline="\n") as f:
+            f.write('\n- asked: "show me each option\'s diff"\n  time: 2026-09-22 06:00\n  on: widget «release_acts»\n'
+                    "  at: closing\n  omitted: diff\n  standing: 2026-09-22 06:05\n")
+        out = run_hook("prompt-open", {"session_id": "s", "cwd": root, "prompt": "hello there friend"}, root)
+        assert "standing brief lines: `diff:` (×2)" in out, out
+        d = decision(run_hook("pre-ask", payload, root))
+        assert d and d["permissionDecision"] == "deny", d
+        assert "`diff:`" in d["permissionDecisionReason"] and "Commit lacks diff" in d["permissionDecisionReason"], d
+        assert run_hook("pre-ask", payload, root).strip() == "", "(pre-ask) the same picker was bounced twice"
+        good = _widget("release_acts_2", [("Commit", "diff: eight files, +78/-21"), ("Push", "diff: none, a push")])
+        good["cwd"] = root
+        assert run_hook("pre-ask", good, root).strip() == "", "(pre-ask) bounced a picker that carries the label"
+        p = _panel("Which acts?", [("Commit", "one commit"), ("Push", "to origin")])
+        p["cwd"] = root
+        d = decision(run_hook("pre-ask", p, root))
+        assert d and d["permissionDecision"] == "deny" and "Push lacks diff" in d["permissionDecisionReason"], d
+        p2 = _panel("Which acts, with diffs?", [("Commit", "Diff: eight files"), ("Push", "diff: none")])
+        p2["cwd"] = root
+        assert run_hook("pre-ask", p2, root).strip() == "", "(pre-ask) bounced a panel that carries the label"
+    finally:
+        shutil.rmtree(root, ignore_errors=True)
+    print("pre-ask gate: green")
+
+
 if __name__ == "__main__":
     test_pre_write()
     test_stray_scan()
@@ -673,4 +843,7 @@ if __name__ == "__main__":
     test_record()
     test_pour()
     test_check_delta()
+    test_detail_ask()
+    test_pre_ask()
+    test_record_truncated_head()
     print("test_hooks.py: all green")

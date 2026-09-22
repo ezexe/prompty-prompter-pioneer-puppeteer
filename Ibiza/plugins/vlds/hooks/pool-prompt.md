@@ -9,7 +9,7 @@ The message that sent you here carries four values: `store` (the session's `.cla
 In this order, each file whole, never a line skipped:
 
 1. `store/phi-index.md` — the register's index; its `## recall` section names the files below (defaults when it has none).
-2. Every file under `inject:` and `digest:` — by default `local-storage.md`, `index.md`, `tombstones.md`, `ledger.md`, `session-storage.md`, `virtual.md`, `data-store.md`, `logger.md`.
+2. Every file under `inject:` and `digest:` — by default `local-storage.md`, `index.md`, `tombstones.md`, `ledger.md`, `session-storage.md`, `virtual.md`, `briefs.md`, `data-store.md`, `logger.md`.
 
 Never read `store/arc/` or a span the index marks as masked. Read nothing outside the store except this file. A file that is absent or will not parse gets one line under `read:` and the pool goes on.
 
@@ -44,6 +44,7 @@ read: <file (entries), file (entries), …>
 ## standing — applies whatever the task
 
 - [<file> <time> <status>, form: <form>] <first, one line each, never grouped: every ruling that carries a form: field and every index rule whose directive fires at every closing or every turn — the delivery forms and the every-turn rules steer every reply whatever the task>
+- [briefs.md standing] <one line naming every standing label with its count, e.g. `diff:` ×2, `why:` ×3 — the lines every picker's options must carry; then, one line each, the non-standing classes with their counts, since a second instance is what the closing offers to make standing>
 - [<file> <time> <status>] <then every other LIVE ruling, index rule, and live claim not listed above, one line each>
 
 ## open

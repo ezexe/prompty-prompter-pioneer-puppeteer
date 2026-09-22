@@ -50,7 +50,7 @@ while len(CACHE) < 40:
     CACHE.append(CACHE[-1] + CACHE[-2])
 
 SEED_HOT = ["local-storage.md", "index.md", "data-store.md", "ledger.md", "tombstones.md",
-            "virtual.md", "session-storage.md", "logger.md"]
+            "virtual.md", "session-storage.md", "logger.md", "briefs.md"]
 # every name the store owns — the same set as hooks/vlds_hooks.py STORE_FILES; a file carrying one of these
 # names outside the store, holding store-shaped entries, is the [STRAY] class (found live: a ledger entry
 # appended to a repo root because the bare name had been true under an earlier fence's cd)
