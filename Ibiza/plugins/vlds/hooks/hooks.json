@@ -10,6 +10,16 @@
           },
           {
             "type": "command",
+            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/hooks/session-open.sh\" --part 1",
+            "timeout": 30
+          },
+          {
+            "type": "command",
+            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/hooks/session-open.sh\" --part 2",
+            "timeout": 30
+          },
+          {
+            "type": "command",
             "command": "sh \"${CLAUDE_PLUGIN_ROOT}/hooks/run-hook.sh\" session-open",
             "timeout": 30
           },

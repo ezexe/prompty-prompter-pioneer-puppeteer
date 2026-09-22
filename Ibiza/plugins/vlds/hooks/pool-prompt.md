@@ -43,7 +43,8 @@ read: <file (entries), file (entries), …>
 
 ## standing — applies whatever the task
 
-- [<file> <time> <status>] <every LIVE ruling, index rule, and live claim not listed above, one line each>
+- [<file> <time> <status>, form: <form>] <first, one line each, never grouped: every ruling that carries a form: field and every index rule whose directive fires at every closing or every turn — the delivery forms and the every-turn rules steer every reply whatever the task>
+- [<file> <time> <status>] <then every other LIVE ruling, index rule, and live claim not listed above, one line each>
 
 ## open
 
@@ -60,8 +61,8 @@ read: <file (entries), file (entries), …>
 
 Rules of the pool:
 
-- At most 8,000 characters in all — the harness caps a hook output at 10,000, and the pool is re-injected as one.
-- Nothing LIVE is dropped: what does not bear on the task goes under standing, distilled to one line, never omitted.
+- At most 8,000 characters in all — the harness caps a hook output at 10,000, and the pool is re-injected as one. The cap is met from the bottom of standing up: a store too large for one line per entry groups its remaining LIVE entries by file and era, each group naming its count, its span, and the heads worth re-reading — never by dropping a form ruling or an every-turn rule, which keep their own line whatever the store's size.
+- Nothing LIVE is dropped: what does not bear on the task goes under standing, one line each — grouped only when the cap forces it, the form rulings and every-turn rules never grouped — and nothing omitted.
 - A ruling's verbatim owner-words appear, in quotes, only where the wording or the form is the point (a delivery form, a scope the words fix); otherwise the ruling distilled, with its time and file, is enough — the words are one read away.
 - Times are copied from the entries or from `now`; never a `time:` line with a placeholder digit.
 - Recall only: no advice on the task, no plan for it, no verdict on its premises — the main session judges; you report what the store holds.

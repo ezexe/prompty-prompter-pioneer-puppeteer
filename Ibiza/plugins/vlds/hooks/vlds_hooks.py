@@ -546,7 +546,9 @@ def operator_directive(store, tag, now, models):
         "moment: open or sweep | <the facts only this context holds>\n"
         "Launch it once per session; continue it for later moments with SendMessage (to: the launch result's agent "
         f"id; message: the moment, the latest now:, the facts) — at most {models['moments']} continuations, then "
-        "launch fresh, and fresh whenever a continuation fails; its derivation is what you act on. The CLOSE — every "
+        "launch fresh, and fresh whenever a continuation fails; its derivation is what you act on — listed in one line "
+        "at the top of the reply, and once the reply's final plan is settled, before its first act, one fence with no "
+        "shell tag lists that plan as a short-form bulleted prose summary. The CLOSE — every "
         "turn, before the closing — is mechanical: write the turn's record to the notebook (one `## <file>` block per "
         "entry in the file's own shape; a dispatch row by its fingerprint's opening plus the fields to add) and run "
         f"`python {record} --store {store} --session <id> --now <the latest now:> --record <path>`; its derivation "
@@ -1014,7 +1016,8 @@ def cmd_prompt_open(payload, store):
             lines.append("- operator (open) owed now: the pool — not yet pooled for this session; derive this first "
                          "prompt's task in one line and launch the operator before answering, per the SessionStart "
                          "directive (the Agent tool, the brief at hooks/operator-prompt.md, the pool's model); its "
-                         "derivation carries the recall")
+                         "derivation carries the recall; once the reply's final plan is settled, before its first act, one "
+                         "untagged fence lists that plan as short bullets")
     preview = " ".join(str(prompt).split())
     if preview.startswith(NOTIFICATION_PREFIX):
         # a background task's completion is not an ask: the barrier has no question to put, and a row left open
@@ -1050,7 +1053,8 @@ def cmd_prompt_open(payload, store):
         else:
             lines.append(f"- short message ({words} word{'s' if words != 1 else ''}), not a known command: the "
                          "operator (open) derives its intent from the store before you answer; state the derivation "
-                         "in one line at the top of the reply")
+                         "in one line at the top of the reply, then — the final plan settled, before the first act — one "
+                         "untagged fence with the plan as short bullets")
     print("\n".join(lines))
     return 0
 
