@@ -1018,6 +1018,20 @@ def test_move():
         assert small in row1 and small not in row3 and big in row3, (row1, row3)
         assert "attachment move" in index and "Attachment moved" in open(os.path.join(store, "logger.md"), encoding="utf-8").read()
         assert "0 corruption, 0 debt" in run_check(store), run_check(store)
+        # the swap: --detach unregisters the big record from position 3 (owed registration again, a debt, never a
+        # corruption) and, in the same call, --move brings the small one back there
+        assert "is attached to no live segment" in run("--detach", "dispatch-20260903-103200-none.md")
+        out = run("--detach", big, "--move", f"{small}:3")
+        assert f"detach: detached {big}" in out and f"move: moved {small}" in out and "to arc-3-a.md" in out, out
+        with open(os.path.join(arc, "arc-3-a.md"), encoding="utf-8") as f:
+            three = f.read()
+        with open(os.path.join(arc, "arc-1-a.md"), encoding="utf-8") as f:
+            one = f.read()
+        assert f"attached: {small}" in three and big not in three and "attached:" not in one, (three, one)
+        assert os.path.exists(os.path.join(arc, big)), "the detached record must stay in arc/"
+        check = run_check(store)
+        assert "0 corruption" in check and f"arc/{big}" in check and "attachment registration owed" in check, check
+        assert "Attachment detached" in open(os.path.join(store, "logger.md"), encoding="utf-8").read()
     finally:
         shutil.rmtree(root, ignore_errors=True)
     print("move: green")

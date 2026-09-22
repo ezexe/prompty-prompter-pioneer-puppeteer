@@ -19,6 +19,12 @@ Run, from anywhere:
                                                                      places records still unregistered; byte-checked
                                                                      at the target, the source's overflow reported;
                                                                      on the owner's word, never a hand edit
+  python normalize.py --store <store> --session <id> --detach <record> [--dry]
+                                                                     unregister one attached dispatch record from the
+                                                                     live segment that holds it — the record stays in
+                                                                     arc/, owed registration again, and a later attach
+                                                                     or move gives it a home; with --move, the swap
+                                                                     that clears a position's overflow; on the word
 The Stop hook (hooks/vlds_hooks.py turn-close) runs the --light form after every reply and hands the one-line
 report to the next prompt hook, which prints it — the operation is announced by the closing that precedes it and
 reported by the prompt that follows it. The --pour form is the judged sweep's mechanics: judgment names the
@@ -894,6 +900,73 @@ def run_move(store, session, now, record, to_position, dry):
     return 0
 
 
+def run_detach(store, session, now, record, dry):
+    """Unregister one attached dispatch record from the live segment that holds it — the record stays in arc/, owed
+    registration again, for a later attach or move to home; with --move this is the swap that clears a position's
+    overflow when the attacher filled the room first. The run through the lock, the header, one logger entry, the
+    index, the check; no entry written, deleted, or rewritten."""
+    session8 = session[:8]
+    arc = os.path.join(store, "arc")
+    tag = "detach"
+    old_text, old_rows = parse_index(store)
+    if old_text is None:
+        print(f"{tag}: refused — no phi-index.md; the register is not bootstrapped")
+        return 1
+    segments = live_segments(arc)
+    src = next((n for n, s in segments.items() if record in attached_list(s["header"])), None)
+    if src is None:
+        print(f"{tag}: refused — {record} is attached to no live segment")
+        return 1
+    rec_path = os.path.join(arc, record)
+    size = os.path.getsize(rec_path) if os.path.exists(rec_path) else 0
+    s_seg = segments[src]
+    s_cap = CACHE[s_seg["position"] - 1] * 1024
+    s_before = s_seg["bytes"] + s_seg["attached_bytes"]
+    s_after = s_before - size
+    print(f"{tag}: {record} ({size:,} B) off {src} (position {s_seg['position']}: {s_before:,} → {s_after:,} B "
+          f"of {s_cap:,}); the record stays in arc/, unregistered")
+    if dry:
+        print(f"{tag}: dry run — nothing written")
+        return 0
+    rc, out = phi(store, "lock", session)
+    if rc != 0:
+        print(f"{tag}: skipped — {out.splitlines()[-1] if out else 'lock refused'}")
+        return 0
+    step = "lock"
+    try:
+        step = "detach"
+        if not detach_from_segment(os.path.join(arc, src), record):
+            raise RuntimeError(f"{record} not on {src}'s attached: line")
+        step = "register"
+        plan = new_plan()
+        reg = _register(store, plan)
+        occupied = reg["occupied"] if reg else []
+        reg_s = "".join("1" if p in occupied else "0" for p in range(max(occupied, default=0), 0, -1))
+        total = reg["sum_pours"] if reg else 0
+        step = "logger entry"
+        entry = (f"\n- `[gc]` {now} — **Attachment detached — {record} off {src}, register {reg_s}.** "
+                 f"{src} (position {s_seg['position']}) {s_before:,} → {s_after:,} B of {s_cap:,}; the record stays "
+                 "in arc/, owed registration again; no entry written or deleted, the body's verified: sha standing. "
+                 "Run mechanically by scripts/normalize.py --detach on the owner's word.\n")
+        lpath = os.path.join(store, "logger.md")
+        if os.path.exists(lpath):
+            raw = read(lpath)
+            write(lpath, raw + (entry.replace("\n", "\r\n") if "\r\n" in raw else entry))
+        step = "index"
+        write_index(store, session8, now, plan, [], {}, old_text, old_rows, reg_s, total,
+                    via="an attachment detached (scripts/normalize.py --detach)")
+    except Exception as e:  # noqa: BLE001 — the report names the step; a header edit is the only write before it
+        print(f"{tag}: stopped at {step} — {type(e).__name__}: {e}")
+        phi(store, "unlock", session)
+        return 1
+    phi(store, "unlock", session)
+    _rc, out = phi(store, "check")
+    verdict = out.splitlines()[-1] if out else "check: no output"
+    print(f"{tag}: detached {record} ({size:,} B) off {src}; {src} now {s_after:,} B of {s_cap:,}; register {reg_s}; "
+          f"{verdict}")
+    return 0
+
+
 _HOTS = {}
 
 
@@ -918,9 +991,17 @@ def main():
     ap.add_argument("--move", default=None, metavar="RECORD:POSITION",
                     help="relocate an attached dispatch record to the live segment at POSITION — the one move the "
                          "light attacher cannot make; on the owner's word")
+    ap.add_argument("--detach", default=None, metavar="RECORD",
+                    help="unregister an attached dispatch record from the live segment that holds it; with --move, "
+                         "the swap that clears a position's overflow; on the owner's word")
     ap.add_argument("--dry", action="store_true", help="plan and print, write nothing")
     ap.add_argument("--now", default=None, help="the clock to stamp with (default: now)")
     args = ap.parse_args()
+    if args.detach:
+        now = args.now or datetime.datetime.now().strftime(NOW_FMT)
+        rc = run_detach(os.path.abspath(args.store), args.session, now, args.detach.strip(), args.dry)
+        if rc != 0 or not args.move:
+            return rc
     if args.move:
         record, _sep, pos = args.move.rpartition(":")
         if not record or not pos.strip().isdigit():
@@ -937,8 +1018,8 @@ def main():
             except ValueError:
                 ap.error(f"--pour {item!r}: head lines must be integers")
     elif not args.light:
-        ap.error("say --light (the mechanical classes), --pour FILE:LINES (a judged pour, placed here), or "
-                 "--move RECORD:POSITION (an attachment relocated)")
+        ap.error("say --light (the mechanical classes), --pour FILE:LINES (a judged pour, placed here), "
+                 "--move RECORD:POSITION (an attachment relocated), or --detach RECORD (an attachment unregistered)")
     now = args.now or datetime.datetime.now().strftime(NOW_FMT)
     return run_light(os.path.abspath(args.store), args.session, now, args.dry, spec)
 
