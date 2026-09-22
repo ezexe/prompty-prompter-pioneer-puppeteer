@@ -15,8 +15,11 @@ whatever the console codepage says):
                           it) — while the close is mechanical: the model writes the turn's record and
                           scripts/record.py applies it. One operator per session, continued for at most
                           `operator-moments:` moments then relaunched. `pool: inject` in the index's `## recall`
-                          section restores the slot injection of every inject file; `operator-model:`, `pool-model:`
-                          and `sweep-model:` name the models. On
+                          section restores the slot injection of every inject file; `operator-model:`, `pool-model:`,
+                          `pool-child-model:` (the pool's child readers, one per file, launched by the operator
+                          per hooks/pool-child-prompt.md) and `sweep-model:` name the models; `pool-road:` picks
+                          children (the default: the skeleton phi.py pool writes, one pick-reader per file,
+                          streamed), skeleton (one judged pass), or single. On
                           `source` resume, fork, or compact print only the clock, the digest lines, and the
                           verdict — the conversation already holds its own recall — and on a compact re-inject
                           store/recall-pool.md when it is this session's, since the compaction may have
@@ -43,9 +46,11 @@ whatever the console codepage says):
                           operator for its intent before the model answers; `addressed:` is the record's at the
                           turn's close. A
                           task notification (a background task's completion, delivered as a prompt) is never an
-                          ask: its row is stamped complete on arrival — arrival `task notification`, FRESH,
-                          addressed as consumed — because a row left open there would be closed by an operator
-                          whose own completion arrives the same way, a loop with no floor.
+                          ask, and neither is an agent's message (a report from the session's own subagent — the
+                          operator's stream lines): such a row is stamped complete on arrival — arrival `task
+                          notification` or `agent message`, FRESH, addressed as consumed — because a row left
+                          open there would be closed by an operator whose own completion arrives the same way,
+                          a loop with no floor.
                           Then, on the FIRST prompt a session id ever submits, pour dispatch.md whole-file into arc/ — a sha-verified
                           byte-identical copy, then a reseed that preserves the file's own header (a user's
                           header edit is a ruling). Every output names the session by its short id and, when
@@ -148,6 +153,9 @@ DEFAULT_POOL = "subagent"
 DEFAULT_OPERATOR_MODEL = "haiku"    # the operator's open moment (barrier, intent); the index's `operator-model:` overrides
 DEFAULT_POOL_MODEL = "sonnet"       # the pool, once per session — the one judged read a whole session leans on; `pool-model:`
 DEFAULT_SWEEP_MODEL = "sonnet"      # the sweep moment's scoring; `sweep-model:`
+DEFAULT_POOL_CHILD_MODEL = "haiku"  # the pool's child readers, one per read-list file, launched by the operator; `pool-child-model:`
+POOL_ROADS = ("children", "skeleton", "single")   # `pool-road:` — the skeleton with one child pick-reader per file,
+DEFAULT_POOL_ROAD = "children"                    # streamed; the skeleton for one judged pass; or the operator alone
 DEFAULT_OPERATOR_MOMENTS = 4        # continuations before a fresh launch, so a grown context stops compounding; `operator-moments:`
 KNOWN_SHORT_MIN = 2                 # a short message seen this many times in the store's owner corpus is a known command
 BARRIER_MIN_TOKENS = 3      # a message with fewer tokens matches an earlier row only when identical
@@ -499,11 +507,12 @@ def recall_lists(index_text):
     """(inject, digest, from_index, pool, models) — the lists and the mode under the index's `## recall` section,
     or the defaults: `pool: subagent` (the hot files pooled by the operator subagent, not injected) or
     `pool: inject` (every inject file chunked into the slots); `operator-model:` the open moment's model,
-    `pool-model:` the pool's, `sweep-model:` the sweep's, `operator-moments:` the continuations before a fresh
-    launch — `models` carries all four."""
+    `pool-model:` the pool's compose, `pool-child-model:` its child readers', `sweep-model:` the sweep's,
+    `pool-road:` the pool's road (skeleton, children, single), `operator-moments:` the continuations before a
+    fresh launch — `models` carries all six."""
     inject, digest, pool = None, None, None
-    models = {"operator": DEFAULT_OPERATOR_MODEL, "pool": DEFAULT_POOL_MODEL, "sweep": DEFAULT_SWEEP_MODEL,
-              "moments": DEFAULT_OPERATOR_MOMENTS}
+    models = {"operator": DEFAULT_OPERATOR_MODEL, "pool": DEFAULT_POOL_MODEL, "child": DEFAULT_POOL_CHILD_MODEL,
+              "sweep": DEFAULT_SWEEP_MODEL, "moments": DEFAULT_OPERATOR_MOMENTS, "road": DEFAULT_POOL_ROAD}
     in_recall = False
     for l in index_text.split("\n"):
         if l.startswith("## "):
@@ -511,12 +520,16 @@ def recall_lists(index_text):
             continue
         if not in_recall:
             continue
-        m = re.match(r"^(inject|digest|pool|pool-model|operator-model|sweep-model|operator-moments):\s*(.*)$", l.strip())
+        m = re.match(r"^(inject|digest|pool|pool-road|pool-model|pool-child-model|operator-model|sweep-model|"
+                     r"operator-moments):\s*(.*)$", l.strip())
         if not m:
             continue
         key, value = m.group(1), m.group(2).strip()
         if key == "pool":
             pool = value.lower() if value.lower() in POOL_MODES else None
+        elif key == "pool-road":
+            if value.lower() in POOL_ROADS:
+                models["road"] = value.lower()
         elif key == "operator-moments":
             try:
                 models["moments"] = max(0, int(value))
@@ -524,7 +537,7 @@ def recall_lists(index_text):
                 pass
         elif key.endswith("-model"):
             if value:
-                models[key[:-len("-model")]] = value
+                models["child" if key == "pool-child-model" else key[:-len("-model")]] = value
         else:
             names = [n.strip() for n in value.split(",") if n.strip()]
             if key == "inject":
@@ -562,18 +575,29 @@ def operator_directive(store, tag, now, models):
         "### recall, and every store operation — the operator subagent, never this context\n"
         "The hot files are not in this context, and no store file is read or written here. Two instruments carry "
         "the work. The OPERATOR — the Agent tool, subagent_type general-purpose, in the foreground — for what needs "
-        f"judgment: open (the pool at the first prompt, on {models['pool']}; the barrier when the prompt hook names "
-        f"a candidate row, and the intent of an unknown short message, on {models['operator']}) and sweep (naming "
-        f"what is cold when the check shows judged debt, on {models['sweep']}; the placement is `python {normalize} "
-        "--store <store> --session <id> --pour <file>:<head lines>`). Send it one message:\n"
+        f"judgment: open (the pool at the first prompt, by the index's road, {models['road']} (skeleton: "
+        f"`phi.py pool` writes the skeleton from the barrier's own lines and the operator makes one judged pass on "
+        f"{models['pool']}, no model reading a file; children: the same skeleton with one reader per file on "
+        f"{models['child']}, launched by the operator in the background to pick what bears on the task, the picks "
+        f"folded in by the script, composed on {models['pool']} — the operator launched in the background then, "
+        "its progress lines arriving as its messages and its derivation with its completion; single: the operator "
+        f"alone on {models['pool']}) — the session speaks to the operator, the operator to its children; the barrier "
+        f"when the prompt hook names a candidate row, and the intent of an unknown short message, on "
+        f"{models['operator']}) and sweep (naming what is cold when the check shows judged debt — held when the "
+        "last sweep's `[gc]` line found no count opening one position and nothing cold has landed since — on "
+        f"{models['sweep']}; the placement is `python {normalize} --store <store> --session <id> --pour "
+        "<file>:<head lines>`). Send it one message:\n"
         f"  Read {brief} and do what it says. store: {store} | session: {tag} | now: <the latest now:> | "
         "moment: open or sweep | <the facts only this context holds>\n"
         "Launch it once per session; continue it for later moments with SendMessage (to: the launch result's agent "
         f"id; message: the moment, the latest now:, the facts) — at most {models['moments']} continuations, then "
         "launch fresh, and fresh whenever a continuation fails; its derivation is what you act on — listed in one line "
         "at the top of the reply, and once the reply's final plan is settled, before its first act, one fence with no "
-        "shell tag lists that plan as a short-form bulleted prose summary. The CLOSE — every "
-        "turn, before the closing — is mechanical: write the turn's record to the notebook (one `## <file>` block per "
+        "shell tag lists that plan as a short-form bulleted prose summary — both process text, carrying no "
+        "deliverable: every fence, every copyable block and the answer itself go in the FINAL message, after the "
+        "turn's last tool call, since the Code tab does not reliably show what sits before the closing tool calls; "
+        "the popup is that last call, and the final message names what it asks. The CLOSE — every "
+        "turn, before the final message — is mechanical: write the turn's record to the notebook (one `## <file>` block per "
         "entry in the file's own shape; a dispatch row by its fingerprint's opening plus the fields to add) and run "
         f"`python {record} --store {store} --session <id> --now <the latest now:> --record <path>`; its derivation "
         "is what you report. A known short command needs no operator: the prompt hook derives it from the store's own "
@@ -581,7 +605,8 @@ def operator_directive(store, tag, now, models):
         f"operator writes store/{POOL_FILE}, which a compact re-injects. When a derivation is not enough to steer, "
         "ask the operator for the entry, never open the file here. No Agent tool in this session → the degraded "
         "path: do the operation here and say so. The index's ## recall section rules it: `pool: inject` restores "
-        "the slot injection of every inject file; `operator-model:`, `pool-model:`, `sweep-model:` pick the models; "
+        "the slot injection of every inject file; `operator-model:`, `pool-model:`, `pool-child-model:`, "
+        "`sweep-model:` pick the models; `pool-road:` the pool's road (skeleton, children, single); "
         "`operator-moments:` the continuations before a fresh launch."
     )
 
@@ -843,8 +868,9 @@ def cmd_session_open(payload, store):
         return 0
     index_text = read_text(index_path)
     inject, digest, from_index, pool, models = recall_lists(index_text)
-    model_note = (f" (operator {models['operator']}, pool {models['pool']}, sweep {models['sweep']}; "
-                  f"{models['moments']} continuations)" if pool == "subagent" else "")
+    model_note = (f" (operator {models['operator']}, pool {models['pool']}, children {models['child']}, "
+                  f"sweep {models['sweep']}; road {models['road']}; {models['moments']} continuations)"
+                  if pool == "subagent" else "")
     print(f"lists from {'the index’s ## recall section' if from_index else 'the hook defaults (the index has no ## recall section)'}"
           f" — pool: {pool}{model_note}; "
           f"{'read' if pool == 'subagent' else 'inject'}: {', '.join(inject)}; digest: {', '.join(digest)}")
@@ -974,8 +1000,11 @@ def barrier_candidates(store, preview):
 
 
 NOTIFICATION_PREFIX = "<task-notification>"   # a background task's completion, delivered as a prompt
+AGENT_MESSAGE_PREFIX = "<agent-message "        # a report from one of the session's own agents — the operator's stream lines among them
 NOTIFICATION_ADDRESSED = ("a task notification — consumed by the session's next reply; no ask to answer, nothing "
                           "for the operator")
+AGENT_MESSAGE_ADDRESSED = ("an agent's message — a report from the session's own subagent, consumed by the next reply; "
+                           "no ask to answer, nothing for the operator")
 
 
 def stamp(store, prompt, tag, now, state=None, arrival="turn", addressed=None, fields=None):
@@ -1193,14 +1222,18 @@ def cmd_prompt_open(payload, store):
                          "derivation carries the recall; once the reply's final plan is settled, before its first act, one "
                          "untagged fence lists that plan as short bullets")
     preview = " ".join(str(prompt).split())
-    if preview.startswith(NOTIFICATION_PREFIX):
-        # a background task's completion is not an ask: the barrier has no question to put, and a row left open
-        # here would be closed by an operator whose own completion arrives the same way — a loop; the row is the
-        # hook's whole, stamped complete on arrival
-        fp = stamp(store, prompt, tag, now, state="FRESH", arrival="task notification", addressed=NOTIFICATION_ADDRESSED)
+    if preview.startswith(NOTIFICATION_PREFIX) or preview.startswith(AGENT_MESSAGE_PREFIX):
+        # a background task's completion is not an ask, and neither is a message from the session's own agent (the
+        # operator's stream lines, one per child): the barrier has no question to put, and a row left open here
+        # would be closed by an operator whose own completion arrives the same way — a loop; the row is the hook's
+        # whole, stamped complete on arrival
+        notice = preview.startswith(NOTIFICATION_PREFIX)
+        fp = stamp(store, prompt, tag, now, state="FRESH", arrival="task notification" if notice else "agent message",
+                   addressed=NOTIFICATION_ADDRESSED if notice else AGENT_MESSAGE_ADDRESSED)
         if fp is not None:
-            lines.append(f'- stamped: dispatch.md row "{fp[:80]}" at {now:{NOW_FMT}} — a task notification: its row '
-                         "is complete on arrival (FRESH, consumed); nothing for the operator")
+            lines.append(f'- stamped: dispatch.md row "{fp[:80]}" at {now:{NOW_FMT}} — '
+                         f"{'a task notification' if notice else 'an agent message'}: its row is complete on arrival "
+                         "(FRESH, consumed); nothing for the operator")
         print("\n".join(lines))
         return 0
     words = len(preview.split())

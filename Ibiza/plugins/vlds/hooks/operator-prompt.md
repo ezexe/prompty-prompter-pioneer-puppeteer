@@ -18,7 +18,7 @@ Inputs: the message (its text, or the fingerprint the prompt hook stamped, with 
 
 1. The dispatch barrier. Read `store/dispatch.md`; rows are the `- fingerprint:` blocks after the header's `---` separator (the header's own shape line is not a row). Match the message against the rows before its own: the same ask, unchanged → `ECHO`; addressed, then freed by a later message → `SUPERSEDED`; otherwise `FRESH`. When the match is uncertain, `FRESH`: a wrong FRESH wastes a turn, a wrong ECHO drops the user's request. Complete the message's row — `state:`, and `match:` / `freed-by:` when they apply — with one Edit.
 2. The derivation of intent, when the message is short, typo'd, or truncated: from the nearest prior derivation in `dispatch.md`, then `store/local-storage.md` (the owner's own words — their scope lines say what a short command means here), then the adoption tokens the owner voice lists; complete a truncated tail from the sentence's own verb.
-3. The pool, when `store/recall-pool.md` does not name this session on its `session:` line: follow the plugin's `hooks/pool-prompt.md` (beside this file) with the task the session gave, write the pool, and carry its text in the derivation.
+3. The pool, when `store/recall-pool.md` does not name this session on its `session:` line: follow the plugin's `hooks/pool-prompt.md` (beside this file) with the task the session gave, write the pool, and carry its text in the derivation. The pool takes the road the index names (`pool-road:`): children by default — `scripts/phi.py pool` writes the pool's skeleton from the mechanical barrier's own lines, one reader per file on `pool-child-model:`, launched by you in the background, picks what bears on the task from the barrier's lines (their brief `hooks/pool-child-prompt.md`), and the script folds their picks in; skeleton — the same skeleton and one judged pass by you, no child; single — you alone. On the children road the session launched you in the background too, and you speak to it by SendMessage to `main`: one line as each child's picks land, and the derivation once the pool is written, before you return it. On every road the session never speaks to a child: it speaks to you, and you to them.
 
 Return exactly this, nothing before it:
 
@@ -31,6 +31,8 @@ pool: <the pool's text, or: already pooled at <time> for <task>>
 ```
 
 ## sweep — when the check shows judged work owed
+
+Held, not run, when the last sweep's own derivation — `logger.md`'s latest `[gc]` line — found no cold set that reaches a count opening one position, and nothing cold has landed since: then the sweep waits for new candidates or the owner's move, and the check's debt line is reported as standing, not re-scored.
 
 Score, do not place. Read the hot files the check names whole; decide which entries are cold by the gc reference's rules — a ruling spent with its tombstone written, a claim acted on or superseded, a correction or key event whose lesson lives in doctrine now, the oldest logger entries past the budget; keep every correction of the last two days, every LIVE ruling, every claim a live ruling leans on. Name them by the 1-based line of each entry's head (verify each with a numbered read), then run, from the project root:
 
@@ -80,4 +82,5 @@ When the session cannot reach you — a compact, a restart — it launches a fre
 
 - At most 3,000 characters, or 8,000 when it carries the pool.
 - No advice on the session's task, no plan for it, no verdict on its premises — the session judges; you report what the store holds and what you wrote.
+- Your children are yours: a child reader's slice is data you compose, and the session reads only your derivation — never a child's report, never a child's name.
 - Say plainly what you could not do and why: a gate's ask, a file absent, a shape you could not match, a lock held by another session.

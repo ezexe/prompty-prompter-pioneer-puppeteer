@@ -388,10 +388,12 @@ def test_pool_mode():
         assert "the operator subagent, never this context" in out, f"(a) no operator directive:\n{out}"
         assert "operator-prompt.md" in out and "pool-prompt.md" in out and "record.py" in out, \
             f"(a) a brief or the record script missing:\n{out}"
-        assert "on sonnet; the barrier" in out and "on haiku)" in out and "at most 4 continuations" in out, \
-            f"(a) the per-moment models or the continuation bound missing:\n{out}"
+        assert "by the index's road, children (skeleton:" in out and "one judged pass on sonnet" in out \
+            and "one reader per file on haiku" in out and "on haiku)" in out and "at most 4 continuations" in out, \
+            f"(a) the per-moment models, the road, or the continuation bound missing:\n{out}"
         assert "Launch it once" in out and "SendMessage" in out, f"(a) the one-per-session continuation missing:\n{out}"
-        assert "pool: subagent (operator haiku, pool sonnet, sweep sonnet; 4 continuations)" in out, f"(a) the mode line missing:\n{out}"
+        assert "pool: subagent (operator haiku, pool sonnet, children haiku, sweep sonnet; road children; 4 continuations)" \
+            in out, f"(a) the mode line missing:\n{out}"
         assert "the plan goes in the reply" not in out, "(a) a hot-file entry was injected in the pooled mode"
         assert "register: 0" in out and "hot (live/budget)" in out, f"(a) the index digest missing:\n{out}"
         assert "### owner voice" in out, "(a) the owner voice missing in the pooled mode"
@@ -416,11 +418,14 @@ def test_pool_mode():
         out = run_hook("session-open", {"source": "startup", "session_id": "pool-session"}, root)
         assert "### inject —" in out and "the operator subagent" not in out, f"(d) inject mode not restored:\n{out}"
         assert "the plan goes in the reply" in run_hook_slot(0, root), "(d) slot 0 silent in the inject mode"
-        seed_register(store, recall="operator-model: opus\npool-model: haiku\nsweep-model: opus\noperator-moments: 2\n")
+        seed_register(store, recall="operator-model: opus\npool-model: haiku\npool-child-model: sonnet\nsweep-model: opus\n"
+                                    "pool-road: skeleton\noperator-moments: 2\n")
         out = run_hook("session-open", {"source": "startup", "session_id": "pool-session"}, root)
-        assert "on haiku; the barrier" in out and "on opus)" in out and "at most 2 continuations" in out, \
-            f"(d) the model keys or the continuation bound not honoured:\n{out}"
-        assert "operator opus, pool haiku, sweep opus; 2 continuations" in out, f"(d) the mode line lacks the models:\n{out}"
+        assert "by the index's road, skeleton (skeleton:" in out and "one judged pass on haiku" in out \
+            and "one reader per file on sonnet" in out and "on opus)" in out and "at most 2 continuations" in out, \
+            f"(d) the model keys, the road, or the continuation bound not honoured:\n{out}"
+        assert "operator opus, pool haiku, children sonnet, sweep opus; road skeleton; 2 continuations" in out, \
+            f"(d) the mode line lacks the models or the road:\n{out}"
     finally:
         shutil.rmtree(root, ignore_errors=True)
     print("pool mode: green")
@@ -526,6 +531,15 @@ def test_barrier():
             text = f.read()
         assert "  arrival: task notification (stamped" in text and "  addressed: a task notification" in text, \
             "(d) the notification's row not stamped complete"
+        # (e) a message from the session's own agent — the operator's stream line — is stamped complete the same way
+        msg = "<agent-message from=\"a567fef5349c11851\"> pool stream: index.md — 4 picks; 2 of 9 in </agent-message>"
+        out = run_hook("prompt-open", {"session_id": "barrier-session", "prompt": msg}, root)
+        assert "an agent message: its row is complete on arrival" in out, f"(e) agent-message line missing:\n{out}"
+        assert "barrier:" not in out and "short message" not in out, f"(e) barrier or short line printed for an agent message:\n{out}"
+        with open(dispatch, encoding="utf-8") as f:
+            text = f.read()
+        assert "  arrival: agent message (stamped" in text and "  addressed: an agent's message" in text, \
+            "(e) the agent message's row not stamped complete"
     finally:
         shutil.rmtree(root, ignore_errors=True)
     print("barrier: green")
@@ -831,6 +845,252 @@ def test_pre_ask():
     print("pre-ask gate: green")
 
 
+def test_pool_skeleton():
+    """phi.py pool prints the pool's skeleton from the barrier's rows: form and every-turn lines first under standing,
+    the briefs line with its counts, live tasks and this session's inferences under open, the expired and masked
+    entries under surfaced with their reasons, an empty steering section for the judged pass, the header from the
+    arguments; a store too large for one line per entry is grouped by file under the cap."""
+    root, store = seed_project()
+    try:
+        def put(name, text):
+            with open(os.path.join(store, name), "w", encoding="utf-8", newline="\n") as f:
+                f.write(text)
+        ls_head = "# LS\n\n```yaml\n- ruling: [x]\n  time: [t]\n  owner-words: [w]\n  status: LIVE | SPENT | FREED\n  form: [f]\n```\n\n---\n\n"
+        put("local-storage.md", ls_head
+            + '- ruling: "keep two forms"\n  time: 2026-09-16 10:44\n  owner-words: "keep two forms"\n  status: LIVE\n  form: picker\n\n'
+            + '- ruling: "the widget stays reusable after a submit"\n  time: 2026-09-16 10:40\n  owner-words: "reopen and reuse the widget"\n  status: LIVE\n\n'
+            + '- ruling: "commit only on the word"\n  time: 2026-09-03 11:00\n  owner-words: "never commit unless i say"\n  status: LIVE\n')
+        put("tombstones.md", "# TS\n\n```yaml\n- freed: [x]\n  time: [t]\n  owner-words: [w]\n```\n\n---\n\n"
+            '- freed: "the closing picker stays reusable after a submit"\n  time: 2026-09-16 10:50\n  cause: retraction\n'
+            '  owner-words: "reopen and reuse the widget"\n')
+        put("virtual.md", "# V\n\n```yaml\n- inference: [x]\n  time: [t]\n  minted: [s]\n  disposition: pending\n```\n\n---\n\n"
+            '- inference: "mine"\n  time: 2026-09-22 13:36\n  basis: b\n  minted: bbcf63ab turn 1\n  disposition: pending\n\n'
+            '- inference: "theirs"\n  time: 2026-09-16 19:35\n  basis: b\n  minted: session fd5d84f4 turn 3\n  disposition: pending\n')
+        put("session-storage.md", "# S\n\n```yaml\n- task: [x]\n  time: [t]\n  state: [s]\n```\n\n---\n\n"
+            "- task: open one\n  time: 2026-09-22 13:00\n  state: started\n\n- task: done one\n  time: 2026-09-22 13:00\n  state: completed\n")
+        put("index.md", "# IX\n\n```yaml\n- key: [k]\n  decision: rule | opt-out\n  directive: [d]\n```\n\n---\n\n"
+            "- key: (closing + popup)\n  decision: rule\n  directive: at every closing serve the popup, never prose\n\n"
+            "- key: (edits + check)\n  decision: rule\n  directive: check the user's edits first\n")
+        put("briefs.md", "# BR\n\n```yaml\n- asked: [a]\n  time: [t]\n  on: [o]\n  at: closing | fork\n  omitted: [l]\n  standing: [s]\n```\n\n---\n\n"
+            '- asked: "why?"\n  time: 2026-09-22 10:00\n  on: widget «x»\n  at: closing\n  omitted: why\n\n'
+            '- asked: "diff?"\n  time: 2026-09-22 10:05\n  on: widget «x»\n  at: closing\n  omitted: diff\n  standing: 2026-09-22 10:10\n')
+        put("logger.md", LOGGER_HEADER + "- `[gc]` 2026-09-22 13:46 — **A sweep.** placed.\n")
+        put("data-store.md", "# DS\n\n```yaml\n- claim: [c]\n  time: [t]\n  verified: [v]\n  source: [s]\n```\n\n---\n\n"
+            '- claim: "nesting goes three deep"\n  time: 2026-09-22 13:36\n  verified: 2026-09-22 13:36\n  source: the docs\n\n'
+            '- claim: "a bare claim"\n  time: 2026-09-22 13:40\n')
+        base = [sys.executable, PHI, "--store", store, "pool", "--session", "bbcf63ab", "--title", "T", "--task", "t",
+                "--now", "2026-09-22 15:30"]
+        out = subprocess.run(base, capture_output=True, timeout=60).stdout.decode("utf-8", "replace").replace("\r\n", "\n")
+        assert out.startswith("pool-road: children; pool ") and "\n# VLDS Recall Pool" in out \
+            and 'session: bbcf63ab "T"' in out and "task: t" in out and "pooled: 2026-09-22 15:30" in out, out[:400]
+        out = out.split("\n", 2)[2]     # the road and summary lines, then the skeleton
+        assert "(the judged pass writes this section" in out, out
+        standing = out.split("## standing")[1].split("## open")[0]
+        form_i = standing.index("- [local-storage.md 2026-09-16 10:44 LIVE, form: picker] keep two forms")
+        every_i = standing.index("- [index.md (no time) LIVE] (closing + popup)")
+        plain_i = standing.index("- [index.md (no time) LIVE] (edits + check)")
+        briefs_i = standing.index("- [briefs.md standing] standing: `diff:` ×1; not standing: why ×1")
+        assert form_i < briefs_i and every_i < briefs_i < plain_i, standing
+        assert "- [local-storage.md 2026-09-03 11:00 LIVE] commit only on the word" in standing, standing
+        assert "(closing + popup): at every closing serve the popup, never prose" in standing, standing
+        assert "nesting goes three deep (sourced)" in standing and "a bare claim (unsourced)" in standing, standing
+        assert "the widget stays reusable" not in standing, standing
+        opened = out.split("## open")[1].split("## surfaced")[0]
+        assert "- [session-storage.md 2026-09-22 13:00 LIVE] open one" in opened and "done one" not in opened \
+            and "- [virtual.md 2026-09-22 13:36 LIVE] mine" in opened, opened
+        surfaced = out.split("## surfaced")[1].split("## read on demand")[0]
+        assert "- [virtual.md 2026-09-16 19:35 EXPIRED] theirs — minted by another session (fd5d84f4)" in surfaced \
+            and "FREED] the widget stays reusable after a submit — masked by tombstones.md:" in surfaced \
+            and "masks: the closing picker stays reusable after a submit" in surfaced \
+            and "- [session-storage.md 2026-09-22 13:00 EXPIRED] done one" in surfaced, surfaced
+        assert "grouped" not in out and "over its budget" not in out and len(out) <= 6000, len(out)
+        # the children's picks fold into steering by script: the picked entries move, a form line stays standing too,
+        # a malformed line is counted and ignored, and the pool file carries the pool alone
+        bj = subprocess.run([sys.executable, PHI, "--store", store, "barrier", "--session", "bbcf63ab", "--json"],
+                            capture_output=True, timeout=60).stdout.decode("utf-8", "replace")
+        lines = {e["head"][:40]: e["line"] for e in json.loads(bj)["entries"]}
+        commit_line = lines['- ruling: "commit only on the word"'[:40]]
+        form_line = lines['- ruling: "keep two forms"'[:40]]
+        picks_path = os.path.join(root, "picks.txt")
+        with open(picks_path, "w", encoding="utf-8", newline="\n") as f:
+            f.write(f"picks — local-storage.md, 2 of 3 entries bear on the task\nlocal-storage.md:{commit_line} || bears: the word rule\n"
+                    f"local-storage.md:{form_line} || bears: the form rule\nthis line is not a pick\n")
+        pool_out = os.path.join(root, "pool.md")
+        out = subprocess.run(base + ["--picks", picks_path, "--out", pool_out], capture_output=True, timeout=60) \
+            .stdout.decode("utf-8", "replace").replace("\r\n", "\n")
+        assert out.startswith("pool-road: children; pool ") and "2 of 2 steering picks kept, 1 pick line(s) ignored" in out, out[:300]
+        steering = out.split("## steering")[1].split("## standing")[0]
+        assert "- [local-storage.md 2026-09-03 11:00 LIVE] commit only on the word; bears: the word rule" in steering \
+            and "LIVE, form: picker] keep two forms; bears: the form rule" in steering, steering
+        standing = out.split("## standing")[1].split("## open")[0]
+        assert "commit only on the word" not in standing and "form: picker] keep two forms" in standing, standing
+        with open(pool_out, encoding="utf-8") as f:
+            written = f.read()
+        assert written.startswith("# VLDS Recall Pool") and "## appendix" not in written and "(child)" not in written \
+            and "local-storage.md (3, child)" in written, written[:400]
+        assert "nesting goes three deep (sourced)" in written, written     # the tag survives the width
+        # a FREED entry is never a pick, whatever a child says
+        freed_line = next(v for k, v in lines.items() if k.startswith('- ruling: "the widget stays reusable'))
+        with open(picks_path, "w", encoding="utf-8", newline="\n") as f:
+            f.write(f"local-storage.md:{commit_line} || bears: the word rule\n"
+                    f"local-storage.md:{freed_line} || bears: freed, never picked\n")
+        out = subprocess.run(base + ["--picks", picks_path], capture_output=True, timeout=60) \
+            .stdout.decode("utf-8", "replace").replace("\r\n", "\n")
+        assert "1 of 1 steering picks kept" in out and "the widget stays reusable" not in out.split("## standing")[0], out[:300]
+        # a store too large for one line per entry: grouped by file, still under the budget
+        put("local-storage.md", ls_head + "".join(
+            f'- ruling: "ruling number {i} about a matter long enough to weigh in the skeleton\'s count of characters"\n'
+            f"  time: 2026-09-{1 + i % 20:02d} 10:00\n  owner-words: \"words {i}\"\n  status: LIVE\n\n" for i in range(80)))
+        out = subprocess.run(base, capture_output=True, timeout=60).stdout.decode("utf-8", "replace").replace("\r\n", "\n")
+        assert "- [local-storage.md, 80 LIVE, grouped, 2026-09-01 10:00→2026-09-20 10:00]" in out, out[:2000]
+        out = out.split("\n", 2)[2]
+        pool_part, _sep, appendix = out.partition("## appendix")
+        assert "over its budget" not in out and len(pool_part) <= 6000, len(pool_part)
+        assert appendix and "- local-storage.md:" in appendix and "ruling number 79 about a matter" in appendix, appendix[:300]
+        assert "- [local-storage.md 2026-09-16 10:44 LIVE, form: picker]" not in out    # the form ruling is gone with the rewrite
+        # too many picks for the cap: a file's weakest go back to standing and its strongest are kept, in the
+        # child's order — the first pick listed is the first kept — and the count says so
+        import re as _re
+        bj = subprocess.run([sys.executable, PHI, "--store", store, "barrier", "--session", "bbcf63ab", "--json"],
+                            capture_output=True, timeout=60).stdout.decode("utf-8", "replace")
+        rl = {e["head"]: e["line"] for e in json.loads(bj)["entries"] if e["file"] == "local-storage.md"}
+        ordered = [rl[h] for h in sorted(rl, key=lambda h: int(_re.search(r"number (\d+)", h).group(1)))][:20]
+        with open(picks_path, "w", encoding="utf-8", newline="\n") as f:
+            f.write("".join(f"local-storage.md:{n} || bears: reason {i}\n" for i, n in enumerate(ordered)))
+        out = subprocess.run(base + ["--picks", picks_path, "--cap", "4000"], capture_output=True, timeout=60) \
+            .stdout.decode("utf-8", "replace").replace("\r\n", "\n")
+        m = _re.search(r"(\d+) of 20 steering picks kept", out)
+        assert m and 0 < int(m.group(1)) < 20 and "over its budget" not in out, out[:300]
+        steering = out.split("## steering")[1].split("## standing")[0]
+        assert "ruling number 0 about" in steering and "ruling number 19 about" not in steering, steering
+        pool_part = out.split("\n", 2)[2].partition("## appendix")[0]
+        assert len(pool_part) <= 4000, len(pool_part)
+        # the index names another road: the first line says so, and the skeleton follows all the same
+        with open(os.path.join(store, "phi-index.md"), "w", encoding="utf-8", newline="\n") as f:
+            f.write("# idx\n\nregister: 0\n\n## recall\n\npool-road: skeleton\n\nupdated: 2026-09-22 15:30 by test\n")
+        out = subprocess.run(base, capture_output=True, timeout=60).stdout.decode("utf-8", "replace")
+        assert out.startswith("pool-road: skeleton; pool ") and "\n# VLDS Recall Pool" in out, out[:200]
+    finally:
+        shutil.rmtree(root, ignore_errors=True)
+    print("pool skeleton: green")
+
+
+def test_move():
+    """normalize.py --move relocates an attached dispatch record between live segments — the one move the light
+    attacher cannot make: refused when the target position has no live segment or no room; otherwise run through
+    both headers, the logger and the index, the check clean after."""
+    root, store = seed_project()
+    try:
+        seed_register(store, logger_entries=10)
+        env = dict(os.environ, CLAUDE_PROJECT_DIR=root, CLAUDE_PLUGIN_ROOT=PLUGIN)
+        norm = os.path.join(HERE, "normalize.py")
+        base = [sys.executable, norm, "--store", store, "--session", "move-session", "--now", "2026-09-03 10:40"]
+        arc = os.path.join(store, "arc")
+
+        def run(*extra):
+            r = subprocess.run(base + list(extra), capture_output=True, env=env, timeout=120)
+            return r.stdout.decode("utf-8", "replace")
+        assert "into arc-3-a.md" in run("--pour", "logger.md:7,9,11"), "register [3] not opened"
+        assert "into arc-1-a.md" in run("--pour", "logger.md:7"), "register [3, 1] not opened"
+        big, small = "dispatch-20260903-103000-bigrec.md", "dispatch-20260903-103100-small.md"
+        with open(os.path.join(arc, big), "w", encoding="utf-8", newline="\n") as f:
+            f.write("# big\n" + ("x" * 78 + "\n") * 12)       # fits position 3 (3,072 B), never position 1 (1,024 B)
+        with open(os.path.join(arc, small), "w", encoding="utf-8", newline="\n") as f:
+            f.write("# small\n" + ("y" * 38 + "\n") * 4)
+        out = run("--light")
+        assert "attached" in out and big in out and small in out and "arc-3-a.md" in out, out
+        assert "no live segment at position 4" in run("--move", f"{small}:4")
+        assert "more room than position 1 has" in run("--move", f"{big}:1")
+        assert "is attached to no live segment" in run("--move", "dispatch-20260903-103200-none.md:1")
+        out = run("--move", f"{small}:1", "--dry")
+        assert f"{small}" in out and "to arc-1-a.md (position 1:" in out and "dry run" in out, out
+        out = run("--move", f"{small}:1")
+        assert f"move: moved {small}" in out and "from arc-3-a.md to arc-1-a.md" in out and "0 corruption" in out, out
+        with open(os.path.join(arc, "arc-1-a.md"), encoding="utf-8") as f:
+            one = f.read()
+        with open(os.path.join(arc, "arc-3-a.md"), encoding="utf-8") as f:
+            three = f.read()
+        assert f"attached: {small}" in one and small not in three and f"attached: {big}" in three, (one, three)
+        with open(os.path.join(store, "phi-index.md"), encoding="utf-8") as f:
+            index = f.read()
+        row1 = next(l for l in index.split("\n") if "| arc-1-a.md |" in l)
+        row3 = next(l for l in index.split("\n") if "| arc-3-a.md |" in l)
+        assert small in row1 and small not in row3 and big in row3, (row1, row3)
+        assert "attachment move" in index and "Attachment moved" in open(os.path.join(store, "logger.md"), encoding="utf-8").read()
+        assert "0 corruption, 0 debt" in run_check(store), run_check(store)
+    finally:
+        shutil.rmtree(root, ignore_errors=True)
+    print("move: green")
+
+
+def test_record_bare_head():
+    """A record block that gives the fingerprint's opening BARE — no quote — completes the row the hook stamped
+    quoted, never a second row beside it: the head match ignores the value's quotes on both sides."""
+    root, store = seed_project()
+    try:
+        prompt = "what if we kept the base agent as is but gave it child agents per partition"
+        run_hook("prompt-open", {"session_id": "bare", "cwd": root, "prompt": prompt}, root)
+        rec = os.path.join(root, "rec.md")
+        with open(rec, "w", encoding="utf-8", newline="\n") as f:
+            f.write(f"## dispatch.md\n- fingerprint: {prompt[:40]}\n  addressed: assessed\n")
+        now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
+        r = subprocess.run([sys.executable, os.path.join(HERE, "record.py"), "--store", store, "--session", "bare",
+                            "--now", now, "--record", rec], capture_output=True, timeout=60)
+        out = r.stdout.decode("utf-8", "replace")
+        assert "rows: dispatch.md" in out and "written: nothing" in out, out
+        dispatch = open(os.path.join(store, "dispatch.md"), encoding="utf-8").read()
+        assert dispatch.count('- fingerprint: "what if we kept') == 1 and "  addressed: assessed" in dispatch, dispatch[-500:]
+    finally:
+        shutil.rmtree(root, ignore_errors=True)
+    print("record bare head: green")
+
+
+def test_barrier_states():
+    """phi.py barrier stamps by rule alone: a status field is the entry's word; a tombstone masks the ruling that
+    shares its owner-words; a virtual entry minted by another session is EXPIRED and this session's is LIVE; a
+    cleared task is EXPIRED; tombstones are the mask, never masked; the logger's bullets are entries; a file the
+    read list names but the store lacks is reported absent."""
+    root, store = seed_project()
+    try:
+        def put(name, text):
+            with open(os.path.join(store, name), "w", encoding="utf-8", newline="\n") as f:
+                f.write(text)
+        put("local-storage.md", "# LS\n\n```yaml\n- ruling: [x]\n  time: [t]\n  owner-words: [w]\n  status: LIVE | SPENT | FREED\n```\n\n---\n\n"
+            '- ruling: "keep two forms"\n  time: 2026-09-16 10:44\n  owner-words: "keep two forms"\n  status: LIVE\n\n'
+            '- ruling: "the widget stays reusable after a submit"\n  time: 2026-09-16 10:40\n  owner-words: "reopen and reuse the widget"\n  status: LIVE\n\n'
+            '- ruling: "hold the review"\n  time: 2026-09-03 13:13\n  owner-words: "hold the review"\n  status: SPENT\n')
+        put("tombstones.md", "# TS\n\n```yaml\n- freed: [x]\n  time: [t]\n  owner-words: [w]\n```\n\n---\n\n"
+            '- freed: "the closing picker stays reusable after a submit"\n  time: 2026-09-16 10:50\n  cause: retraction\n'
+            '  owner-words: "reopen and reuse the widget"\n')
+        put("virtual.md", "# V\n\n```yaml\n- inference: [x]\n  time: [t]\n  minted: [s]\n  disposition: pending\n```\n\n---\n\n"
+            '- inference: "mine"\n  time: 2026-09-22 13:36\n  basis: b\n  minted: bbcf63ab turn 1\n  disposition: pending\n\n'
+            '- inference: "theirs"\n  time: 2026-09-16 19:35\n  basis: b\n  minted: session fd5d84f4 turn 3\n  disposition: pending\n')
+        put("session-storage.md", "# S\n\n```yaml\n- task: [x]\n  time: [t]\n  state: [s]\n```\n\n---\n\n"
+            "- task: open one\n  time: 2026-09-22 13:00\n  state: started\n\n- task: done one\n  time: 2026-09-22 13:00\n  state: completed\n")
+        put("logger.md", LOGGER_HEADER + "- `[gc]` 2026-09-22 13:46 — **A sweep.** placed.\n")
+        r = subprocess.run([sys.executable, PHI, "--store", store, "barrier", "--session", "bbcf63ab", "--json"],
+                           capture_output=True, timeout=60)
+        data = json.loads(r.stdout.decode("utf-8", "replace"))
+
+        def state_of(prefix):
+            return next(e["state"] for e in data["entries"] if e["head"].startswith(prefix))
+        assert state_of('- ruling: "keep two forms"') == "LIVE"
+        assert state_of('- ruling: "the widget stays reusable') == "FREED", data["entries"]
+        assert state_of('- ruling: "hold the review"') == "SPENT"
+        assert state_of('- freed: "the closing picker') == "LIVE"
+        assert state_of('- inference: "mine"') == "LIVE" and state_of('- inference: "theirs"') == "EXPIRED"
+        assert state_of("- task: open one") == "LIVE" and state_of("- task: done one") == "EXPIRED"
+        assert state_of("- `[gc]` 2026-09-22 13:46") == "LIVE"
+        assert "index.md" in data["missing"] and "local-storage.md" in data["files"], data["missing"]
+        r = subprocess.run([sys.executable, PHI, "--store", store, "barrier", "--session", "bbcf63ab"],
+                           capture_output=True, timeout=60)
+        out = r.stdout.decode("utf-8", "replace")
+        assert out.startswith("barrier — store") and "\nbarrier: " in out and "masked by tombstones.md:" in out, out
+    finally:
+        shutil.rmtree(root, ignore_errors=True)
+    print("barrier states: green")
+
+
 if __name__ == "__main__":
     test_pre_write()
     test_stray_scan()
@@ -846,4 +1106,8 @@ if __name__ == "__main__":
     test_detail_ask()
     test_pre_ask()
     test_record_truncated_head()
+    test_record_bare_head()
+    test_barrier_states()
+    test_move()
+    test_pool_skeleton()
     print("test_hooks.py: all green")

@@ -13,7 +13,7 @@ One entry per message, in this shape — one field to a line, never folded or wr
 ```yaml
 - fingerprint: [the opening clause plus the ask, enough to recognize it again]
   time: [YYYY-MM-DD HH:MM]
-  arrival: turn | mid-turn interleave | hook injection | summary replay | task notification
+  arrival: turn | mid-turn interleave | hook injection | summary replay | task notification | agent message
   kind: [detail-ask | submit+detail-ask — the prompt hook's, when a question about a served picker arrives; absent otherwise]
   on: [the picker it asks about — widget «title» | panel «header»; absent otherwise]
   state: FRESH | ECHO | SUPERSEDED

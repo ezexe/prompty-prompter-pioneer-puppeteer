@@ -26,6 +26,18 @@ Subcommands:
                 into the portable layer — session dates, "per the user" attributions, dated rulings,
                 session-id tokens. Doctrine states mechanism; provenance lives in the store, which
                 recall replays. Report-only; the model judges each hit.
+  barrier       the read barrier's mechanical half: every entry of the read list stamped LIVE / SPENT /
+                FREED / EXPIRED by rule alone — its own status field, a tombstone's mask (the same
+                owner-words, or a head contained in the tombstone's freed:), a virtual entry minted by
+                another session, a cleared task — the masked spans skipped; one line per entry
+                (`<file>:<line>  <STATE>  <time>  <head> — <reason>`, the prefix a pool child copies
+                verbatim), or --json. Ownership is not traced here: a rule or claim with no user ruling at
+                its root is a reading, the pool composer's UNOWNED call, never this script's.
+  pool          the recall pool's skeleton from the barrier's own rows, in one pass and with no model reading
+                a file: standing (form and every-turn lines first, never grouped; the rest one per line, grouped
+                by file only when the cap forces it), open (live tasks, this session's inferences, the index's
+                debts), surfaced (SPENT / FREED / EXPIRED with the mask's source) and read-on-demand — and an
+                empty steering section for the operator's one judged pass. --session, --task, --now required.
 
 Watermark convention (shared by reader and writer, pinned in gc/reference.md): `mask=A:B sha=H` is a
 0-based, HALF-OPEN line range — the masked span is lines[A:B]; live entries are counted outside it.
@@ -711,6 +723,452 @@ LINT_PATTERNS = [
 LINT_EXEMPT = {"examples.md"}  # worked examples legitimately carry illustrative dates
 
 
+# ─── the read barrier, mechanical ───────────────────────────────────────────────────────────────────────
+
+BARRIER_STATES = ("LIVE", "SPENT", "FREED", "EXPIRED")
+BARRIER_DEFAULT_FILES = ["local-storage.md", "index.md", "tombstones.md", "ledger.md", "session-storage.md",
+                         "virtual.md", "briefs.md", "data-store.md", "logger.md"]
+BARRIER_HEAD_CHARS = 140
+MASK_MIN = 24                 # the shorter side of a head/freed containment must be this long to count as a mask
+HOT_HEAD_RE = re.compile(r"^- ([a-z-]+):\s*(.*)$")
+HOT_FIELD_RE = re.compile(r"^  ([a-z-]+):\s*(.*)$")
+CLEARED_RE = re.compile(r"^(complete|completed|done|cleared|closed)\b", re.I)
+SESSION_ID_RE = re.compile(r"[0-9a-f]{8}")
+
+
+def norm_text(v):
+    """A field value normalized for matching: quotes and a trailing ellipsis off, whitespace collapsed, lower case."""
+    v = v.strip().strip('"').strip("'").rstrip("…").strip()
+    return re.sub(r"\s+", " ", v).lower()
+
+
+def hot_entries(store, fname, span=None):
+    """[(line 1-based, field, value, fields)] — the column-0 '- ' heads after the header separator, each with its
+    two-space continuation fields (first occurrence wins), the masked span skipped; a logger bullet is an entry
+    whose field is 'log' and whose value is the line past its dash. None when the file is absent."""
+    path = os.path.join(store, fname)
+    if not os.path.exists(path):
+        return None
+    lines = read(path).split("\n")
+    try:
+        start = lines.index("---") + 1
+    except ValueError:
+        start = 0
+    a, b = span if span else (0, 0)
+    out, i = [], start
+    while i < len(lines):
+        l = lines[i]
+        if not l.startswith("- ") or a <= i < b:
+            i += 1
+            continue
+        m = HOT_HEAD_RE.match(l)
+        field, value = (m.group(1), m.group(2)) if m else ("log", l[2:])
+        fields, j = {}, i + 1
+        while j < len(lines) and lines[j].startswith("  "):
+            fm = HOT_FIELD_RE.match(lines[j])
+            if fm and fm.group(1) not in fields:
+                fields[fm.group(1)] = fm.group(2)
+            j += 1
+        out.append((i + 1, field, value, fields))
+        i = j
+    return out
+
+
+def recall_files(store):
+    """The read list from the index's `## recall` section — inject then digest — or the barrier's default."""
+    idx = parse_index(store)
+    if not idx:
+        return list(BARRIER_DEFAULT_FILES)
+    inject, digest, in_recall = [], [], False
+    for l in idx["raw"].split("\n"):
+        if l.startswith("## "):
+            in_recall = l[3:].strip().lower() == "recall"
+            continue
+        m = re.match(r"^(inject|digest):\s*(.*)$", l.strip()) if in_recall else None
+        if m:
+            names = [n.strip() for n in m.group(2).split(",") if n.strip()]
+            if m.group(1) == "inject":
+                inject = names
+            else:
+                digest = names
+    return (inject + digest) or list(BARRIER_DEFAULT_FILES)
+
+
+def masked_spans(store):
+    """{file: (A, B)} — the hot table's watermarked spans, lines[A:B], which no reader opens."""
+    idx = parse_index(store)
+    spans = {}
+    if not idx:
+        return spans
+    for row in idx["hot"]:
+        for cell in row[1:]:
+            m = re.match(r"mask=(\d+):(\d+)", cell)
+            if m:
+                spans[row[0]] = (int(m.group(1)), int(m.group(2)))
+    return spans
+
+
+def tombstone_masks(store, span=None):
+    """[(line, freed, owner-words, time)] — every tombstone, normalized: the mask the barrier applies."""
+    out = []
+    for line, field, value, fields in (hot_entries(store, "tombstones.md", span) or []):
+        if field == "freed":
+            out.append((line, norm_text(value), norm_text(fields.get("owner-words", "")), fields.get("time", "")))
+    return out
+
+
+def barrier_state(fname, field, value, fields, session, masks):
+    """(STATE, reason) by the read barrier's rules, judgment-free: a `status:` field is the entry's own word;
+    a tombstone masks what it freed — the same owner-words, or a head contained in its freed: (or the reverse), the
+    shorter side at least MASK_MIN characters — and tombstones themselves are the mask, never masked; a virtual.md
+    entry minted by another session, naming no session, or already expired or promoted is EXPIRED, as is a
+    session-storage.md task whose state reads cleared; everything else is LIVE. Ownership is not traced here."""
+    status = fields.get("status", "").strip().upper().split(" ")[0] if fields.get("status") else ""
+    if status in ("SPENT", "FREED"):
+        return status, "its own status field"
+    if fname == "tombstones.md":
+        return "LIVE", "the mask itself"
+    head, own = norm_text(value), norm_text(fields.get("owner-words", ""))
+    for line, freed, words, when in masks:
+        if own and words and own == words:
+            return "FREED", f"masked by tombstones.md:{line} ({when}) — the same owner-words"
+        short, long_ = (head, freed) if len(head) <= len(freed) else (freed, head)
+        if len(short) >= MASK_MIN and short in long_:
+            return "FREED", f"masked by tombstones.md:{line} ({when}) — head within its freed:"
+    if fname == "virtual.md":
+        disp = fields.get("disposition", "").strip().lower()
+        if disp.startswith("expired") or disp.startswith("promoted"):
+            return "EXPIRED", f"disposition: {disp.split(' ')[0]}"
+        ids = SESSION_ID_RE.findall(fields.get("minted", "").lower())
+        if session and ids and session[:8].lower() not in ids:
+            return "EXPIRED", f"minted by another session ({ids[0]})"
+        if session and not ids:
+            return "EXPIRED", "minted: names no session id — fail-closed, past its turn"
+    if fname == "session-storage.md" and CLEARED_RE.match(fields.get("state", "").strip()):
+        return "EXPIRED", f"state: {fields.get('state', '').strip()}"
+    if status == "LIVE":
+        return "LIVE", "its own status field"
+    return "LIVE", "no status, no mask"
+
+
+STAMP_RE = re.compile(r"\b(20\d\d-\d\d-\d\d(?: \d\d:\d\d)?)\b")
+EVERY_TURN_RE = re.compile(r"\b(every|each) (closing|turn|reply)\b|\bat every\b", re.I)
+KIND_BY_FILE = {"data-store.md": "claim", "virtual.md": "inference", "session-storage.md": "task",
+                "briefs.md": "ask", "tombstones.md": "freed", "logger.md": "log"}
+POOL_LINE_CHARS = 150         # a skeleton line's distilled text
+POOL_CAP = 8000               # the pool's cap — the harness caps a hook output at 10,000 and the pool is re-injected as one
+POOL_RESERVE = 2000           # the room the skeleton leaves for the judged pass's steering lines
+
+
+def entry_kind(fname, field, fields):
+    """One word per entry, by rule: form (a ruling carrying form:), every-turn (an index rule whose text names
+    every closing or turn), ruling, rule, claim, correction, event, inference, task, ask, freed, log."""
+    if fname == "local-storage.md":
+        return "form" if fields.get("form", "").strip() else "ruling"
+    if fname == "index.md":
+        return "every-turn" if EVERY_TURN_RE.search(" ".join(fields.values())) else "rule"
+    if fname == "ledger.md":
+        return "correction" if field == "correction" else "event"
+    return KIND_BY_FILE.get(fname, field)
+
+
+def barrier_rows(store, session, files=None):
+    """(rows, files, spans, missing, masks) — every entry of the read list with its barrier state, kind and fields:
+    the one read both the barrier listing and the pool skeleton are printed from."""
+    files = files or recall_files(store)
+    spans = masked_spans(store)
+    masks = tombstone_masks(store, spans.get("tombstones.md"))
+    rows, missing = [], []
+    for fname in files:
+        entries = hot_entries(store, fname, spans.get(fname))
+        if entries is None:
+            missing.append(fname)
+            continue
+        for line, field, value, fields in entries:
+            state, why = barrier_state(fname, field, value, fields, session, masks)
+            head = f"- {field}: {value}" if field != "log" else f"- {value}"
+            time_ = fields.get("time", "")
+            if not time_ and field == "log":
+                m = STAMP_RE.search(value)
+                time_ = m.group(1) if m else ""
+            rows.append({"file": fname, "line": line, "field": field, "value": value, "fields": fields,
+                         "kind": entry_kind(fname, field, fields), "state": state,
+                         "head": head[:BARRIER_HEAD_CHARS], "time": time_, "reason": why})
+    return rows, files, spans, missing, masks
+
+
+def cmd_barrier(args, store):
+    """Every entry of the read list with its read-barrier state — the mechanical half of recall, which every pool
+    reader applies and none re-judges; a state a reader disagrees with is surfaced beside the entry, never applied."""
+    rows, files, spans, missing, masks = barrier_rows(store, args.session, args.file)
+    if args.json:
+        lean = [{k: r[k] for k in ("file", "line", "kind", "state", "head", "time", "reason")} for r in rows]
+        print(json.dumps({"session": args.session, "files": files, "masked": {k: list(v) for k, v in spans.items()},
+                          "missing": missing, "entries": lean}, ensure_ascii=False, indent=1))
+        return 0
+    print(f"barrier — store {store}, session {args.session or '(none)'}, {len(files)} file(s), "
+          f"{len(masks)} tombstone mask(s)")
+    for fname in files:
+        if fname in missing:
+            print(f"## {fname} — absent")
+            continue
+        mine = [r for r in rows if r["file"] == fname]
+        counts = {s: sum(1 for r in mine if r["state"] == s) for s in BARRIER_STATES}
+        span = spans.get(fname)
+        print(f"## {fname} — {len(mine)} entries: " + ", ".join(f"{counts[s]} {s}" for s in BARRIER_STATES)
+              + (f"; masked span lines {span[0]}:{span[1]} skipped" if span else ""))
+        for r in mine:
+            print(f"{fname}:{r['line']}  {r['state']:<7} {r['time'] or '(no time)'}  {r['head']} — {r['reason']}")
+    total = {s: sum(1 for r in rows if r["state"] == s) for s in BARRIER_STATES}
+    print(f"barrier: {len(rows)} entries — " + ", ".join(f"{total[s]} {s}" for s in BARRIER_STATES)
+          + "; ownership not traced here — an index rule or a claim with no user ruling at its root is the "
+            "composer's UNOWNED call")
+    return 0
+
+
+# ─── the pool skeleton, mechanical ──────────────────────────────────────────────────────────────────────
+
+def distilled(r, width=POOL_LINE_CHARS):
+    """An entry's head value as one bounded line: a logger bullet's bold headline when it has one; an index rule's
+    key with its directive, so the ownership call needs no read; a claim marked sourced or unsourced from its
+    verified: and source: fields, for the same reason; otherwise the value with its quotes off and its whitespace
+    collapsed."""
+    v = r["value"]
+    f = r["fields"]
+    if r["field"] == "log":
+        m = re.search(r"\*\*(.+?)\*\*", v)
+        v = m.group(1) if m else v
+    v = re.sub(r"\s+", " ", v.strip().strip('"').strip("'")).strip()
+    tag = ""
+    if r["file"] == "index.md" and f.get("directive", "").strip():
+        directive = re.sub(r"[ \t]+", " ", f["directive"].strip())
+        v = f"{v}: {directive}"
+    elif r["file"] == "data-store.md":
+        # the tag survives every width: the value is cut to leave it room
+        tag = " (sourced)" if f.get("verified", "").strip() or f.get("source", "").strip() else " (unsourced)"
+    room = max(width - len(tag), 12)
+    return (v if len(v) <= room else v[:room - 1].rstrip() + "…") + tag
+
+
+PICK_RE = re.compile(r"^\s*([a-z-]+\.md):(\d+)\s*\|\|\s*bears:\s*(.+?)\s*$")
+
+
+def read_picks(path):
+    """{(file, line): clause} from a picks file — the child readers' whole output, one `<file>:<line> || bears:
+    <clause>` per line; a line outside that shape (its `picks —` head line excepted) is counted, never applied."""
+    picks, ignored = {}, 0
+    with open(path, encoding="utf-8") as f:
+        for l in f:
+            m = PICK_RE.match(l)
+            if m:
+                picks[(m.group(1), int(m.group(2)))] = m.group(3)
+            elif l.strip() and not l.lstrip().startswith("picks —"):
+                ignored += 1
+    return picks, ignored
+
+
+def index_road(store):
+    """The index's `pool-road:` — children when absent or unknown."""
+    idx = parse_index(store)
+    if not idx:
+        return "children"
+    in_recall = False
+    for l in idx["raw"].split("\n"):
+        if l.startswith("## "):
+            in_recall = l[3:].strip().lower() == "recall"
+            continue
+        m = re.match(r"^pool-road:\s*(\w+)", l.strip()) if in_recall else None
+        if m and m.group(1).lower() in ("skeleton", "children", "single"):
+            return m.group(1).lower()
+    return "children"
+
+
+def pool_line(r, extra="", width=POOL_LINE_CHARS):
+    return f"- [{r['file']} {r['time'] or '(no time)'} {r['state']}{extra}] {distilled(r, width)}"
+
+
+def grouped_line(fname, rows, head_width):
+    """One line for a file's remaining LIVE entries — the count, the span of times, and each head shortened."""
+    times = sorted(t for t in (r["time"] for r in rows) if t)
+    span = f"{times[0]}→{times[-1]}" if times else "undated"
+    heads = "; ".join(distilled(r, head_width) for r in rows) if head_width else \
+        "lines " + ", ".join(str(r["line"]) for r in rows)
+    return f"- [{fname}, {len(rows)} LIVE, grouped, {span}] {heads}"
+
+
+def cmd_pool(args, store):
+    """The pool's skeleton, printed from the barrier's own rows in one pass: every section the pool brief keys on a
+    field the barrier already read — standing (form and every-turn lines first, never grouped; the rest one per
+    line, grouped by file only when the cap forces it), open (live tasks, this session's inferences, the index's
+    debts), surfaced (SPENT, FREED, EXPIRED, with the mask's source) and the read-on-demand list — and one empty
+    section, steering, left for the operator's judged pass — or, with --picks, filled from the child readers' picks,
+    each picked entry moved into steering with its bears clause, so the children's parallel judgment lands by
+    script. No model reads a file for any of it, the index included: the first line names the index's road."""
+    road = index_road(store)
+    rows, files, spans, missing, masks = barrier_rows(store, args.session, args.file)
+    picks, ignored = read_picks(args.picks) if args.picks else ({}, 0)
+    live = [r for r in rows if r["state"] == "LIVE"]
+    first = [r for r in live if r["kind"] in ("form", "every-turn") and r["file"] != "tombstones.md"]
+    picked = [r for r in live if (r["file"], r["line"]) in picks]
+    rest = [r for r in live if r not in first and r not in picked
+            and r["file"] not in ("tombstones.md", "session-storage.md", "virtual.md")]
+    briefs = [r for r in rows if r["file"] == "briefs.md"]
+    standing_labels, classes = {}, {}
+    for r in briefs:
+        label = r["fields"].get("omitted", "").strip()
+        if not label:
+            continue
+        (standing_labels if r["fields"].get("standing", "").strip() else classes)[label] = \
+            (standing_labels if r["fields"].get("standing", "").strip() else classes).get(label, 0) + 1
+    briefs_line = "- [briefs.md standing] " + (
+        ("standing: " + ", ".join(f"`{k}:` ×{v}" for k, v in standing_labels.items())) if standing_labels
+        else "no label standing yet") + (
+        ("; not standing: " + ", ".join(f"{k} ×{v}" for k, v in classes.items())) if classes else "")
+    open_rows = [r for r in live if r["file"] == "session-storage.md"] + [r for r in live if r["file"] == "virtual.md"]
+    debts = []
+    idx = parse_index(store)
+    if idx:
+        for row in idx["hot"]:
+            if len(row) > 6 and row[6].strip() not in ("ok", "", "—"):
+                debts.append(f"- debt: {row[0]} pressure {row[6].strip()} (live {row[1]}, at-sweep {row[2]})")
+        upd = next((l for l in idx["raw"].split("\n") if l.startswith("updated:")), "")
+        if upd:
+            debts.append(f"- {upd[:POOL_LINE_CHARS]}")
+    tomb = [r for r in rows if r["file"] == "tombstones.md"]
+    counts = {}
+    for r in rows:
+        c = counts.setdefault(r["file"], [0, 0])
+        c[0] += 1
+        c[1] += r["state"] == "LIVE"
+    present = [f for f in files if f not in missing]
+    title = f' "{args.title}"' if args.title else ""
+    derived_long = ("Derived — the skeleton written by scripts/phi.py pool from the barrier's own lines, keyed on the "
+                    "register's addresses; the operator's one judged pass adds the steering clauses, the UNOWNED call "
+                    "and the read-on-demand picks; re-injected by the SessionStart hook on a compact; never a second "
+                    "authority — the hot files are, and an entry is re-read there before it steers a decision.")
+    derived_short = ("Derived — the skeleton by scripts/phi.py pool from the barrier's lines, the steering by the "
+                     "children's picks or the operator's pass; re-injected on a compact; never a second authority — "
+                     "the hot files are.")
+
+    def head_lines(compact):
+        return ["# VLDS Recall Pool", "", derived_short if compact else derived_long, "",
+                f"session: {args.session}{title}", f"task: {args.task}", f"pooled: {args.now}",
+                "read: " + ", ".join(f"{f} ({counts.get(f, [0, 0])[0]}, {'child' if args.picks else 'script'})"
+                                     for f in files if f not in missing)
+                + (("; absent: " + ", ".join(missing)) if missing else ""), "",
+                "## steering — bears on the task", ""]
+    placeholder = ("- (the judged pass writes this section: each standing line that bears on the task, copied here "
+                   "with `; bears: <how it constrains or shapes the task>` appended — nothing else in the skeleton "
+                   "changes)")
+
+    pick_order = {k: i for i, k in enumerate(picks)}     # the child's order — the strongest first, by its brief
+    kept_count = [len(picked)]
+
+    def render(mode, head_width, width, compact, steer_width=POOL_LINE_CHARS, per_file=None, clause_width=None):
+        head = head_lines(compact)
+        rest_now = list(rest)
+        if args.picks:
+            by_file_p = {}
+            for r in sorted(picked, key=lambda r: pick_order[(r["file"], r["line"])]):
+                by_file_p.setdefault(r["file"], []).append(r)
+            kept, dropped = [], []
+            for f in files:
+                lst = by_file_p.get(f, [])
+                cut = lst if per_file is None else lst[:per_file]
+                kept += cut
+                dropped += lst[len(cut):]
+            kept.sort(key=lambda r: (files.index(r["file"]), r["line"]))
+            kept_count[0] = len(kept)
+            rest_now = sorted(rest + [r for r in dropped if r not in first],
+                              key=lambda r: (files.index(r["file"]), r["line"]))
+            def clause(r):
+                c = picks[(r["file"], r["line"])]
+                return c if not clause_width or len(c) <= clause_width else c[:clause_width - 1].rstrip() + "…"
+            steer = [pool_line(r, f", form: {r['fields']['form'].strip()}" if r["kind"] == "form" else "",
+                               steer_width) + f"; bears: {clause(r)}" for r in kept] \
+                or ["- none — no child named an entry that bears on the task"]
+        else:
+            steer = [placeholder]
+        standing = ["## standing — applies whatever the task", ""] + [
+            pool_line(r, f", form: {r['fields']['form'].strip()}" if r["kind"] == "form" else "", width)
+            for r in first] + [briefs_line]
+        if mode == "lines":
+            standing += [pool_line(r, "", width) for r in rest_now]
+        else:
+            by_file = {}
+            for r in rest_now:
+                by_file.setdefault(r["file"], []).append(r)
+            for f in files:
+                if f in by_file:
+                    standing.append(grouped_line(f, by_file[f], head_width))
+        surfaced = [f"{pool_line(r, '', width)} — {r['reason']}" for r in rows if r["state"] != "LIVE"]
+        if compact and tomb:
+            surfaced.append(f"- [tombstones.md, {len(tomb)} masks] " + "; ".join(distilled(r, 40) for r in tomb))
+        else:
+            surfaced += [f"- [tombstones.md {r['time'] or '(no time)'}] masks: {distilled(r, width)}" for r in tomb]
+        if compact:
+            demand = ["- the files and counts are the read: line's; an entry whole by the barrier's line number, "
+                      "never the file"]
+        else:
+            demand = [f"- {f} — {counts.get(f, [0, 0])[0]} entries, {counts.get(f, [0, 0])[1]} LIVE; an entry whole "
+                      "by the barrier's line number, never the file" for f in present]
+        demand.append("- (the judged pass names the entries worth re-reading whole for this task, by head line)")
+        opens = [pool_line(r, "", width) for r in open_rows] + [d[:width + 40] for d in debts]
+        tail = ["", "## open", ""] + (opens or ["- none"]) + ["", "## surfaced, not applied", ""] + \
+               (surfaced or ["- none"]) + ["", "## read on demand", ""] + demand + [""]
+        return "\n".join(head + steer + [""] + standing + tail)
+
+    budget = args.cap if args.picks else args.cap - args.reserve
+    stages = [("lines", 0, POOL_LINE_CHARS, False), ("grouped", 48, POOL_LINE_CHARS, False),
+              ("grouped", 24, POOL_LINE_CHARS, False), ("grouped", 0, POOL_LINE_CHARS, True),
+              ("grouped", 0, 110, True), ("grouped", 0, 90, True), ("grouped", 0, 70, True)]
+    if args.picks:
+        # the steering lines shrink last: their text first, then the weakest picks per file, the strongest kept,
+        # then the clauses and the standing lines' width, down to one pick per file
+        stages += [("grouped", 0, 70, True, 110), ("grouped", 0, 70, True, 90)] + \
+                  [("grouped", 0, 70, True, 90, n) for n in (6, 5, 4)] + \
+                  [("grouped", 0, 50, True, 70, n, 80) for n in (4, 3, 2, 1)]
+    text = render(*stages[0])
+    for stage in stages[1:]:
+        if len(text) <= budget:
+            break
+        text = render(*stage)
+    over = len(text) - budget
+    if over > 0:
+        text += f"\n(skeleton {over} characters over its budget of {budget} even fully grouped — the judged pass trims the grouped lines first)\n"
+    pool_part = text
+    if not args.picks:
+        room = args.cap - len(text)
+        pool_part = text = text.replace(
+            "nothing else in the skeleton changes)",
+            f"nothing else in the skeleton changes; about {room} characters of room for the steering lines under "
+            f"the {args.cap} cap, so the pool is written once)", 1)
+        if "grouped, " in text:
+            # the judged pass must still see what it groups: every grouped entry, one line with its head, after
+            # the pool's end — read once in the tool result, never written into the pool
+            text += ("\n## appendix — the grouped entries, for the judged pass only: not part of the pool, which "
+                     "ends at read on demand\n\n"
+                     + "\n".join(f"- {r['file']}:{r['line']}  {r['time'] or '(no time)'}  {distilled(r, 110)}"
+                                 for r in rest) + "\n")
+    summary = (f"pool-road: {road}; pool {len(pool_part)} characters of {budget} ({len(rows)} entries, {len(live)} "
+               f"LIVE, {len(first)} form/every-turn lines"
+               + (f", {kept_count[0]} of {len(picked)} steering picks kept" if args.picks else "")
+               + (f", {ignored} pick line(s) ignored" if ignored else "")
+               + (f"; appendix {len(text) - len(pool_part)} characters" if len(text) > len(pool_part) else "")
+               + ")" + (f" → {args.out}" if args.out else ""))
+    if args.out:
+        # the pool file never carries the appendix
+        with open(args.out, "w", encoding="utf-8", newline="\n") as f:
+            f.write(pool_part if args.picks else text)
+    if args.out and not args.picks:
+        print(summary)
+    else:
+        print(summary)
+        print()
+        print(pool_part if args.picks else text)
+    return 0
+
+
 def cmd_lint(plugin_root):
     """The tier guard: portable doctrine carries mechanism and design only — a ruling's CONTENT may
     become doctrine, but its PROVENANCE (who ruled, when, in which session) belongs to the store."""
@@ -766,6 +1224,21 @@ def main():
     p = sub.add_parser("lint")
     p.add_argument("--plugin-root",
                    default=os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    p = sub.add_parser("barrier")
+    p.add_argument("--session", default="", help="this session's short id — a virtual entry minted by another is EXPIRED")
+    p.add_argument("--file", action="append", help="one read-list file (repeatable); default: the index's recall list")
+    p.add_argument("--json", action="store_true")
+    p = sub.add_parser("pool")
+    p.add_argument("--session", required=True, help="this session's short id")
+    p.add_argument("--title", default="", help="this session's chat title, for the pool's session: line")
+    p.add_argument("--task", required=True, help="the session's one-line derivation of its first prompt")
+    p.add_argument("--now", required=True, help="the clock, YYYY-MM-DD HH:MM, copied from the hook stream")
+    p.add_argument("--file", action="append", help="one read-list file (repeatable); default: the index's recall list")
+    p.add_argument("--cap", type=int, default=POOL_CAP, help="the pool's cap in characters")
+    p.add_argument("--reserve", type=int, default=POOL_RESERVE, help="room left for the judged pass's steering lines")
+    p.add_argument("--out", default="", help="write the skeleton (or, with --picks, the pool) here as well")
+    p.add_argument("--picks", default="", help="the child readers' picks file: `<file>:<line> || bears: <clause>` "
+                                              "lines; each picked entry moves to steering with its clause")
     args = ap.parse_args()
     if args.cmd == "check":
         sys.exit(cmd_check(args.store))
@@ -785,6 +1258,10 @@ def main():
         sys.exit(cmd_restore(args))
     if args.cmd == "lint":
         sys.exit(cmd_lint(args.plugin_root))
+    if args.cmd == "barrier":
+        sys.exit(cmd_barrier(args, args.store))
+    if args.cmd == "pool":
+        sys.exit(cmd_pool(args, args.store))
     ap.print_help()
     sys.exit(2)
 

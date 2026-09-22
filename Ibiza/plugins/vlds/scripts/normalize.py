@@ -12,6 +12,13 @@ Run, from anywhere:
                                                                      by head line; this places them — one child at
                                                                      the one position the count opens, byte-checked
                                                                      — or says which counts near it would open one
+  python normalize.py --store <store> --session <id> --move <record>:<position> [--dry]
+                                                                     relocate one attached dispatch record to the
+                                                                     live segment at <position> — the one move the
+                                                                     light attacher cannot make, since it only
+                                                                     places records still unregistered; byte-checked
+                                                                     at the target, the source's overflow reported;
+                                                                     on the owner's word, never a hand edit
 The Stop hook (hooks/vlds_hooks.py turn-close) runs the --light form after every reply and hands the one-line
 report to the next prompt hook, which prints it — the operation is announced by the closing that precedes it and
 reported by the prompt that follows it. The --pour form is the judged sweep's mechanics: judgment names the
@@ -212,6 +219,30 @@ def attach_to_segment(path, names):
     else:
         lines.insert(close, "attached: " + ", ".join(names))
     write(path, nl.join(lines))
+
+
+def detach_from_segment(path, name):
+    """Drop `name` from an existing segment's `attached:` header line — a header edit, like attach_to_segment,
+    the `verified:` sha covering the body untouched; the line goes when nothing is left on it. True when the
+    name was there."""
+    text = read(path)
+    nl = "\r\n" if "\r\n" in text else "\n"
+    lines = text.split(nl)
+    first = next(i for i, l in enumerate(lines) if l.strip())
+    close = next(i for i in range(first + 1, len(lines)) if lines[i] == "```")
+    for i in range(first + 1, close):
+        if lines[i].startswith("attached:"):
+            have = [a.strip() for a in lines[i][len("attached:"):].split(",") if a.strip()]
+            if name not in have:
+                return False
+            have.remove(name)
+            if have:
+                lines[i] = "attached: " + ", ".join(have)
+            else:
+                del lines[i]
+            write(path, nl.join(lines))
+            return True
+    return False
 
 
 def attached_list(header):
@@ -774,6 +805,95 @@ def run_light(store, session, now, dry, spec=None):
     return 0
 
 
+def run_move(store, session, now, record, to_position, dry):
+    """Relocate one attached dispatch record from the live segment that holds it to the live segment at
+    `to_position` — the one move the light classes cannot make, since the attacher only places records still
+    unregistered. Byte-checked at the target; the source's overflow reported cleared or not; the run through the
+    lock, both headers, one logger entry, the index, the check. No entry is written, deleted, or rewritten: each
+    body's `verified:` sha stands, because an attachment is a header line."""
+    session8 = session[:8]
+    arc = os.path.join(store, "arc")
+    tag = "move"
+    old_text, old_rows = parse_index(store)
+    if old_text is None:
+        print(f"{tag}: refused — no phi-index.md; the register is not bootstrapped")
+        return 1
+    segments = live_segments(arc)
+    src = next((n for n, s in segments.items() if record in attached_list(s["header"])), None)
+    if src is None:
+        print(f"{tag}: refused — {record} is attached to no live segment (an unregistered record is the light "
+              "sweep's to attach)")
+        return 1
+    rec_path = os.path.join(arc, record)
+    if not os.path.exists(rec_path):
+        print(f"{tag}: refused — arc/{record} is named by {src} but absent on disk")
+        return 1
+    dst = next((n for n, s in segments.items() if s["position"] == to_position), None)
+    if dst is None:
+        live = ", ".join(f"{n} (position {s['position']})"
+                         for n, s in sorted(segments.items(), key=lambda kv: -kv[1]["position"]))
+        print(f"{tag}: refused — no live segment at position {to_position}; live: {live or 'none'}")
+        return 1
+    if dst == src:
+        print(f"{tag}: refused — {record} is already at position {to_position} ({src})")
+        return 1
+    size = os.path.getsize(rec_path)
+    s_seg, d_seg = segments[src], segments[dst]
+    s_cap, d_cap = CACHE[s_seg["position"] - 1] * 1024, CACHE[to_position - 1] * 1024
+    s_before, d_before = s_seg["bytes"] + s_seg["attached_bytes"], d_seg["bytes"] + d_seg["attached_bytes"]
+    s_after, d_after = s_before - size, d_before + size
+    if d_after > d_cap:
+        print(f"{tag}: refused — {dst} holds {d_before:,} B of {d_cap:,}; {record} ({size:,} B) needs "
+              f"{d_after - d_cap:,} B more room than position {to_position} has")
+        return 1
+    cleared = ", overflow cleared" if s_before > s_cap >= s_after else ""
+    print(f"{tag}: {record} ({size:,} B) from {src} (position {s_seg['position']}: {s_before:,} → {s_after:,} B "
+          f"of {s_cap:,}{cleared}) to {dst} (position {to_position}: {d_before:,} → {d_after:,} B of {d_cap:,})")
+    if dry:
+        print(f"{tag}: dry run — nothing written")
+        return 0
+    rc, out = phi(store, "lock", session)
+    if rc != 0:
+        print(f"{tag}: skipped — {out.splitlines()[-1] if out else 'lock refused'}")
+        return 0
+    step = "lock"
+    try:
+        step = "detach"
+        if not detach_from_segment(os.path.join(arc, src), record):
+            raise RuntimeError(f"{record} not on {src}'s attached: line")
+        step = "attach"
+        attach_to_segment(os.path.join(arc, dst), [record])
+        step = "register"
+        plan = new_plan()
+        reg = _register(store, plan)
+        occupied = reg["occupied"] if reg else []
+        reg_s = "".join("1" if p in occupied else "0" for p in range(max(occupied, default=0), 0, -1))
+        total = reg["sum_pours"] if reg else 0
+        step = "logger entry"
+        entry = (f"\n- `[gc]` {now} — **Attachment moved — {record} from {src} to {dst}, register {reg_s}.** "
+                 f"{src} (position {s_seg['position']}) {s_before:,} → {s_after:,} B of {s_cap:,}{cleared}; "
+                 f"{dst} (position {to_position}) {d_before:,} → {d_after:,} B of {d_cap:,}; no entry written or "
+                 "deleted, both bodies' verified: sha standing. Run mechanically by scripts/normalize.py --move "
+                 "on the owner's word.\n")
+        lpath = os.path.join(store, "logger.md")
+        if os.path.exists(lpath):
+            raw = read(lpath)
+            write(lpath, raw + (entry.replace("\n", "\r\n") if "\r\n" in raw else entry))
+        step = "index"
+        write_index(store, session8, now, plan, [], {dst: [record]}, old_text, old_rows, reg_s, total,
+                    via="an attachment move (scripts/normalize.py --move)")
+    except Exception as e:  # noqa: BLE001 — the report names the step; a header edit is the only write before it
+        print(f"{tag}: stopped at {step} — {type(e).__name__}: {e}")
+        phi(store, "unlock", session)
+        return 1
+    phi(store, "unlock", session)
+    _rc, out = phi(store, "check")
+    verdict = out.splitlines()[-1] if out else "check: no output"
+    print(f"{tag}: moved {record} ({size:,} B) from {src} to {dst}; {src} now {s_after:,} B of {s_cap:,}{cleared}; "
+          f"{dst} now {d_after:,} B of {d_cap:,}; register {reg_s}; {verdict}")
+    return 0
+
+
 _HOTS = {}
 
 
@@ -795,9 +915,18 @@ def main():
     ap.add_argument("--light", action="store_true", help="the light classes: attach, expire, logger overflow")
     ap.add_argument("--pour", action="append", default=[], metavar="FILE:L1,L2",
                     help="a judged pour: the hot file and the 1-based head lines of the entries scored cold; repeatable")
+    ap.add_argument("--move", default=None, metavar="RECORD:POSITION",
+                    help="relocate an attached dispatch record to the live segment at POSITION — the one move the "
+                         "light attacher cannot make; on the owner's word")
     ap.add_argument("--dry", action="store_true", help="plan and print, write nothing")
     ap.add_argument("--now", default=None, help="the clock to stamp with (default: now)")
     args = ap.parse_args()
+    if args.move:
+        record, _sep, pos = args.move.rpartition(":")
+        if not record or not pos.strip().isdigit():
+            ap.error(f"--move {args.move!r}: say <record>:<position>")
+        now = args.now or datetime.datetime.now().strftime(NOW_FMT)
+        return run_move(os.path.abspath(args.store), args.session, now, record.strip(), int(pos), args.dry)
     spec = None
     if args.pour:
         spec = {}
@@ -808,7 +937,8 @@ def main():
             except ValueError:
                 ap.error(f"--pour {item!r}: head lines must be integers")
     elif not args.light:
-        ap.error("say --light (the mechanical classes) or --pour FILE:LINES (a judged pour, placed here)")
+        ap.error("say --light (the mechanical classes), --pour FILE:LINES (a judged pour, placed here), or "
+                 "--move RECORD:POSITION (an attachment relocated)")
     now = args.now or datetime.datetime.now().strftime(NOW_FMT)
     return run_light(os.path.abspath(args.store), args.session, now, args.dry, spec)
 

@@ -53,6 +53,7 @@ STORE_FILES = {"dispatch.md", "index.md", "ledger.md", "logger.md", "tombstones.
                "session-storage.md", "local-storage.md", "data-store.md", "briefs.md"}
 LOGGER_ENTRY_RE = re.compile(r"^- `\[(?:gate|guide|gc|inspector|looper)\]` 20\d\d-\d\d-\d\d(?: \d\d:\d\d)? — \*\*")
 HEAD_RE = re.compile(r"^- ([a-z-]+):")
+HEAD_VALUE_RE = re.compile(r'^(- [a-z-]+:\s*)"?(.*)$')   # the head's field prefix and its value, an opening quote dropped
 FIELD_RE = re.compile(r"^  ([a-z-]+):")
 
 
@@ -98,6 +99,15 @@ def trim(block):
 
 # ─── the store file ─────────────────────────────────────────────────────────────────────────────────────
 
+def head_key(line):
+    """A head line normalized for matching: trailing space and a closing quote dropped, and the value's opening
+    quote dropped after the field name — so `- fingerprint: "what if` and `- fingerprint: what if` compare equal,
+    whichever side the hook wrote and whichever the record gave."""
+    key = line.rstrip().rstrip('"')
+    m = HEAD_VALUE_RE.match(key)
+    return f"{m.group(1)}{m.group(2)}" if m else key
+
+
 class StoreFile:
     def __init__(self, path):
         self.path = path
@@ -128,17 +138,17 @@ class StoreFile:
         return out
 
     def find(self, head):
-        """The entries whose head line begins with the block's head — or whose head is a TRUNCATED prefix of it:
-        the prompt hook caps a fingerprint at FINGERPRINT_CHARS and closes it with `…`, so a block that gives
-        the message whole must still find the row the hook stamped."""
-        key = head.rstrip().rstrip('"').rstrip("…")
+        """The entries whose head line begins with the block's head — the value's quotes ignored on both sides,
+        since the prompt hook stores a fingerprint quoted and a record may give the same opening bare — or whose
+        head is a TRUNCATED prefix of it: the prompt hook caps a fingerprint at FINGERPRINT_CHARS and closes it
+        with `…`, so a block that gives the message whole must still find the row the hook stamped."""
+        key = head_key(head).rstrip("…")
         out = []
         for s, e in self.entries():
-            line = self.lines[s]
-            if line.startswith(key):
+            stored = head_key(self.lines[s])
+            if stored.startswith(key):
                 out.append((s, e))
                 continue
-            stored = line.rstrip().rstrip('"')
             if stored.endswith("…") and len(stored) > 20 and key.startswith(stored[:-1]):
                 out.append((s, e))
         return out
