@@ -4,7 +4,9 @@
 # The harness caps each hook's output at 10,000 characters and spills a longer one to a file, of which the model
 # sees a 2 KB preview — so a contract past the cap never reaches the model whole. This hook therefore prints one
 # part of hooks/memory-override.md per invocation (`--part N`, part 0 when absent), and hooks.json registers it
-# once per part, in order. The parts are cut at paragraph boundaries — a table is one paragraph, so no row is
+# once per part. The harness runs one event's hooks concurrently and delivers their outputs as they finish, so a
+# later part may land before an earlier one: every part past the first is headed to be read on its own, naming the
+# block it continues. The parts are cut at paragraph boundaries — a table is one paragraph, so no row is
 # split — under a 9,500-byte budget that leaves room for a continuation head line, deterministic from the file
 # alone, so every invocation computes the same cut; a paragraph over the budget by itself is cut at lines. A part
 # past the file's end prints nothing. Nothing here pours: the recall rides in hooks/run-hook.sh session-open (the
@@ -30,7 +32,7 @@ LC_ALL=C awk -v want="$part" -v budget=9500 -v head=200 '
   function out(s) {
     if (!started) {
       started = 1
-      if (want > 0) print "## VLDS memory override, part " want + 1 " (continued from the previous hook output)"
+      if (want > 0) print "## VLDS memory override, part " want + 1 " — the continuation of the block headed \"## VLDS memory override (always active)\", which may arrive after this one: same-event hook outputs land in any order"
     }
     print s
   }
