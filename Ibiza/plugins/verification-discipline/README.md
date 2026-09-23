@@ -12,7 +12,9 @@ It is a sibling of the [`vlds`](../vlds) plugin, not a part of it, and it is del
 - **verification-discipline** answers the meta-question behind that gate: _when must the gate fire, which conjunct sets the bar, and why can no cached policy tell it not to look?_ It is the firing policy behind the gate, not a second gate.
 
 Because it is standalone it carries no `metadata.p4`, so its **stage mapping is a prose cross-reference** to the four P4 gates defined in `roboto` (`prompty → prompter → pioneer → puppeteer`), not a machine-checked `phases` binding.
-That is the acknowledged tradeoff of shipping the framework as its own self-contained, self-obeying plugin rather than as a roboto skill: the framework stays a canonical document that "obeys itself," at the cost of the mapping being asserted rather than validated by `p4.py`.
+That is the acknowledged tradeoff of shipping the framework as its own self-contained, self-obeying plugin rather than as a roboto skill: the framework stays a canonical document that "obeys itself," at the cost of each rule's placement being asserted rather than validated.
+Since roboto 0.0.2, roboto's `p4.py` checks the mapping from roboto's side: roboto declares this plugin as a dependency, every gate the section opens a bullet with must be a P4 gate, and each roboto skill that binds this plugin must hook at least one of those gates.
+Which rule sits at which gate stays this document's prose.
 
 ## The framework obeys itself
 

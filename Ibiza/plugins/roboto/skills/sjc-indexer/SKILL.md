@@ -234,17 +234,17 @@ sjc_output:
 
 ## Integration with VLDS
 
-The `synthesizer` wires its findings into the VLDS audit trail: each component firing is logged, every claim is routed through the decision gate as a `QUALIFIED` inference, and provenance records which tier and component produced it.
+The `synthesizer` wires its findings into the VLDS audit trail: each component firing is logged, every claim enters the gate as a `HEDGED` inference until a source confirms it, and provenance records which tier and component produced it.
 
 The `activation_functions`, `epistemic_audit`,
-and its per-claim fields (`source_type`, `decision_authority`,
-and the gate verdicts) are defined in the `vlds` skill —
+and its per-claim fields (`source_type` and the gate's status)
+come from the vlds plugin's gate, which the `vlds` skill binds —
 this block only wires the sjc-specific `provenance` onto that audit trail.
 
 ```yaml
 vlds_sjc_tracking:
   activation_functions: <see vlds skill> # fired: [sjc_indexer]
-  epistemic_audit: <see vlds skill> # each indexed finding logged as a QUALIFIED inference (source_type / decision_authority owned by vlds)
+  epistemic_audit: <see vlds skill> # each indexed finding logged as a HEDGED inference (source_type / status owned by the vlds plugin's gate)
   provenance:
     method: sjc_indexer
     tier_used: [1|2|3]
@@ -281,9 +281,9 @@ boundary_mapper  (counterfactual)
 
 synthesizer
   → claim "writer serialization causes the slowdown": verifiable & verified by the
-     concurrency=1 finding → PROCEED(FULL).
+     concurrency=1 finding → CONFIRMED.
   → claim "raising concurrency fixes it": verifiable & not yet verified (no test run)
-     → VERIFY_FIRST(BLOCKED) → reported as a hypothesis to test, not a fact.
+     → PENDING → reported as a hypothesis to test, not a fact.
   → unexplained residue (queue behavior under spike): labeled, not invented.
 
 Result: a specific, junction-located, counterfactual-tested answer — high yield —

@@ -951,20 +951,31 @@ def distilled(r, width=POOL_LINE_CHARS):
 
 
 PICK_RE = re.compile(r"^\s*([a-z-]+\.md):(\d+)\s*\|\|\s*bears:\s*(.+?)\s*$")
+# a block's head names who picked: `picks — <file>, …` a child reader, `picks (pass) — <file>, …` the operator's own
+# judged pass, written for a file no child could cover — so the pool credits the pass and never a child it did not have
+PICKS_HEAD_RE = re.compile(r"^\s*picks(?:\s*\((pass)\))?\s*—\s*(?:([a-z-]+\.md)\b)?")
 
 
 def read_picks(path):
     """{(file, line): clause} from a picks file — the child readers' whole output, one `<file>:<line> || bears:
-    <clause>` per line; a line outside that shape (its `picks —` head line excepted) is counted, never applied."""
-    picks, ignored = {}, 0
+    <clause>` per line; a line outside that shape (a block's head line excepted) is counted, never applied — and
+    {file: {"child" | "pass"}}, who picked each file: its block's head, or a child when its pick lines have none."""
+    picks, ignored, sources = {}, 0, {}
     with open(path, encoding="utf-8") as f:
         for l in f:
             m = PICK_RE.match(l)
             if m:
                 picks[(m.group(1), int(m.group(2)))] = m.group(3)
-            elif l.strip() and not l.lstrip().startswith("picks —"):
+                continue
+            h = PICKS_HEAD_RE.match(l)
+            if h:
+                if h.group(2):
+                    sources.setdefault(h.group(2), set()).add(h.group(1) or "child")
+            elif l.strip():
                 ignored += 1
-    return picks, ignored
+    for fname, _line in picks:
+        sources.setdefault(fname, {"child"})
+    return picks, ignored, sources
 
 
 def index_road(store):
@@ -981,6 +992,11 @@ def index_road(store):
         if m and m.group(1).lower() in ("skeleton", "children", "single"):
             return m.group(1).lower()
     return "children"
+
+
+def clip(text, width):
+    """A line cut to width shows its cut: its last character an ellipsis, never a word broken silently."""
+    return text if len(text) <= width else text[:width - 1].rstrip() + "…"
 
 
 def pool_line(r, extra="", width=POOL_LINE_CHARS):
@@ -1006,10 +1022,18 @@ def cmd_pool(args, store):
     script. No model reads a file for any of it, the index included: the first line names the index's road."""
     road = index_road(store)
     rows, files, spans, missing, masks = barrier_rows(store, args.session, args.file)
-    picks, ignored = read_picks(args.picks) if args.picks else ({}, 0)
+    picks, ignored, sources = read_picks(args.picks) if args.picks else ({}, 0, {})
+
+    def read_label(fname):
+        # who read the file for this pool: the script alone on the skeleton road; with picks, the child or the pass
+        # whose block names it, and a file no block names landed nothing — never credited to a child
+        if not args.picks:
+            return "script"
+        return "+".join(s for s in ("child", "pass") if s in sources[fname]) if fname in sources else "none landed"
     live = [r for r in rows if r["state"] == "LIVE"]
     first = [r for r in live if r["kind"] in ("form", "every-turn") and r["file"] != "tombstones.md"]
-    picked = [r for r in live if (r["file"], r["line"]) in picks]
+    # a tombstone is a mask, never a steering line: a child's pick of one is dropped, as a FREED entry's is
+    picked = [r for r in live if (r["file"], r["line"]) in picks and r["file"] != "tombstones.md"]
     rest = [r for r in live if r not in first and r not in picked
             and r["file"] not in ("tombstones.md", "session-storage.md", "virtual.md")]
     briefs = [r for r in rows if r["file"] == "briefs.md"]
@@ -1033,7 +1057,7 @@ def cmd_pool(args, store):
                 debts.append(f"- debt: {row[0]} pressure {row[6].strip()} (live {row[1]}, at-sweep {row[2]})")
         upd = next((l for l in idx["raw"].split("\n") if l.startswith("updated:")), "")
         if upd:
-            debts.append(f"- {upd[:POOL_LINE_CHARS]}")
+            debts.append(clip(f"- {upd}", POOL_LINE_CHARS))
     tomb = [r for r in rows if r["file"] == "tombstones.md"]
     counts = {}
     for r in rows:
@@ -1053,7 +1077,7 @@ def cmd_pool(args, store):
     def head_lines(compact):
         return ["# VLDS Recall Pool", "", derived_short if compact else derived_long, "",
                 f"session: {args.session}{title}", f"task: {args.task}", f"pooled: {args.now}",
-                "read: " + ", ".join(f"{f} ({counts.get(f, [0, 0])[0]}, {'child' if args.picks else 'script'})"
+                "read: " + ", ".join(f"{f} ({counts.get(f, [0, 0])[0]}, {read_label(f)})"
                                      for f in files if f not in missing)
                 + (("; absent: " + ", ".join(missing)) if missing else ""), "",
                 "## steering — bears on the task", ""]
@@ -1113,7 +1137,7 @@ def cmd_pool(args, store):
             demand = [f"- {f} — {counts.get(f, [0, 0])[0]} entries, {counts.get(f, [0, 0])[1]} LIVE; an entry whole "
                       "by the barrier's line number, never the file" for f in present]
         demand.append("- (the judged pass names the entries worth re-reading whole for this task, by head line)")
-        opens = [pool_line(r, "", width) for r in open_rows] + [d[:width + 40] for d in debts]
+        opens = [pool_line(r, "", width) for r in open_rows] + [clip(d, width + 40) for d in debts]
         tail = ["", "## open", ""] + (opens or ["- none"]) + ["", "## surfaced, not applied", ""] + \
                (surfaced or ["- none"]) + ["", "## read on demand", ""] + demand + [""]
         return "\n".join(head + steer + [""] + standing + tail)
@@ -1154,6 +1178,10 @@ def cmd_pool(args, store):
                f"LIVE, {len(first)} form/every-turn lines"
                + (f", {kept_count[0]} of {len(picked)} steering picks kept" if args.picks else "")
                + (f", {ignored} pick line(s) ignored" if ignored else "")
+               + (("; picks per file: " + ", ".join(
+                   f"{label} {sum(1 for f in present if read_label(f) == label)}"
+                   for label in ("child", "pass", "child+pass", "none landed")
+                   if any(read_label(f) == label for f in present))) if args.picks else "")
                + (f"; appendix {len(text) - len(pool_part)} characters" if len(text) > len(pool_part) else "")
                + ")" + (f" → {args.out}" if args.out else ""))
     if args.out:
@@ -1191,6 +1219,43 @@ def cmd_lint(plugin_root):
                     break
     print(f"phi.py lint: {hits} candidate leak(s) — each is a finding for the model to judge, not an auto-fix")
     return 1 if hits else 0
+
+
+STANDING_BUDGET = 9300      # one hook output's room for the standing rules, under the harness's 10,000 cap
+
+
+def cmd_standing(args, store):
+    """The owner's standing rules, whole: every LIVE form ruling and every-turn index rule, one line each and uncut,
+    for the SessionStart hook to print in an output of its own — so a session holds them whatever the pool's cap
+    cuts, and whether or not a conductor stands between it and the pool. `--part N` prints the Nth part when they
+    outgrow one hook output; a part past the end prints nothing, and a single rule over the budget is cut there
+    with a marker that says where the rest is."""
+    rows, _files, _spans, _missing, _masks = barrier_rows(store, args.session)
+    first = [r for r in rows if r["state"] == "LIVE" and r["kind"] in ("form", "every-turn")
+             and r["file"] != "tombstones.md"]
+    budget = max(400, args.budget)
+    lines = []
+    for r in first:
+        line = pool_line(r, f", form: {r['fields']['form'].strip()}" if r["kind"] == "form" else "", 10 ** 6)
+        if len(line) + 1 > budget:
+            line = line[:budget - 80].rstrip() + f"… (cut at the hook-output cap; the rest is {r['file']}:{r['line']})"
+        lines.append(line)
+    parts, cur, size = [], [], 0
+    for line in lines:
+        if cur and size + len(line) + 1 > budget:
+            parts.append(cur)
+            cur, size = [], 0
+        cur.append(line)
+        size += len(line) + 1
+    if cur:
+        parts.append(cur)
+    if args.part >= len(parts):
+        return 0
+    where = f", part {args.part + 1} of {len(parts)}" if len(parts) > 1 else ""
+    print(f"### standing rules — the owner's {len(lines)} form rulings and every-turn rules, whole{where} "
+          f"(SessionStart hook; they steer every reply whatever the task, and the pool lists them by label only)")
+    print("\n".join(parts[args.part]))
+    return 0
 
 
 def main():
@@ -1238,7 +1303,13 @@ def main():
     p.add_argument("--reserve", type=int, default=POOL_RESERVE, help="room left for the judged pass's steering lines")
     p.add_argument("--out", default="", help="write the skeleton (or, with --picks, the pool) here as well")
     p.add_argument("--picks", default="", help="the child readers' picks file: `<file>:<line> || bears: <clause>` "
-                                              "lines; each picked entry moves to steering with its clause")
+                                              "lines under a `picks — <file>` head, or `picks (pass) — <file>` for "
+                                              "the operator's own picks; each picked entry moves to steering with "
+                                              "its clause, and the read: line credits each file to its head")
+    p = sub.add_parser("standing")
+    p.add_argument("--session", default="", help="this session's short id, for the barrier's expiry of virtual entries")
+    p.add_argument("--part", type=int, default=0, help="which part to print when the rules outgrow one hook output")
+    p.add_argument("--budget", type=int, default=STANDING_BUDGET, help="one part's size in characters")
     args = ap.parse_args()
     if args.cmd == "check":
         sys.exit(cmd_check(args.store))
@@ -1262,6 +1333,8 @@ def main():
         sys.exit(cmd_barrier(args, args.store))
     if args.cmd == "pool":
         sys.exit(cmd_pool(args, args.store))
+    if args.cmd == "standing":
+        sys.exit(cmd_standing(args, args.store))
     ap.print_help()
     sys.exit(2)
 

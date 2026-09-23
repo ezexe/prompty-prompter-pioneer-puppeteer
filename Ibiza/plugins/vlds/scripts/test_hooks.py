@@ -392,6 +392,8 @@ def test_pool_mode():
             and "one reader per file on haiku" in out and "on haiku)" in out and "at most 4 continuations" in out, \
             f"(a) the per-moment models, the road, or the continuation bound missing:\n{out}"
         assert "Launch it once" in out and "SendMessage" in out, f"(a) the one-per-session continuation missing:\n{out}"
+        assert "CONDUCTED" not in out and "; via " not in out, f"(a) a conductor named with no operator-via set:\n{out}"
+        assert "`operator-via:` an agent that conducts the operator" in out, f"(a) the operator-via key unlisted:\n{out}"
         assert "pool: subagent (operator haiku, pool sonnet, children haiku, sweep sonnet; road children; 4 continuations)" \
             in out, f"(a) the mode line missing:\n{out}"
         assert "the plan goes in the reply" not in out, "(a) a hot-file entry was injected in the pooled mode"
@@ -426,6 +428,17 @@ def test_pool_mode():
             f"(d) the model keys, the road, or the continuation bound not honoured:\n{out}"
         assert "operator opus, pool haiku, children sonnet, sweep opus; road skeleton; 2 continuations" in out, \
             f"(d) the mode line lacks the models or the road:\n{out}"
+        # (e) `operator-via:` hands every operator moment to a conducting agent, named in the directive and the mode line
+        seed_register(store, recall="operator-via: mister:roboto\n")
+        out = run_hook("session-open", {"source": "startup", "session_id": "pool-session"}, root)
+        assert "CONDUCTED — the index's `operator-via:` names mister:roboto" in out \
+            and "subagent_type mister:roboto, in the foreground" in out and "DERIVED UNDERSTANDING" in out \
+            and "the response stays yours" in out and "launch the operator directly and say so" in out, \
+            f"(e) the conducted hand-off missing:\n{out}"
+        assert "road children; 4 continuations; via mister:roboto)" in out, f"(e) the mode line lacks the conductor:\n{out}"
+        seed_register(store, recall="operator-via:\n")
+        out = run_hook("session-open", {"source": "startup", "session_id": "pool-session"}, root)
+        assert "CONDUCTED" not in out, f"(e) an empty operator-via still named a conductor:\n{out}"
     finally:
         shutil.rmtree(root, ignore_errors=True)
     print("pool mode: green")
@@ -937,6 +950,32 @@ def test_pool_skeleton():
         out = subprocess.run(base + ["--picks", picks_path], capture_output=True, timeout=60) \
             .stdout.decode("utf-8", "replace").replace("\r\n", "\n")
         assert "1 of 1 steering picks kept" in out and "the widget stays reusable" not in out.split("## standing")[0], out[:300]
+        # a tombstone is a mask, never a steering line, whatever a child says
+        mask_line = next(v for k, v in lines.items() if k.startswith('- freed: "the closing picker'))
+        with open(picks_path, "w", encoding="utf-8", newline="\n") as f:
+            f.write(f"local-storage.md:{commit_line} || bears: the word rule\n"
+                    f"tombstones.md:{mask_line} || bears: a mask, never picked\n")
+        out = subprocess.run(base + ["--picks", picks_path], capture_output=True, timeout=60) \
+            .stdout.decode("utf-8", "replace").replace("\r\n", "\n")
+        steering = out.split("## steering")[1].split("## standing")[0]
+        assert "1 of 1 steering picks kept" in out and "closing picker stays reusable" not in steering \
+            and "commit only on the word; bears: the word rule" in steering, out[:600]
+        # who picked each file: a `picks —` head is a child's, a `picks (pass) —` head the operator's own pass, and a
+        # file no block names landed nothing — the read: line credits each, never a child the file did not have
+        popup_line = next(v for k, v in lines.items() if k.startswith("- key: (closing + popup)"))
+        with open(picks_path, "w", encoding="utf-8", newline="\n") as f:
+            f.write(f"picks — local-storage.md, 1 of 3 entries bear on the task\nlocal-storage.md:{commit_line} || bears: the word rule\n"
+                    f"picks (pass) — index.md, 1 of 2 entries bear on the task\nindex.md:{popup_line} || bears: the popup rule\n"
+                    "picks — virtual.md, 0 of 2 entries bear on the task\n")
+        out = subprocess.run(base + ["--picks", picks_path], capture_output=True, timeout=60) \
+            .stdout.decode("utf-8", "replace").replace("\r\n", "\n")
+        summary, read_line = out.split("\n", 1)[0], next(l for l in out.split("\n") if l.startswith("read: "))
+        assert "local-storage.md (3, child)" in read_line and "index.md (2, pass)" in read_line \
+            and "virtual.md (2, child)" in read_line and "data-store.md (2, none landed)" in read_line, read_line
+        assert "2 of 2 steering picks kept" in summary and "ignored" not in summary \
+            and "; picks per file: child 2, pass 1, none landed " in summary, summary
+        steering = out.split("## steering")[1].split("## standing")[0]
+        assert "(closing + popup)" in steering and "bears: the popup rule" in steering, steering
         # a store too large for one line per entry: grouped by file, still under the budget
         put("local-storage.md", ls_head + "".join(
             f'- ruling: "ruling number {i} about a matter long enough to weigh in the skeleton\'s count of characters"\n'
@@ -965,6 +1004,14 @@ def test_pool_skeleton():
         assert "ruling number 0 about" in steering and "ruling number 19 about" not in steering, steering
         pool_part = out.split("\n", 2)[2].partition("## appendix")[0]
         assert len(pool_part) <= 4000, len(pool_part)
+        # an index updated: line longer than a pool line is cut with its cut shown, never mid-word in silence
+        with open(os.path.join(store, "phi-index.md"), "w", encoding="utf-8", newline="\n") as f:
+            f.write("# idx\n\nregister: 0\n\n## recall\n\npool-road: children\n\nupdated: 2026-09-22 15:30 by test via the "
+                    "sweep moment, placed by scripts/normalize.py" + " through the register's gates" * 8 + " — the end\n")
+        out = subprocess.run(base, capture_output=True, timeout=60).stdout.decode("utf-8", "replace").replace("\r\n", "\n")
+        opened = out.split("## open")[1].split("## surfaced")[0]
+        upd = next(l for l in opened.split("\n") if l.startswith("- updated:"))
+        assert upd.endswith("…") and len(upd) <= 150 and "the end" not in upd, upd
         # the index names another road: the first line says so, and the skeleton follows all the same
         with open(os.path.join(store, "phi-index.md"), "w", encoding="utf-8", newline="\n") as f:
             f.write("# idx\n\nregister: 0\n\n## recall\n\npool-road: skeleton\n\nupdated: 2026-09-22 15:30 by test\n")
@@ -1105,6 +1152,58 @@ def test_barrier_states():
     print("barrier states: green")
 
 
+def run_hook_standing(part, root):
+    env = dict(os.environ, CLAUDE_PROJECT_DIR=root, CLAUDE_PLUGIN_ROOT=PLUGIN)
+    payload = {"source": "resume", "session_id": "pool-session"}
+    r = subprocess.run([sys.executable, HOOKS, "session-open", "--standing", str(part)],
+                       input=json.dumps(payload).encode("utf-8"), capture_output=True, env=env, timeout=60)
+    return r.stdout.decode("utf-8", "replace").replace("\r\n", "\n")
+
+
+def test_standing_rules():
+    """The standing block prints every LIVE form ruling and every-turn index rule whole — a long one uncut, past
+    every width the pool cuts to — in the pooled mode only and on a resume too; a plain ruling, a plain rule and a
+    FREED form ruling stay out; the rules split into parts when they outgrow one output; a part past the end and
+    the inject mode print nothing."""
+    root, store = seed_project()
+    try:
+        seed_register(store, recall="inject: local-storage.md, index.md\n")   # the block follows the read list
+        long_ruling = "keep " + "the whole rule " * 40
+        long_directive = "at every closing serve the popup, never prose, " + "and name every act " * 15
+        with open(os.path.join(store, "local-storage.md"), "w", encoding="utf-8", newline="\n") as f:
+            f.write("# LS\n\n```yaml\n- ruling: [x]\n  time: [t]\n  owner-words: [w]\n  status: LIVE | SPENT | FREED\n"
+                    "  form: [f]\n```\n\n---\n\n"
+                    f'- ruling: "{long_ruling.strip()}"\n  time: 2026-09-16 10:44\n  owner-words: "w"\n  status: LIVE\n'
+                    "  form: picker\n\n"
+                    '- ruling: "a plain ruling with no form"\n  time: 2026-09-16 10:45\n  owner-words: "p"\n  status: LIVE\n\n'
+                    '- ruling: "a freed form ruling"\n  time: 2026-09-16 10:46\n  owner-words: "f"\n  status: FREED\n'
+                    "  form: fence\n")
+        with open(os.path.join(store, "index.md"), "w", encoding="utf-8", newline="\n") as f:
+            f.write("# IX\n\n```yaml\n- key: [k]\n  decision: rule | opt-out\n  directive: [d]\n```\n\n---\n\n"
+                    f"- key: (closing + popup)\n  decision: rule\n  directive: {long_directive.strip()}\n\n"
+                    "- key: (edits + check)\n  decision: rule\n  directive: check the user's edits first\n")
+        out = run_hook_standing(0, root)
+        assert out.startswith("### standing rules — the owner's 2 form rulings and every-turn rules, whole "
+                              "(SessionStart hook;"), out[:300]
+        assert long_ruling.strip() in out and long_directive.strip() in out, f"a rule was cut:\n{out}"
+        assert "form: picker]" in out and "a plain ruling" not in out and "a freed form ruling" not in out \
+            and "check the user's edits first" not in out, out
+        assert run_hook_standing(1, root).strip() == "", "a part past the end printed"
+        # outgrowing one output: the rules split into parts, each headed with its place
+        parts = [subprocess.run([sys.executable, PHI, "--store", store, "standing", "--budget", "700", "--part", str(n)],
+                                capture_output=True, timeout=60).stdout.decode("utf-8", "replace").replace("\r\n", "\n")
+                 for n in (0, 1, 2)]
+        assert "part 1 of 2" in parts[0] and long_ruling.strip() in parts[0], parts[0][:300]
+        assert "part 2 of 2" in parts[1] and long_directive.strip() in parts[1], parts[1][:300]
+        assert parts[2].strip() == "", parts[2]
+        # the inject mode's slots carry the files whole already: no standing block
+        seed_register(store, recall="pool: inject\n")
+        assert run_hook_standing(0, root).strip() == "", "the standing block printed in the inject mode"
+    finally:
+        shutil.rmtree(root, ignore_errors=True)
+    print("standing rules: green")
+
+
 if __name__ == "__main__":
     test_pre_write()
     test_stray_scan()
@@ -1124,4 +1223,5 @@ if __name__ == "__main__":
     test_barrier_states()
     test_move()
     test_pool_skeleton()
+    test_standing_rules()
     print("test_hooks.py: all green")

@@ -16,7 +16,7 @@ metadata:
       on_prompter: [resolve_closure]
       on_pioneer: [gatecheck_closure]
       on_puppeteer: [compile_context]
-    tiers: [minimal, standard, verification, detection, full]
+    tiers: [minimal, standard, verification, detection, full, derivation]
 ---
 
 # Rubric Skill — the just-in-time engagement gate
@@ -37,8 +37,12 @@ When nothing above row 0 fires, stay at `identity`.
 | 2 | Load-bearing factual / technical claims     | `vlds` (decision gate)                                 | `standard`                   | `verification` |
 | 3 | Loaded / polluted / under-specified framing | `bias-patterns` (pre-response scan)                    | `standard`                   | `detection`    |
 | 4 | Research, **exploration** (enumerate / map out / deep-dive), consequential, or contested | `isomorphic-operations`, `sjc-indexer`, `orchestration` | `verification`, `detection` | `full`         |
+| 5 | A VLDS **store hand-off** — a session sends a moment for roboto to conduct through the vlds operator | `derivation` | `verification`, `detection` | `derivation` |
 
 The four signals are the same questions the `prompty` stage asks — applied here as a runtime test rather than a build-time menu.
+
+Row 5 is not a depth above `full`: it is the one row whose request is not the owner's.
+A session hands roboto a store moment, and what roboto returns is a derived understanding for that session, never a response — the `derivation` skill's shape instead of the response contract.
 
 **Builds on** is the ladder's actual shape, and it is load-bearing rather than decorative: a row's closure must contain every member of the closures it builds on, plus its own marginal capabilities. Rows 2 and 3 are **parallel branches** — both build on `standard`, neither on the other — and row 4 unions them. `p4.py validate` reads this column and fails when a closure drops something the row below it declared.
 
@@ -70,6 +74,25 @@ Two skills are **not** depth rows — they attach to any closure when their own 
 - **`persistence`** — pulled when a durable preference, a repeated correction, or a reusable finding surfaces (signals like "always / never", "remember this", or a correction seen 2+ times). It proposes a save to the VLDS `localStorage` tier.
 
 Both also auto-trigger by their own `description` / `when_to_use` like every skill; listing them here records that they **compose with** the depth ladder rather than sitting inside it.
+
+## Plugin pulls
+
+roboto sits on five marketplace plugins, declared as `dependencies` in its `.claude-plugin/plugin.json`: the harness installs them with roboto, and disables roboto while an installed copy sits below the version roboto is aligned to.
+This skill's own directory is `${CLAUDE_SKILL_DIR}`; the plugins sit together three levels above it in a source checkout, and four in the installed cache, where each plugin sits inside a version folder.
+They are not depth rows either.
+A skill binds one by listing a plugin-qualified skill (`<plugin>:<skill>`) in its `depends_on` or `optional_depends_on`, so a plugin arrives with the closure whose members need it.
+
+| Plugin                                               | Bound by                                                         | Pulled when                                                               |
+| ---------------------------------------------------- | ---------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| `vlds` — gate, gc, guide, inspector, looper          | `vlds`, `persistence`, `activation`, `orchestration`             | a load-bearing claim, stored state, or a high-stakes verdict is in play   |
+| `verification-discipline`                            | `vlds`, `bias-patterns`, `activation`, `isomorphic-operations`   | a claim's timing is in doubt: a stale prior, or a cheap canonical oracle  |
+| `emission-discipline`                                | `templates`, `bias-patterns`, `activation`, `isomorphic-operations` | a fence opens, or an ask is about to narrow                            |
+| `envelope-discipline`                                | `templates`, `bias-patterns`                                     | a change mints or extends a seam                                          |
+| `src-fragger`                                        | `templates`                                                      | the reply carries a script written to finish the task                    |
+
+`p4.py validate` checks this edge, and `p4.py plugins` prints it whole.
+Every plugin reference must name a declared dependency, every dependency must be found in range and bound by some skill, the bound skill must exist in the copy found, and a discipline's stage mapping must share at least one gate with the phases of the roboto skill that binds it.
+The disciplines stay standalone, with no `metadata.p4`: their stage mappings remain their own prose, now checked from roboto's side.
 
 ## Disclosure
 

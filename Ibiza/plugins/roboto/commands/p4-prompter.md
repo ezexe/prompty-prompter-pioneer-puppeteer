@@ -17,7 +17,7 @@ From the roboto plugin root (`${CLAUDE_PLUGIN_ROOT}` when installed, or `Ibiza/p
 python scripts/p4.py resolve $closure
 ```
 
-It prints the closure's members (`identity` + `rubric` are always-on), the skills pulled by tier, the active P4 gates, and `dependencies_satisfied` with any `missing_dependencies`.
-How it resolves: members = the skills whose `metadata.p4.tiers` lists the closure; `depends_on` is two id-spaces (skill names + P4 gate ids); `optional_depends_on` enhances but is not required for closure.
+It prints the closure's members (`identity` + `rubric` are always-on), the skills pulled by tier, the plugin skills its members bind with the version found, the active P4 gates, and `dependencies_satisfied` with anything missing.
+How it resolves: members = the skills whose `metadata.p4.tiers` lists the closure; `depends_on` is three id-spaces — skill names, P4 gate ids, and plugin-qualified skills (`<plugin>:<skill>`) that resolve through the dependencies declared in `.claude-plugin/plugin.json`; `optional_depends_on` enhances but is not required for closure.
 
 **Output:** the resolver's report.

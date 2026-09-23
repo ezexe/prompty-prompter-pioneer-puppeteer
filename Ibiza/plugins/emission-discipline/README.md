@@ -17,6 +17,8 @@ The parent split — epistemic vs consequential actions, drawn in [verification-
 Verification-discipline closes the gap between world and belief; emission-discipline closes the gap between belief and release.
 
 Like its sibling it is standalone (no `metadata.p4`), so its **stage mapping is a prose cross-reference** to the four P4 gates defined in [`roboto`](../roboto) (`prompty → prompter → pioneer → puppeteer`), not a machine-checked `phases` binding.
+Since roboto 0.0.2, roboto's `p4.py` checks the mapping from roboto's side: roboto declares this plugin as a dependency, every gate the section opens a bullet with must be a P4 gate, and each roboto skill that binds this plugin must hook at least one of those gates.
+Which rule sits at which gate stays this document's prose.
 
 ## Why the skill is not the primary vehicle
 

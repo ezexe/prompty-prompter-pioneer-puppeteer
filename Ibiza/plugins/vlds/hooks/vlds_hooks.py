@@ -19,13 +19,21 @@ whatever the console codepage says):
                           `pool-child-model:` (the pool's child readers, one per file, launched by the operator
                           per hooks/pool-child-prompt.md) and `sweep-model:` name the models; `pool-road:` picks
                           children (the default: the skeleton phi.py pool writes, one pick-reader per file,
-                          streamed), skeleton (one judged pass), or single. On
+                          streamed), skeleton (one judged pass), or single; `operator-via:` names an agent the
+                          session hands every operator moment to instead, which launches the operator itself and
+                          returns a derived understanding. On
                           `source` resume, fork, or compact print only the clock, the digest lines, and the
                           verdict — the conversation already holds its own recall — and on a compact re-inject
                           store/recall-pool.md when it is this session's, since the compaction may have
                           summarized the recall away; and record the session id in `.sessions`, so a fork's
                           first prompt (a new id over a live conversation) and a pre-hook session's next prompt
                           do not pour rows that are still live.
+  session-open --standing N
+                          SessionStart, the owner's standing rules whole (the pooled mode only): every LIVE form
+                          ruling and every-turn index rule, uncut, as `phi.py standing` prints them, in an output
+                          of its own so the harness's per-hook cap is its only limit; part N when they outgrow
+                          one output, nothing past the end. Every source prints it, since a resumed or compacted
+                          conversation may predate the block or have summarized it away.
   session-open --slot N   SessionStart, one chunk slot (the `pool: inject` mode only; silent when pooled): the
                           index's `inject:` files are split at entry boundaries into chunks under the harness's
                           per-hook output cap, and slot N prints the N-th chunk (header with the first chunk of
@@ -157,6 +165,8 @@ DEFAULT_POOL_CHILD_MODEL = "haiku"  # the pool's child readers, one per read-lis
 POOL_ROADS = ("children", "skeleton", "single")   # `pool-road:` — the skeleton with one child pick-reader per file,
 DEFAULT_POOL_ROAD = "children"                    # streamed; the skeleton for one judged pass; or the operator alone
 DEFAULT_OPERATOR_MOMENTS = 4        # continuations before a fresh launch, so a grown context stops compounding; `operator-moments:`
+DEFAULT_OPERATOR_VIA = None          # the agent a session hands every operator moment to, which launches the operator itself
+                                     # and returns a derived understanding; `operator-via:` names its agent type, absent = none
 KNOWN_SHORT_MIN = 2                 # a short message seen this many times in the store's owner corpus is a known command
 BARRIER_MIN_TOKENS = 3      # a message with fewer tokens matches an earlier row only when identical
 BARRIER_JACCARD = 0.5       # token overlap at or above which an earlier row is a candidate for the operator's judgment
@@ -509,10 +519,12 @@ def recall_lists(index_text):
     `pool: inject` (every inject file chunked into the slots); `operator-model:` the open moment's model,
     `pool-model:` the pool's compose, `pool-child-model:` its child readers', `sweep-model:` the sweep's,
     `pool-road:` the pool's road (skeleton, children, single), `operator-moments:` the continuations before a
-    fresh launch — `models` carries all six."""
+    fresh launch, `operator-via:` the agent type a session hands every operator moment to (it launches the operator
+    and returns a derived understanding) — `models` carries all seven."""
     inject, digest, pool = None, None, None
     models = {"operator": DEFAULT_OPERATOR_MODEL, "pool": DEFAULT_POOL_MODEL, "child": DEFAULT_POOL_CHILD_MODEL,
-              "sweep": DEFAULT_SWEEP_MODEL, "moments": DEFAULT_OPERATOR_MOMENTS, "road": DEFAULT_POOL_ROAD}
+              "sweep": DEFAULT_SWEEP_MODEL, "moments": DEFAULT_OPERATOR_MOMENTS, "road": DEFAULT_POOL_ROAD,
+              "via": DEFAULT_OPERATOR_VIA}
     in_recall = False
     for l in index_text.split("\n"):
         if l.startswith("## "):
@@ -521,12 +533,14 @@ def recall_lists(index_text):
         if not in_recall:
             continue
         m = re.match(r"^(inject|digest|pool|pool-road|pool-model|pool-child-model|operator-model|sweep-model|"
-                     r"operator-moments):\s*(.*)$", l.strip())
+                     r"operator-moments|operator-via):\s*(.*)$", l.strip())
         if not m:
             continue
         key, value = m.group(1), m.group(2).strip()
         if key == "pool":
             pool = value.lower() if value.lower() in POOL_MODES else None
+        elif key == "operator-via":
+            models["via"] = value or None
         elif key == "pool-road":
             if value.lower() in POOL_ROADS:
                 models["road"] = value.lower()
@@ -571,6 +585,19 @@ def operator_directive(store, tag, now, models):
     pool = os.path.join(root, "hooks", "pool-prompt.md")
     record = os.path.join(root, "scripts", "record.py")
     normalize = os.path.join(root, "scripts", "normalize.py")
+    via = models.get("via")
+    conducted = (
+        f"CONDUCTED — the index's `operator-via:` names {via}: every operator moment goes to it instead (the Agent "
+        f"tool, subagent_type {via}, in the foreground), the same one message with one more line — `conductor: launch "
+        "the operator with this message on <the moment's model>, and return a derived understanding` — and it "
+        "launches the operator on that model, fresh for each moment, and receives its derivation (the operator then "
+        "sends nothing to `main`); what comes back to you is its DERIVED UNDERSTANDING — the barrier, the intent, the "
+        "standing rules that bear on the task by label (the rules themselves arrive whole in their own SessionStart "
+        "block), what the store establishes for the task and how firmly — which you act on as you would the "
+        "derivation, never a response to the owner: the response stays yours. Continue the conductor, not the "
+        f"operator, for later moments; when {via} is not among your agent types, launch the operator directly and "
+        "say so.\n"
+    ) if via else ""
     return (
         "### recall, and every store operation — the operator subagent, never this context\n"
         "The hot files are not in this context, and no store file is read or written here. Two instruments carry "
@@ -589,6 +616,7 @@ def operator_directive(store, tag, now, models):
         "<file>:<head lines>`). Send it one message:\n"
         f"  Read {brief} and do what it says. store: {store} | session: {tag} | now: <the latest now:> | "
         "moment: open or sweep | <the facts only this context holds>\n"
+        f"{conducted}"
         "Launch it once per session; continue it for later moments with SendMessage (to: the launch result's agent "
         f"id; message: the moment, the latest now:, the facts) — at most {models['moments']} continuations, then "
         "launch fresh, and fresh whenever a continuation fails; its derivation is what you act on — listed in one line "
@@ -607,7 +635,8 @@ def operator_directive(store, tag, now, models):
         "path: do the operation here and say so. The index's ## recall section rules it: `pool: inject` restores "
         "the slot injection of every inject file; `operator-model:`, `pool-model:`, `pool-child-model:`, "
         "`sweep-model:` pick the models; `pool-road:` the pool's road (skeleton, children, single); "
-        "`operator-moments:` the continuations before a fresh launch."
+        "`operator-moments:` the continuations before a fresh launch; `operator-via:` an agent that conducts the "
+        "operator for you and returns a derived understanding."
     )
 
 
@@ -726,6 +755,35 @@ def chunk_plan(store, inject):
 def plan_label(item):
     fname, part, parts, _text = item
     return fname if parts == 1 else f"{fname} (part {part}/{parts})"
+
+
+def cmd_session_standing(payload, store, part):
+    """The owner's standing rules, whole, in an output of their own — every LIVE form ruling and every-turn index
+    rule, uncut, as `phi.py standing` prints them — so a session holds them whatever the pool's cap cuts and
+    whichever road the recall takes. The pooled mode only, since the inject mode's slots carry the files whole
+    already; every source prints it, because a resumed or compacted conversation may predate the block or have
+    summarized it away."""
+    index_path = os.path.join(store, "phi-index.md")
+    if not os.path.exists(index_path):
+        return 0
+    _inject, _digest, _from_index, pool, _models = recall_lists(read_text(index_path))
+    if pool != "subagent":
+        return 0
+    phi = os.path.join(plugin_root(), "scripts", "phi.py")
+    if not os.path.exists(phi):
+        return 0
+    sid, _label, _title = session_tag(payload, store)
+    try:
+        r = subprocess.run([sys.executable or "python3", phi, "--store", store, "standing", "--session", sid[:8],
+                            "--part", str(part)], capture_output=True, timeout=60)
+    except (OSError, subprocess.SubprocessError) as e:
+        if part == 0:
+            print(f"### standing rules — not printed: phi.py standing could not run ({e})")
+        return 0
+    out = r.stdout.decode("utf-8", "replace").replace("\r\n", "\n").strip()
+    if out:
+        print(out)
+    return 0
 
 
 def cmd_session_slot(payload, store, slot):
@@ -868,8 +926,9 @@ def cmd_session_open(payload, store):
         return 0
     index_text = read_text(index_path)
     inject, digest, from_index, pool, models = recall_lists(index_text)
+    via_note = f"; via {models['via']}" if models.get("via") else ""
     model_note = (f" (operator {models['operator']}, pool {models['pool']}, children {models['child']}, "
-                  f"sweep {models['sweep']}; road {models['road']}; {models['moments']} continuations)"
+                  f"sweep {models['sweep']}; road {models['road']}; {models['moments']} continuations{via_note})"
                   if pool == "subagent" else "")
     print(f"lists from {'the index’s ## recall section' if from_index else 'the hook defaults (the index has no ## recall section)'}"
           f" — pool: {pool}{model_note}; "
@@ -1515,9 +1574,17 @@ def main():
             slot = int(argv[argv.index("--slot") + 1])
         except (IndexError, ValueError):
             slot = None
+    standing = None
+    if "--standing" in argv:
+        try:
+            standing = int(argv[argv.index("--standing") + 1])
+        except (IndexError, ValueError):
+            standing = None
     payload = payload_from_stdin()
     store = resolve_store(payload)
     try:
+        if sub == "session-open" and standing is not None:
+            return cmd_session_standing(payload, store, standing)
         if sub == "session-open" and slot is not None:
             return cmd_session_slot(payload, store, slot)
         if sub == "session-open":

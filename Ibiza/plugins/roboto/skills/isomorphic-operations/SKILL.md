@@ -7,7 +7,7 @@ metadata:
     type: skill
     phases: [pioneer, puppeteer]
     depends_on: [vlds]
-    optional_depends_on: []
+    optional_depends_on: [verification-discipline:discipline, emission-discipline:discipline]
     interface:
       domains: [iterative_retrieval, operation_isomorphism, capability_reframing]
       capabilities: [shared_loop_structure, web_search, prompt_generation, artifact_api_calls, capability_reframe]
@@ -78,7 +78,10 @@ REFINE: add terms, quote phrases, exclude noise, narrow the domain
 notes: >
   The prototypical case. Every developer already runs this loop by reflex; the skill's
   point is that the reflex generalizes. Results enter VLDS as weights (sources) with
-  provenance; unverifiable claims are qualified, not asserted.
+  provenance; unverifiable claims are hedged, not asserted. Weigh the oracle as it
+  lands: the tool's own output outranks official docs, which outrank a secondary
+  writeup (verification-discipline Rule 12) — a weak source fetched is a guess
+  laundered through a citation.
 ```
 
 ### `prompt_generation`
@@ -123,8 +126,8 @@ capability_reframe:
   do:
     - check: does web_search, prompt_generation, or artifact_api_calls reach X?
     - if_yes: rewrite as "not directly, but indirectly via <operation>: <how>"
-    - if_no: state the genuine limit (and route the claim through the VLDS gate)
-  pairs_with: bias-patterns.capability_limit_overstatement
+    - if_no: split the missing mechanism from the job it performed, then state the genuine limit of the mechanism only (emission-discipline R19), and route the claim through the gate
+  pairs_with: [bias-patterns.capability_limit_overstatement, emission-discipline R19]
 ```
 
 ### Examples
@@ -162,8 +165,8 @@ Map to operation → web_search (isomorphic loop):
   ACCUMULATE keep the primary source and the contradiction
 
 VLDS handoff:
-  primary source = verifiable & verified → PROCEED(FULL)
-  contradiction  = verifiable & not yet verified → VERIFY_FIRST(BLOCKED) → qualify it
+  primary source = verifiable & verified → CONFIRMED
+  contradiction  = verifiable & not yet verified → PENDING → verify it, or report it hedged
 
 Response: the supported claim, cited, with the open contradiction flagged rather than
 buried — same loop that would have generated a prompt or driven an API, pointed at the web.
@@ -203,7 +206,9 @@ The `isomorphic_operation` block omits a fixed iteration count by design — "st
 ## Relationship to the Lifecycle and Other Skills
 
 - **identity** (always-on base). Results are reported in the four-lens voice; what each lens can reach is exactly what the isomorphism makes explicit.
-- **vlds** (required). The loop produces claims, and claims need provenance: results are weights/sources, the decision gate decides PROCEED / VERIFY_FIRST / QUALIFY. The skill depends on `vlds` so that "indirectly via <op>" never becomes a new way to assert unverified things.
+- **vlds** (required). The loop produces claims, and claims need provenance: results are weights/sources, and the gate the `vlds` skill binds decides `CONFIRMED` / `PENDING` / `HEDGED`. The skill depends on `vlds` so that "indirectly via <op>" never becomes a new way to assert unverified things.
+- **verification-discipline** (optional, a declared plugin dependency). It decides when a search is owed at all — a stale or cheaply checkable load-bearing claim — and how much a result weighs once it lands.
+- **emission-discipline** (optional, a declared plugin dependency). Its R19 is the reframe's other half: when no operation reaches X, the missing mechanism is split from the job before the limit is stated.
 - **bias-patterns** (peer). Supplies the indirect-route reframe that `capability_limit_overstatement` calls for.
 - **sjc-indexer** (downstream). The SJC indexer builds _on top of_ this skill — it is a specialized way to formulate high-yield QUERYs for the loop, so it depends on `isomorphic-operations`.
 - **Pioneer / Puppeteer.** Pioneer uses the skill to discover an indirect route; Puppeteer runs the bounded loop during PLAY/COMPILE.

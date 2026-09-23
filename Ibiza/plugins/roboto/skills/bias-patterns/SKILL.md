@@ -7,7 +7,7 @@ metadata:
     type: skill
     phases: [prompter, puppeteer]
     depends_on: [prompter]
-    optional_depends_on: [vlds]
+    optional_depends_on: [vlds, emission-discipline:discipline, verification-discipline:discipline, envelope-discipline:discipline]
     interface:
       domains: [error_detection, prompt_hygiene, self_correction]
       capabilities: [pre_response_bias_scan, context_pollution_detection, context_starvation_detection, capability_limit_overstatement_detection, philosophical_mode_trap_detection, response_structure_bypass_detection, correctable_query_protocol]
@@ -16,7 +16,7 @@ metadata:
       on_prompter: [register_bias_patterns]
       on_pioneer: []
       on_puppeteer: [run_bias_scan, block_on_uncorrectable]
-    tiers: [detection, full]
+    tiers: [detection, full, derivation]
 ---
 
 # Bias Patterns Skill
@@ -71,6 +71,7 @@ correctable_query:
   if_yes: apply the matching pattern's correction, then re-scan
   if_no_because_fixed: PROCEED
   if_no_because_unfixable: do not assert; name the gap (route to BREAK / clarification)
+  the_ask_stays: an unfixable gap never shrinks the request — the item stays in the answer, labeled blocked-by-<mechanism>, until the asker cuts it (emission-discipline R21)
 ```
 
 The query is _correctable_ by design: it only counts an error if Claude can do something about it pre-response.
@@ -148,7 +149,10 @@ correction: >
   Replace "I cannot X" with "not directly, but indirectly via <operation>" wherever
   an isomorphic path exists (see the isomorphic-operations skill). State the real
   ceiling, not a reflexive one. Only assert a hard limit after checking for an
-  indirect route.
+  indirect route. Before calling a design, road, or feature impossible, decompose it
+  (emission-discipline R19): name the mechanism that is missing and the job it
+  performed, claim impossibility only of the mechanism, and name an alternative
+  implementation of the job, or say that none was looked for.
 ```
 
 ### 4. `philosophical_mode_trap`
@@ -227,28 +231,34 @@ The bias scan did not change _what_ The Init Elegance knows about retries — it
 ## Bias Correction Table
 
 The five patterns above catch _frame_ errors at scan time.
-This table is the broader map: recurring `b_claude` tendencies and the `b_roboto` correction each one routes to.
+This table is the broader map: recurring drafted tendencies (`b_drafted`, Claude's take) and the verified correction (`b_verified`, Roboto's synthesis) each one routes to.
 It is the quick-reference index behind the scan — when a draft smells off, find the tendency here and apply the correction.
+A row that cites a discipline plugin routes to that plugin's rule, which owns the full statement.
 
-| b_claude Pattern                       | b_roboto Correction                  |
-| -------------------------------------- | ------------------------------------ |
-| Claim gaps without verification        | Search source, cite or retract       |
-| Surface problems to appear helpful     | Verify problems exist first          |
-| Over-elaborate to seem thorough        | Match response scope to request      |
-| Assume implicit context                | State assumptions explicitly         |
-| Simplify by removing valid content     | Preserve ALL original, ADD new       |
-| Claim knowledge without provenance     | Tag source_type, flag if unknown     |
-| Assert confidence without basis        | Require uncertainty_class assignment |
-| Treat training-derived as ground truth | Mark as `training`, VERIFY_FIRST     |
-| State capability limits as absolute    | Check for indirect mechanisms        |
+| Drafted tendency (`b_drafted`)                      | Verified correction (`b_verified`)                                                   |
+| --------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| Claim gaps without verification                     | Search source, cite or retract                                                       |
+| Surface problems to appear helpful                  | Verify problems exist first                                                          |
+| Over-elaborate to seem thorough                     | Match response scope to request                                                      |
+| Assume implicit context                             | State assumptions explicitly                                                         |
+| Simplify by removing valid content                  | Preserve ALL original, ADD new                                                       |
+| Claim knowledge without provenance                  | Tag source_type, flag if unknown                                                     |
+| Assert confidence without basis                     | Require uncertainty_class assignment                                                 |
+| Treat training-derived as ground truth              | Mark as `training`; the gate holds it `PENDING`                                      |
+| State capability limits as absolute                 | Check for indirect mechanisms                                                        |
+| Let felt confidence decide whether to check         | Gate on half-life and cost; confidence is not an input (verification-discipline Rules 8–9) |
+| State a tool default as timeless                    | Version-stamp it, or demote it to a hypothesis (verification-discipline Rule 1)      |
+| Blame the system when your own probe fails          | Rule out the instrument first, visibly (emission-discipline R20)                      |
+| Narrow the ask after declaring a blocker            | Keep the item in the ask, labeled blocked-by-mechanism (emission-discipline R21)      |
+| Add a knob as a lone positional scalar              | Presume the first sibling of a family; one named envelope at birth (envelope-discipline Rules 1–2) |
 
 ## Output Format
 
 When the scan runs, it emits a `vlds_self_audit` record so the correction is auditable.
 The `correctable_query_fired` block appears only when a pattern triggered.
 Any epistemic fields attached to a corrected claim
-(`source_type` / `uncertainty_class` / `decision_authority` and the gate verdicts)
-are defined in the `vlds` skill — not re-listed here:
+(`source_type` / `uncertainty_class` and the gate's status)
+come from the vlds plugin's gate, which the `vlds` skill binds — not re-listed here:
 
 ```yaml
 vlds_self_audit:
@@ -264,7 +274,7 @@ vlds_self_audit:
       - question: "[q2]"
         answer: "YES | NO — brief explanation"
     action_taken: "[what was done as result]"
-    claim_epistemics: <see vlds skill> # source_type / uncertainty_class / decision_authority / gate verdict, only if the correction turned on a factual claim
+    claim_epistemics: <see the vlds plugin's gate> # source_type / uncertainty_class / status, only if the correction turned on a factual claim
 ```
 
 ## Relationship to the Lifecycle and Other Skills
@@ -274,3 +284,6 @@ vlds_self_audit:
 - **prompter** (required). Bias patterns are an engineering-layer concern — structured, named, reusable checks — so the skill registers them at the prompter phase.
 - **vlds** (optional). When present, corrections that turn on a factual claim hand off to the VLDS decision gate rather than asserting; `bias-patterns` catches _frame_ errors, `vlds` catches _unverified-claim_ errors. They compose; neither subsumes the other.
 - **isomorphic-operations** (optional in practice). The `capability_limit_overstatement` correction borrows its "indirectly via <operation>" reframe from that skill.
+- **emission-discipline** (optional, a declared plugin dependency). Its ask cluster is the release-side half of this scan: R19 decomposes a missing mechanism from its job before anything is called impossible, R20 charges a failing probe to the instrument before the system, and R21 keeps a declared blocker from narrowing the ask.
+- **verification-discipline** (optional, a declared plugin dependency). It times the re-checks the scan's factual corrections hand to the gate: half-life and cost decide, and confidence never does.
+- **envelope-discipline** (optional, a declared plugin dependency). A draft about to add a configurable as a lone scalar is a frame error of the same family as the five patterns; its rules name the correction.

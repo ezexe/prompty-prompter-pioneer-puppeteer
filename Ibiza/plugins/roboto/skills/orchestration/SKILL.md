@@ -7,7 +7,7 @@ metadata:
     type: skill
     phases: [prompter, pioneer, puppeteer]
     depends_on: []
-    optional_depends_on: [vlds, bias-patterns, templates, isomorphic-operations, sjc-indexer, activation, persistence]
+    optional_depends_on: [vlds, bias-patterns, templates, isomorphic-operations, sjc-indexer, activation, persistence, vlds:inspector]
     interface:
       domains: [lifecycle_orchestration, branch_forking, branch_synthesis, run_sequencing]
       capabilities: [puppeteer_lifecycle, break_fork, parallel_branch_play, branch_compile, branch_test, cross_branch_merge, unresolvable_fork_surfacing, physical_virtual_reconciliation]
@@ -78,21 +78,23 @@ It produces the per-branch material the merge will consume.
 
 ## TEST: validating a branch
 
-Route each branch's load-bearing claims through the VLDS decision gate (`vlds`): PROCEED / VERIFY_FIRST / QUALIFY.
-A branch whose central claim is BLOCKED is held, not dropped — it carries its block into the merge, where the claim is verified or surfaced with its hedge intact.
+Route each branch's load-bearing claims through the gate the `vlds` skill binds: `CONFIRMED` / `PENDING` / `HEDGED`.
+A branch whose central claim is `PENDING` is held, not dropped — it carries that claim into the merge, where it is verified or surfaced with its hedge intact.
 
 ## SYNTHESIZE: the cross-branch merge
 
 Merge the surviving branches, then run Roboto's `ALIGN → DIVERGE → VERIFY → SYNTHESIZE` across them.
 That micro-loop belongs to `identity`; orchestration calls it _across branches_ rather than within a single one — it does not restate it.
-SYNTHESIZE also reconciles the physical `memory` substrate against the virtual VLDS space (`vlds`): what actually synced versus what is still only claimed.
-Converging branches collapse to one answer; a divergence that verification cannot settle is the only thing that survives to be surfaced.
+SYNTHESIZE also reconciles the physical half of memory against the virtual claims (`vlds`): what the pooled store entries and the sources read actually back, versus what is still only claimed.
+Converging branches collapse to one answer.
+A divergence the gate cannot settle, on a verdict the stakes warrant, goes to the vlds plugin's inspector (`vlds:inspector`): `CORROBORATED` collapses it, `REJECTED` drops the branch that rested on it, and `CONTESTED` is the only thing that survives to be surfaced.
 
 ## POST: emit
 
 Emit through the `identity` response contract at the audit level `templates` selected.
 If the branches did not converge and the fork is genuinely unresolvable, surface it as a `templates` **Clarification** (reason + options + default) — the one case in which the user sees the fork at all.
-Signal `persistence` if a reusable branch outcome surfaced, and return to the `activation` mode.
+Running as a subagent, roboto puts that Clarification in the report's hand-back, and the caller serves it to the owner.
+Hand `persistence` a reusable branch outcome as a store proposal, and return to the `activation` mode.
 
 ## Worked Example
 
@@ -107,8 +109,8 @@ BREAK                 fork two readings, each a fresh prompter-prompt:
 PLAY (identity×2)     run the four lenses on each branch under its own closure.
 COMPILE               branch A → batch-flush is latency-bound; branch B → writer is
                       throughput-bound. Each stages its decision-gate hand-off.
-TEST (vlds)           branch A's "flush dominates p99" → verifiable, verified → PROCEED.
-                      branch B's "writer caps throughput" → verifiable, not yet → VERIFY_FIRST.
+TEST (vlds)           branch A's "flush dominates p99" → verifiable, verified → CONFIRMED.
+                      branch B's "writer caps throughput" → verifiable, not yet → PENDING.
 SYNTHESIZE (identity) the two readings do NOT converge on one fix and VLDS cannot settle
                       which metric the user means.
 POST (templates)      surface the fork as Clarification:
@@ -124,7 +126,7 @@ to one answer and the user would never have seen the fork.
 
 - **identity** (always-on base). orchestration runs the macro-lifecycle and the _cross-branch_ merge; identity owns the four lenses, the response contract, and the _per-branch_ synthesis micro-loop. orchestration calls identity at PLAY and SYNTHESIZE; it never redefines them.
 - **rubric** (always-on base). rubric selects a closure once, up front; orchestration runs that closure over time and re-enters rubric for each forked branch. Selection is rubric's; sequencing is orchestration's.
-- **vlds** (optional). orchestration decides _when_ the gate fires (TEST, and VERIFY inside the merge) and reconciles physical vs virtual; the gate, provenance, and tiers stay in vlds.
+- **vlds** (optional). orchestration decides _when_ the gate fires (TEST, and VERIFY inside the merge) and reconciles physical vs virtual; the gate, provenance, and tiers stay in the vlds plugin, which the `vlds` skill binds, and a contested merge escalates to the plugin's inspector (`vlds:inspector`).
 - **bias-patterns** (optional). The cleanest seam: bias-patterns _is_ SCAN and explicitly "hands control to BREAK"; orchestration is the recipient of that hand-off.
 - **templates** (optional). orchestration decides which outcome surfaces (one answer vs. an unresolvable fork); templates renders it, and its Clarification format is exactly the BREAK that orchestration produces.
 - **isomorphic-operations / sjc-indexer** (optional). orchestration schedules _when_ and _in which branch_ the bounded loop or a deep index pass runs; the loops themselves stay in those skills.

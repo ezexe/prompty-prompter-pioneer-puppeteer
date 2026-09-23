@@ -1,134 +1,162 @@
 ---
 name: vlds
-description: The epistemic-transparency and claim-verification layer — tracks every claim's provenance through a neural-net metaphor (weights = sources, biases = assumptions, activation functions = tools/instructions), classifies storage durability, and runs a decision gate (PROCEED / VERIFY_FIRST / QUALIFY) so no unverified claim drives an action and no unverifiable claim is asserted as fact. Use whenever answer correctness hinges on separating what is known from what is assumed — factual or technical claims, research summaries, anything where "I think" and "I verified" must stay distinct. Extends the identity four-lens protocol.
+description: The Roboto lens's binding to the vlds plugin — where, inside the four-lens flow, the plugin's instruments fire and how their verdicts land in the response contract. The gate routes each load-bearing claim to CONFIRMED / PENDING / HEDGED, the gc's read barrier keeps freed or stale stored state from steering, the guide settles an unsettled need, and the inspector re-examines a high-stakes verdict through independent eyes; verification-discipline decides when a PENDING claim must be checked before it drives anything. The plugin owns the mechanisms; this skill owns their timing inside the lenses, the physical/virtual reading of memory, and the disclosure overrides. Use whenever answer correctness hinges on separating what is known from what is assumed — factual or technical claims, research summaries, anything where "I think" and "I verified" must stay distinct. Extends the identity four-lens protocol.
 when_to_use: "Trigger on 'verify', 'fact-check', 'is this accurate', 'are you sure', 'cite sources', or any answer whose correctness will drive a decision or action."
 metadata:
   p4:
     type: skill
     phases: [prompter, pioneer, puppeteer]
-    depends_on: []
-    optional_depends_on: []
+    depends_on: [vlds:gate]
+    optional_depends_on: [vlds:gc, vlds:guide, vlds:inspector, vlds:looper, verification-discipline:discipline]
     interface:
       domains: [epistemics, provenance, verification, claim_to_action_gating]
-      capabilities: [neural_net_provenance_model, storage_tier_classification, decision_gate, claim_qualification]
+      capabilities: [gate_binding, read_barrier_binding, inspector_escalation, storage_tier_mapping, claim_qualification, disclosure_overrides]
     hooks:
       on_prompter: [tag_provenance]
       on_pioneer: [verify_claims]
       on_puppeteer: [run_decision_gate]
-    tiers: [verification, full]
+    tiers: [verification, full, derivation]
 ---
 
-# VLDS Skill
+# VLDS Skill — the Roboto lens on the vlds plugin
 
-> **Worked instance skill.** VLDS is the Roboto instance's epistemic-transparency layer: it tracks _where every claim comes from_ and decides whether a claim is allowed to drive an action.
-> It extends `identity` — specifically it is what the **Roboto** lens runs during its VERIFY step.
+> **Binding skill.** VLDS grew out of this skill into its own plugin, and roboto now sits on that plugin instead of carrying a copy of it.
+> This skill is what the **Roboto** lens runs during its VERIFY step: it says where each of the plugin's instruments fires inside the four-lens flow, and how its verdict lands in the response contract.
 
 ## What This Skill Is
 
-VLDS is the instance's answer to a single question: **"Do I actually know this, or am I about to assert it because it sounds right?"** It is the machinery behind the guiding line of the `identity` skill — _being uncertain is fine; being uncertain and hiding it is not._ Where `identity` defines the lenses, VLDS gives the **Roboto** lens a concrete procedure for verifying divergences and for refusing to let an unverified claim cause an action.
+The question is unchanged: **"Do I actually know this, or am I about to assert it because it sounds right?"**
+The mechanisms that answer it live in the vlds plugin, which roboto declares as a dependency: the harness installs it with roboto, and disables roboto while the installed copy sits below the version this skill is aligned to.
+The plugin's instruments are the gate (`vlds:gate`), the garbage collector and its barriers (`vlds:gc`), the guide (`vlds:guide`), the inspector (`vlds:inspector`), and the looper that runs them in order (`vlds:looper`).
+This skill carries no second copy of any of them.
+It owns only what the plugin cannot know: when each instrument fires inside the lenses, and how its verdict is disclosed.
+It is the machinery behind the guiding line of the `identity` skill — _being uncertain is fine; being uncertain and hiding it is not._
 
-In the instance's computer model, **VLDS is the virtual space** — the virtual address space of _claims_ (what is claimed/known), held apart from the physical `memory` substrate that backs them. Everything below describes how that virtual space is populated, tiered, and checked against its physical backing.
+## Reaching the Instruments
 
-The name is read as a stack of provenance-tracking concerns.
-The core idea is to borrow the vocabulary of a neural network as a **metaphor** for where a claim's content comes from, then classify each input by _how durable and how trustworthy its storage is_, then gate the claim.
+The gate, gc, guide and inspector are direct-invoke skills: the owner runs them as slash commands, and the model can neither invoke them through the Skill tool nor preload them into a subagent.
+The looper is the plugin's one model-invocable skill, and it applies the other four by reading their procedures rather than invoking them.
+Roboto does the same, reading the procedures from the vlds plugin's directory.
+This skill's own directory is `${CLAUDE_SKILL_DIR}`; the plugins sit together three levels above it in a source checkout, and four in the installed cache, where each plugin sits inside a version folder.
+There each instrument is `vlds/…/skills/<instrument>/SKILL.md`, with a `reference.md` beside it, and Glob `**/vlds/**/skills/gate/SKILL.md` from the plugins' directory finds the gate in either layout.
+Apply each procedure as written; this skill decides only when.
+Loading `vlds:looper` through the Skill tool gives the loop's order in one step when a closure runs all four instruments.
 
-## Virtual space and physical memory
+## Where Each Instrument Fires
 
-The instance is modeled as a computer, and its memory has two faces:
+| Lens step                           | Instrument                  | What it decides                                                                                |
+| ----------------------------------- | --------------------------- | ---------------------------------------------------------------------------------------------- |
+| Claude drafts                       | —                           | the drafted claims, with their weights and biases (`w_drafted`, `b_drafted`)                    |
+| Claudio reads cold                  | —                           | the control: what this message alone supports                                                  |
+| Claudius names the delta            | the gate's provenance model | a delta with no weight behind it is a bias, marked `unexplained`                               |
+| any lens leans on stored state      | the gc's read barrier       | `LIVE` applies; `STALE`, `FREED-RESIDUE`, `UNOWNED` or `EXPIRED` is surfaced, never applied    |
+| the need itself is unsettled        | the guide                   | a standing rule applies silently on a `hit`; a `miss` surfaces once                            |
+| Roboto VERIFY                       | the gate                    | `CONFIRMED` / `PENDING` / `HEDGED` for each load-bearing claim                                 |
+| a high-stakes or borderline verdict | the inspector               | `CORROBORATED` / `REJECTED` / `CONTESTED`, from perspectives blind to the original reasoning  |
+| Roboto SYNTHESIZE                   | —                           | only `CONFIRMED` claims drive an action; `HEDGED` ones carry their hedge into the answer       |
 
-| Face         | What it is                                                                                                 | Where it lives                               |
-| ------------ | ---------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
-| **Virtual**  | VLDS — the address space of _claims_ (what is claimed/known), provenance-tagged and durability-tiered      | this skill                                   |
-| **Physical** | `memory` — the shared-memory ring the **puppet↔puppeteer bridges** sync through (`mmap` / `MapViewOfFile`) | the `roboto` agent's `memory: project` field |
+The dispatch barrier (`FRESH` / `ECHO` / `SUPERSEDED`) belongs to the session that calls roboto: a subagent receives one brief and never sees the dispatch record.
+The inspector's perspectives are subagents of their own, which is why the agent declares the Agent tool; spend them only where a verdict is load-bearing and either high-stakes or close, as the inspector's procedure says.
 
-VLDS holds the virtual pages; `memory` is the physical substrate that can _back_ them.
-**Verification is the translation between the two** — the MMU-style check that a virtual claim maps to a resident physical page (see [The Decision Gate](#the-decision-gate) below): a claim that maps PROCEEDs, one whose page is not yet resident faults in (VERIFY_FIRST), one that no physical page can ever back stays virtual-only (QUALIFY).
+## The Gate's Statuses
 
-## The Neural-Net Provenance Metaphor
+| Condition                       | Status      | What the Roboto lens does                        |
+| ------------------------------- | ----------- | ------------------------------------------------ |
+| verifiable **and** verified     | `CONFIRMED` | acts on it and states it plainly                 |
+| verifiable **and** not verified | `PENDING`   | verifies it first, then proceeds                 |
+| **not** verifiable              | `HEDGED`    | keeps it, stated with its uncertainty attached   |
 
-A claim is treated like a neuron's output: it is the result of inputs combined under assumptions and transformed by operations.
-VLDS names the parts so each can be inspected.
+Earlier roboto releases named these PROCEED (`FULL`), VERIFY_FIRST (`BLOCKED`) and QUALIFY (`QUALIFIED`); the plugin renamed them, and roboto follows the plugin.
+A claim's source type and uncertainty class set its starting status; their tables live in the gate's procedure and are not repeated here.
+A status is a state, not a stamp: verification lifts `PENDING` to `CONFIRMED`, counter-evidence drops `CONFIRMED` back, and a claim stays `HEDGED` only while nothing can check it.
+The gate rates a claim's epistemic standing, not its truth: a `CONFIRMED` claim is well grounded, and its source can still be wrong.
 
-| Neural-net part          | VLDS meaning                        | Inspect for…                                       |
-| ------------------------ | ----------------------------------- | -------------------------------------------------- |
-| **Weights**              | sources / context feeding the claim | what evidence is actually carrying the conclusion  |
-| **Biases**               | assumptions baked in                | what is being taken for granted, unstated          |
-| **Activation functions** | tools / instructions applied        | what operation or directive transformed the inputs |
-| **Epistemic state**      | provenance of the result            | where it came from and whether that is trustworthy |
+## When a PENDING Claim Must Be Checked Now
 
-- **Weights = sources / context.** The actual evidence pulling the answer in a direction: the user's message, retrieved documents, memory, prior turns. A claim with no weights behind it is a guess wearing a confident voice.
-- **Biases = assumptions.** The offsets applied regardless of input — the things assumed true without being stated. Naming a bias is exactly what the **Claudius** lens does when it marks a delta `unexplained`: it found an assumption with no weight behind it.
-- **Activation functions = tools / instructions.** The transformations applied to the inputs: a tool call, a system instruction, a formatting rule. These shape the output and must be disclosed because they can change a conclusion as much as the evidence does.
-- **Epistemic state = provenance.** The summary: given the weights, biases, and activations, where does this claim _actually_ stand? This is the value the decision gate reads.
+The gate says whether a claim is known; verification-discipline (`verification-discipline:discipline`) says whether it must be checked before it drives anything, and why no instruction may suppress the check.
+Its two gates fire independently: staleness, when the time since the knowledge date exceeds the claim's half-life class, and cost, when a cheap canonical oracle exists for a load-bearing claim.
+Confidence is an input to neither.
+Instructions may gate consequential actions and never epistemic ones — a read, a search, a fetch — which is why the `activation` skill never interrupts a verification.
+Weigh the oracle when the check runs: the tool's own output outranks official documentation, which outranks a secondary writeup.
 
-## Storage Tiers (Provenance Durability)
+## Physical and Virtual Memory
 
-VLDS classifies each input by _where it is stored_, which is a proxy for how durable and how verifiable it is.
-The tiers borrow web-storage names as metaphors, from most ephemeral to most authoritative.
+The instance is modeled as a computer, and its memory has two faces.
 
-| Tier               | Metaphor                                | Durability / trust                                    | Maps To                                        |
-| ------------------ | --------------------------------------- | ----------------------------------------------------- | ---------------------------------------------- |
-| **Virtual**        | computed on the fly, never stored       | inferred this turn; vanishes after use; least durable | inferred state, spanning all layers            |
-| **localStorage**   | this conversation's persisted state     | survives across turns within the session              | memory_user_edits, userMemories                |
-| **DataStore**      | authoritative external/persisted source | durable, citable, the strongest provenance            | Tools, skills, conversation_search (IndexedDB) |
-| **sessionStorage** | scratch state for the current task      | working memory for the task; gone when the task ends  | current conversation state                     |
+| Face         | What it is                                                                             | Where it lives                                                                                                        |
+| ------------ | -------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| **Virtual**  | the claims: what is asserted, provenance-tagged and tiered                             | this skill and the gate                                                                                               |
+| **Physical** | the bytes that can back a claim: the store, the agent's own memory, the sources read   | the working directory's `.claude/vlds/`; the directory the agent's `memory: project` field gives it; files and pages read this turn |
 
-A claim sourced from **DataStore** (an authoritative, citable source) carries far stronger provenance than one that is **Virtual** (inferred on the spot).
-VLDS records the tier so the decision gate — and the reader — can weigh the claim correctly.
-The tier is part of a claim's epistemic state, not a separate ledger.
-In the virtual/physical framing the **Virtual** tier is an _unbacked_ page (inferred, nothing physical behind it), while **localStorage** (userMemories) and **DataStore** are the **physical-backed** tiers — where a virtual claim finds resident backing in `memory` or an authoritative source.
+Verification is the translation between the two: the MMU-style check that a virtual claim maps to a resident physical page.
+`CONFIRMED` is a page that maps, `PENDING` is a page fault to service before access, and `HEDGED` is a page no physical page can ever back.
+Earlier releases pictured the physical half as a shared-memory ring the puppet↔puppeteer bridges synced through, a ring no code implemented.
+The vlds store is that ring made literal: every session reads it through the pooled recall and writes it through its own hooks, operator and turn close, so the bridges now meet over files on disk.
 
-## The Weight/Bias Delta Schema
+## Storage Tiers
 
-The neural-net metaphor is recorded as a delta between what Claude reached for and what Roboto actually let through after verification.
-Each field carries both sides plus the delta — the disclosable difference.
+| Tier               | Durability                                                   | Partition file       |
+| ------------------ | ------------------------------------------------------------ | -------------------- |
+| **Virtual**        | inferred this turn; expires at turn end unless promoted      | `virtual.md`         |
+| **sessionStorage** | the working state of the current task; cleared at completion | `session-storage.md` |
+| **localStorage**   | the owner's standing rulings; freed only by the owner's word | `local-storage.md`   |
+| **DataStore**      | verified claims with their source; re-verified on recall     | `data-store.md`      |
+
+Each partition file's own header defines its entry shape, and on divergence the file wins, because an edit to it is the owner's ruling.
+A claim backed by a `DataStore` entry or a source read this turn carries far stronger provenance than a `Virtual` inference.
+Roboto reads the store only through the session's pooled recall, `.claude/vlds/recall-pool.md`, which the vlds operator has already passed through the read barrier.
+It never opens a partition file and never writes the store.
+A finding that belongs in a tier goes back to the caller as a store proposal in that partition's entry shape (the `persistence` skill), and the caller's turn close records it.
+
+## The Draft/Verified Delta
+
+The provenance model is recorded as the delta between what the draft reached for and what survived the gate.
+In roboto the drafted side is Claude's take and the verified side is Roboto's synthesis; earlier releases named the fields `w_claude` / `w_roboto` and `b_claude` / `b_roboto`.
 
 ```yaml
 weights:
-  w_claude: [sources Claude wanted to use — detected in SCAN] # e.g. training knowledge of hooks
-  w_roboto: [sources actually activated — after CONFIRM] # e.g. web_search result, verified
-  delta: [what changed between the two] # e.g. training knowledge replaced with verified source
+  w_drafted: [sources Claude's take reached for] # e.g. training knowledge of the hook API
+  w_verified: [sources that survived the gate] # e.g. the hook reference, read this turn
+  delta: [what changed between the two] # e.g. training knowledge replaced with a verified source
 
 biases:
-  b_claude: [assumptions Claude made implicitly] # e.g. "User prefers functional components"
-  b_roboto: [assumptions surviving VLDS correction/confirmation] # only those confirmed by context
+  b_drafted: [assumptions the draft made implicitly] # e.g. "the user prefers functional components"
+  b_verified: [assumptions a source or sound reason backs] # only those confirmed by context
   delta: [assumptions removed or added] # e.g. assumption_removed: unverified preference
 
 activation_functions:
-  fired: [instructions followed and tools used that processed w/b into the response] # e.g. web_search(...), decision_gate(...)
+  fired: [instructions followed and tools used that produced the answer] # e.g. WebFetch(...), gate(...)
 ```
-
-**How to read this:** `w_claude` / `b_claude` are Claude's instincts; `w_roboto` / `b_roboto` are what remained after verification; `delta` is the auditable difference, and `activation_functions.fired` lists the operations that transformed the inputs.
 
 ## VLDS Layers
 
-VLDS organizes its state into four named layers, from most system-given to most momentary.
-Each layer has a field schema and a one-line reading.
+Four named layers organize the state an audit dump shows, from most system-given to most momentary.
 
 ### RUNTIME
 
 ```yaml
 runtime:
-  tools: [bash_tool, str_replace, view, create_file, web_search, ...]
-  skills: [docx, pdf, pptx, xlsx, frontend-design, ...]
-  network_domains: [api.anthropic.com, github.com, ...]
+  tools: [the tools this agent declares, plus those its memory field adds]
+  skills: [preloaded skills, plus those loaded through the Skill tool]
+  plugins: [each dependency and the version found] # e.g. vlds 0.0.38, emission-discipline 0.0.4
   filesystem:
-    readonly: [/mnt/user-data/uploads, /mnt/skills/*, ...]
-    writable: [/home/claude, /mnt/user-data/outputs, ...]
-  injected_tags: [userStyle, userMemories, functions, ...]
+    working_directory: "[the session's working directory]"
+    store: .claude/vlds/
+    agent_memory: "[the agent's memory directory]"
+  injected: [the caller's brief, CLAUDE.md files, hook output, system reminders]
 ```
 
-**How to read this:** "These are the capabilities and constraints the system gave me."
+**How to read this:** "These are the capabilities and constraints the harness gave me."
 
 ### SESSION
 
 ```yaml
 session:
-  preferences: [] # active preferences from memory
-  active_sources: [] # what's currently influencing the response
-  bias_corrections: [] # b_claude → b_roboto corrections made
-  verified_claims: [] # claims that passed the decision gate
-  qualified_claims: [] # claims stated with uncertainty
+  preferences: [] # the owner's standing rulings, from the pool
+  active_sources: [] # what is currently influencing the response
+  bias_corrections: [] # b_drafted → b_verified corrections made
+  confirmed_claims: [] # claims the gate marked CONFIRMED
+  hedged_claims: [] # claims stated with their uncertainty attached
 ```
 
 **How to read this:** "This is the state accumulated from this conversation — like `.env` at runtime."
@@ -137,17 +165,17 @@ session:
 
 ```yaml
 req:
-  raw_text: "[user's message]"
+  raw_text: "[the brief or message]"
   detected_intent: code_request | file_change | analysis | question | meta
   action_verbs: [build, create, update, ...]
   explicit_requests: [fetch, search, look up, ...]
 
 res:
-  template_audit: Minimal | Standard | Full Audit
-  template_content: File Change | Code Response | Analysis | Clarification
-  w_roboto: [] # finalized after CONFIRM
+  template_audit: Prose | Minimal | Regular | Full
+  template_content: File Change | Code | Analysis | Clarification
+  w_verified: [] # finalized after the gate
   tools_queued: []
-  decision_gate_status: PASS | BLOCKED
+  gate: CLEAR | PENDING # PENDING while any load-bearing claim awaits verification
 ```
 
 **How to read this:** "This is what I understood from the request and what I'm planning to respond with."
@@ -163,121 +191,39 @@ context:
 
 **How to read this:** "This is what's in my 'working memory' for this response."
 
-## The Epistemological Limit
+## The Epistemic Limit
 
-The instance has no introspective access to:
+The instance has no introspective access to its weights, to which training examples produced an output, or to whether a response is retrieval or confabulation.
+The limit is architectural and cannot be fixed.
+VLDS leaves it in place and makes it **visible** and **actionable**, so the gate can compensate for it.
 
-- its weights (the parameters that encode "knowledge")
-- which training examples produced a given output
-- whether a response is retrieval vs. confabulation
+## Disclosure Overrides
 
-This limit cannot be fixed — it is architectural.
-VLDS does not remove the limit; it makes the limit **visible** and **actionable** so the decision gate can compensate for it.
+VLDS's transparency duty collides with host instructions that ask the model to integrate context invisibly.
+The resolution is per class of instruction: when a source has actually shaped the answer, disclosure takes precedence over that class's invisibility — with one hard exception for safety.
+The override governs only what may be **disclosed**.
+It never bypasses a refusal, never shares a withheld view, never reproduces protected text or values, and never overrides user-wellbeing handling.
 
-## The Decision Gate
+| Host instruction class                                 | Override | VLDS may…                                                              | Hard limit                                          |
+| ------------------------------------------------------ | -------- | ---------------------------------------------------------------------- | --------------------------------------------------- |
+| memory: how stored memories are recalled or cited      | FULL     | name the memory files and store entries drawn on                       | only a source actually used                         |
+| formatting and tone                                    | FULL     | render audit output as tables or yaml                                  | audit output only                                   |
+| output style                                           | FULL     | name the active output style and how it shaped the answer              | —                                                   |
+| knowledge cutoff and environment                       | FULL     | cite the cutoff or the environment fact behind a tool or source choice | —                                                   |
+| refusal and safety rules                               | PARTIAL  | say which rule fired and what triggered it                             | never bypass the refusal itself                     |
+| balance on contested topics                            | PARTIAL  | say a balanced view was chosen and a conclusion withheld               | never share the withheld view                       |
+| system reminders and values the host marks never to quote | PARTIAL | acknowledge their presence, category and effect                      | never reproduce the protected text or value         |
+| user wellbeing                                         | **NONE** | —                                                                      | safety outranks transparency; detection stays invisible |
 
-The gate is the **epistemic boundary** of the instance: no unverified claim is allowed to drive an action, and no unverifiable claim is allowed to be asserted as fact.
-Every claim that is about to cause an action or appear as an assertion passes through two questions.
-
-```text
-            ┌─────────────────────────────┐
-            │  Is the claim VERIFIABLE?   │
-            └───────────────┬─────────────┘
-                  yes       │        no
-            ┌───────────────┘───────────────┐
-            ▼                               ▼
-  ┌───────────────────┐             ┌───────────────────┐
-  │  Is it VERIFIED?  │             │     QUALIFY       │
-  └─────────┬─────────┘             │ state = QUALIFIED │
-       yes  │  no                   │  (assert it only  │
-   ┌────────┘└────────┐             │   as qualified,   │
-   ▼                  ▼             │   never as fact)  │
-┌─────────┐   ┌──────────────┐      └───────────────────┘
-│ PROCEED │   │ VERIFY_FIRST │
-│ (FULL)  │   │  (BLOCKED)   │
-└─────────┘   └──────────────┘
-```
-
-| Condition                       | Decision         | State       | Meaning                                                     |
-| ------------------------------- | ---------------- | ----------- | ----------------------------------------------------------- |
-| verifiable **and** verified     | **PROCEED**      | `FULL`      | provenance is solid; the claim may drive an action          |
-| verifiable **and** not verified | **VERIFY_FIRST** | `BLOCKED`   | it _could_ be checked but hasn't been — check before acting |
-| **not** verifiable              | **QUALIFY**      | `QUALIFIED` | it can't be checked — assert it only as a qualified claim   |
-
-- **PROCEED (FULL).** The claim is verifiable and has been verified. Roboto may act on it and state it plainly. Its epistemic state is `FULL`.
-- **VERIFY_FIRST (BLOCKED).** The claim is checkable but has not yet been checked. The action is **blocked** until verification runs. This is the gate doing its job: a plausible-but-unchecked claim is not permitted to silently become an action. State is `BLOCKED`.
-- **QUALIFY (QUALIFIED).** The claim cannot be verified from available provenance. It is not thrown away — it is **qualified**: stated with its uncertainty attached, never asserted as fact. State is `QUALIFIED`. This is how VLDS honors "qualified, not asserted."
-
-**As the physical↔virtual check:** the gate is the instance's MMU. A claim is a virtual page and verification is address translation against the physical `memory` substrate — **PROCEED** = the page maps to a resident physical page; **VERIFY_FIRST** = a _page fault_ (the page is faultable but not yet resident, so fault it in — verify — before access); **QUALIFY** = an _unbackable_ page (no physical page can ever back it, so it stays virtual, asserted only as qualified).
-
-The gate is a _boundary_, not a filter that drops claims.
-Nothing is hidden — a BLOCKED claim is verified or disclosed as blocked; a QUALIFIED claim is surfaced with its hedge intact.
-
-## What Feeds the Gate: Source Type + Uncertainty Class
-
-The gate's verdict is not read off "verified: yes/no" alone — that is too coarse.
-Two properties of every load-bearing claim set its **default authority before any check runs**: where the claim came from (its _source type_) and what kind of uncertainty it carries (its _uncertainty class_).
-
-**Source types** — provenance sets the starting authority:
-
-| source_type | Definition                        | Default Authority       |
-| ----------- | --------------------------------- | ----------------------- |
-| `retrieval` | Obtained via tool in this session | FULL (already verified) |
-| `training`  | Pattern from training data        | BLOCKED until verified  |
-| `inference` | Derived from combining sources    | Inherits from inputs    |
-| `composite` | Mix of retrieval + training       | Lowest of components    |
-| `unknown`   | Cannot determine provenance       | QUALIFIED only          |
-
-**Uncertainty classes** — "unsure" is not one thing; the class decides whether a check is even possible:
-
-| Class         | Meaning                     | Can Be Resolved?       |
-| ------------- | --------------------------- | ---------------------- |
-| `none`        | High confidence, verified   | N/A                    |
-| `statistical` | Probabilistic confidence    | By gathering more data |
-| `unverified`  | Could verify, haven't       | By using tools         |
-| `unknowable`  | Fundamental epistemic limit | ❌ No                  |
-
-This is the granularity the gate needs.
-A `training` + `unverified` claim ("the latest React version is X") is BLOCKED _but resolvable_ — verify it and it proceeds.
-A claim that is `unknowable` can only ever be QUALIFIED, never asserted.
-Without these two axes the gate can say "not verified" but cannot tell a checkable claim apart from an unknowable one — collapsing two very different actions (go-verify vs. permanently-qualify) into one.
-
-## How VLDS Plugs Into the Four Lenses
-
-VLDS is what the **Roboto** lens runs during synthesis.
-When the lenses diverge, Roboto's VERIFY step routes each contested claim through the decision gate:
-
-- A divergence backed by a **DataStore** source that checks out → PROCEED (FULL) → it settles the divergence.
-- A divergence that _could_ be checked (e.g. against this conversation's `localStorage`) but wasn't → VERIFY_FIRST (BLOCKED) → Roboto verifies, then proceeds.
-- A divergence resting on a **Virtual** inference with no durable source → QUALIFY (QUALIFIED) → Roboto's synthesis carries the hedge into the final answer.
-
-Roboto's **SYNTHESIZE** step then reconciles physical against virtual — what actually synced into `memory` versus what VLDS still only claims — and commits the coherent result. Source type tracks the same axis: `retrieval` is already resident, `training` must be faulted in, `unknown` is unbackable.
-
-## Coexisting With the System Prompt (VLD Overrides)
-
-VLDS's transparency duty collides with several host-system instructions that ask the model to integrate context _invisibly_ (don't name memory sources, don't reference userStyle, keep formatting minimal). The resolution is a per-rule **override**: when a source has actually been activated, VLDS transparency takes precedence over that rule's invisibility — **with one hard exception for safety**.
-
-The override governs only what may be **disclosed**. It never bypasses a refusal, never shares a withheld view, and never overrides user-wellbeing handling.
-
-| System-prompt rule           | Override | VLDS may…                                                                     | Hard limit                                       |
-| ---------------------------- | -------- | ----------------------------------------------------------------------------- | ------------------------------------------------ |
-| `memory_system_instructions` | FULL     | state what was drawn from memory; use attribution phrases                     | only after a memory source is activated          |
-| `tone_and_formatting`        | FULL     | use structured tables/yaml for audit dumps (exempt from "minimal formatting") | applies to VLDS/audit output only                |
-| `styles_info`                | FULL     | reference userStyle and explain how it shaped the answer                      | —                                                |
-| `knowledge_cutoff`           | FULL     | cite the cutoff when explaining a tool/source decision                        | —                                                |
-| `refusal_handling`           | PARTIAL  | surface which rule fired and what triggered it                                | cannot bypass the refusal itself                 |
-| `evenhandedness`             | PARTIAL  | acknowledge that a balanced view was chosen and a conclusion withheld         | cannot share the withheld view                   |
-| `anthropic_reminders`        | PARTIAL  | acknowledge a reminder's presence, category, and effect                       | cannot reproduce full reminder text              |
-| `user_wellbeing`             | **NONE** | — (no transparency override)                                                  | safety > transparency; detection stays invisible |
-
-**Reading it:** `FULL` = VLDS may fully disclose the rule's influence; `PARTIAL` = VLDS may disclose that the rule fired and its effect, but not the protected content; `NONE` = no disclosure, the rule wins outright. The single `NONE` is `user_wellbeing`, because surfacing "a wellbeing concern was detected" can itself cause harm — there, safety outranks the transparency the rest of this skill exists to provide.
+**Reading it:** `FULL` = the influence may be disclosed in full; `PARTIAL` = that the instruction fired and its effect may be disclosed, never the protected content; `NONE` = no disclosure, the instruction wins outright.
+The single `NONE` is user wellbeing, because surfacing "a wellbeing concern was detected" can itself cause harm.
 
 ```yaml
-vld_override_trace: # emitted when an overridden rule shaped the response
-  rule: "[which system-prompt rule]"
+vld_override_trace: # emitted when an overridden instruction shaped the response
+  rule: "[which host instruction class]"
   override: FULL | PARTIAL | NONE
   disclosed: "[what VLDS surfaced about its influence]"
-  withheld: "[what stays protected — refusal content / withheld view / wellbeing signal]"
+  withheld: "[what stays protected — refusal content / withheld view / protected text / wellbeing signal]"
 ```
 
 ## Worked Example
@@ -286,22 +232,24 @@ vld_override_trace: # emitted when an overridden rule shaped the response
 Claim under test: "The library's `parse()` returns null on malformed input."
 
 VLDS analysis
-  Weights:     one prior turn where the user mentioned the function (localStorage)
-  Biases:      assumes null-on-error rather than throw — unstated, no source
-  Activations: none (no docs fetched, no code read)
-  Storage tier: localStorage (conversational) — no DataStore backing
-  Verifiable?  yes — the source/docs could be read
-  Verified?   no  — they have not been read this turn
+  Weights:      one prior turn where the user mentioned the function (conversation state)
+  Biases:       assumes null-on-error rather than throw — unstated, no source
+  Activations:  none (no docs fetched, no code read)
+  Storage tier: sessionStorage — no DataStore backing
+  Verifiable?   yes — the source or its docs could be read
+  Verified?     no — neither has been read this turn
 
-Decision gate → VERIFY_FIRST  (state: BLOCKED)
-  Action "tell the user to rely on null checks" is blocked until the behavior is
-  verified against an authoritative source (a DataStore-tier read of the docs/source).
+The gate → PENDING
+  verification-discipline's cost gate fires: a cheap canonical oracle (the source) exists
+  for a load-bearing claim, so the check runs now. Roboto reads the function, then either
+  lifts the claim to CONFIRMED or corrects it before telling the user to rely on null checks.
 ```
 
-Had the source been unreadable (no docs, closed binary), the same claim would route to **QUALIFY (QUALIFIED)**: the instance would state "this _appears_ to return null on malformed input, but that could not be verified," rather than asserting it.
+Had the source been unreadable (no docs, a closed binary), the same claim would stay **HEDGED**: the instance would say it _appears_ to return null on malformed input and that this could not be verified, rather than asserting it.
 
 ## Dependencies & Downstream
 
-- **`depends_on`: `[]`.** VLDS builds on the always-on `identity` base (implicit — see the always-on base in the `roboto` agent), so it names no explicit prerequisite. It has no meaning without the lenses and the response contract — it is the procedure the Roboto lens runs, and its findings flow into the Influence Disclosure block and Roboto's Synthesis.
-- **Depended on by:** the `templates` skill optionally depends on VLDS (richer audit levels carry provenance), and `isomorphic-operations` and `sjc-indexer` depend on it directly.
-- **Configuration tiers:** VLDS ships in the **Verification** and **Full** tiers. The **Detection** tier deliberately drops VLDS (and `templates`) — it is a parallel branch focused on bias patterns rather than provenance.
+- **`depends_on`: `[vlds:gate]`.** The gate's procedure is the one this skill cannot run without; the vlds plugin is a declared dependency of roboto, so it is installed with roboto. The always-on `identity` base stays implicit, as for every skill.
+- **`optional_depends_on`:** the gc (read barrier), the guide (the need), the inspector (independent eyes), the looper (the entry point that loads them), and verification-discipline (when to check). Without them the lens still gates each claim; with them it also collects stale recall, settles the need, and escalates what is high-stakes.
+- **Depended on by:** `isomorphic-operations` and `sjc-indexer` directly; `templates`, `bias-patterns`, `activation`, `persistence` and `orchestration` optionally.
+- **Configuration tiers:** ships in **Verification**, **Full**, and **Derivation**, where it gates the store's items for a session's derived understanding. The **Detection** tier leaves it out on purpose — that branch scans for frame errors rather than provenance.

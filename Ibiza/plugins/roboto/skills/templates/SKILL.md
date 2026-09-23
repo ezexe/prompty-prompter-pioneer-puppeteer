@@ -1,20 +1,20 @@
 ---
 name: templates
-description: The response-formatting layer — picks how much audit machinery to show (Prose / Minimal / Regular / Full audit levels) and which content format to use (File Change / Code / Analysis / Clarification) via a selection matrix mapping request type to a sensible default. Use whenever a reply needs to be shaped at the right altitude — terse for trivial asks, full audit for consequential or contested work — without over- or under-documenting. Renders the identity four-lens output; richer levels draw on vlds provenance when available.
+description: The response-formatting layer — picks how much audit machinery to show (Prose / Minimal / Regular / Full audit levels) and which content format to use (File Change / Code / Analysis / Clarification) via a selection matrix mapping request type to a sensible default, and releases every fence under emission-discipline, every minted seam under envelope-discipline, and every task script as a src-fragger frag. Use whenever a reply needs to be shaped at the right altitude — terse for trivial asks, full audit for consequential or contested work — without over- or under-documenting. Renders the identity four-lens output; richer levels draw on vlds provenance when available.
 when_to_use: "Trigger on 'just briefly', 'give me the full writeup', 'format as a plan/code/analysis', or when reply depth and format should match the request's stakes."
 metadata:
   p4:
     type: skill
     phases: [prompter, puppeteer]
-    depends_on: []
-    optional_depends_on: [vlds]
+    depends_on: [emission-discipline:discipline]
+    optional_depends_on: [vlds, envelope-discipline:discipline, src-fragger:frag]
     interface:
       domains: [response_formatting, audit_levels, content_formats, format_selection]
       capabilities: [audit_level_selection, content_format_selection, selection_matrix, contract_compliant_rendering]
     hooks:
       on_prompter: [choose_format]
       on_puppeteer: [render_response]
-    tiers: [standard, verification, detection, full]
+    tiers: [standard, verification, detection, full, derivation]
 ---
 
 # Templates Skill
@@ -64,6 +64,7 @@ Orthogonal to the audit level: the shape the answer takes, driven by what is bei
 | **Code**          | the code block plus a tight explanation of intent and assumptions      | "write / generate this"                |
 | **Analysis**      | structured findings — claims with their support, organized for reading | "explain / compare / assess this"      |
 | **Clarification** | a focused question carrying **reason + options + default**             | ambiguity that blocks a correct answer |
+| **Derivation**    | the derived understanding a session acts on — the barrier, the intent, what the store establishes and how firmly | a VLDS store hand-off (the `derivation` closure) |
 
 - **File Change** names the target file, describes the edit and the reason, and presents the change as an editable unit. Pairs naturally with higher audit levels when the change is risky.
 - **Code** leads with the code, then a short explanation of intent and any assumptions made — those assumptions are exactly what `vlds` would tag as biases, so at higher audit levels they are disclosed explicitly.
@@ -86,9 +87,11 @@ The deviation clause covers any override.
 | Explain / compare / assess something        | Regular             | Analysis               |
 | Consequential, contested, or audited claim  | Full                | Analysis               |
 | Ambiguous request that blocks a good answer | (defer)             | Clarification          |
+| VLDS store hand-off from a session          | (none — not a response) | Derivation         |
 
 Reading the matrix: a routine file edit defaults to **Regular × File Change**; the _same_ edit on a load-bearing file is bumped to **Full × File Change** so the four lenses and the decision gate are on the record.
 An ambiguous request short-circuits to **Clarification** regardless of audit level — the instance asks before it formats.
+A store hand-off short-circuits to **Derivation**: it is not a response, so it renders no audit level, no disclosure block and no lens sections, and its shape is the `derivation` skill's.
 
 ## Audit-Level Render Skeletons
 
@@ -130,7 +133,7 @@ Adds a brief pre/post YAML around the four perspectives.
 ```yaml
 # Pre-Response
 vlds_self_audit: PASS | FAIL
-decision_gate: PASS | BLOCKED
+decision_gate: CLEAR | PENDING # PENDING while any load-bearing claim awaits verification
 ```
 
 ```yaml
@@ -151,7 +154,7 @@ Adds context tracking and divergence analysis, with inline fields on each perspe
 vlds_self_audit:
   status: PASS | FAIL
   bias_patterns_checked: [list]
-decision_gate: PASS | BLOCKED
+decision_gate: CLEAR | PENDING
 divergence_estimate: LOW | MEDIUM | HIGH
 ```
 
@@ -173,8 +176,8 @@ roboto:
 ```yaml
 # Post-Process
 epistemic_audit:
-  verified_claims: [count]
-  qualified_claims: [count]
+  confirmed_claims: [count]
+  hedged_claims: [count]
 assumptions_extracted: [list]
 ```
 
@@ -211,7 +214,7 @@ full_extended_vlds_self_audit:
       claudius: "[what Claudius should reconstruct — the delta cause]"
       roboto: "[what Roboto should synthesize]"
 
-decision_gate: # status + verdict buckets defined in the `vlds` skill (PROCEED/VERIFY_FIRST/QUALIFY -> FULL/BLOCKED/QUALIFIED)
+decision_gate: CLEAR | PENDING # per-claim statuses CONFIRMED / PENDING / HEDGED come from the vlds plugin's gate (the `vlds` skill binds it)
 
 divergence_estimate: LOW | MEDIUM | HIGH
 
@@ -262,14 +265,14 @@ post_process:
       included_in_final: true | false
 
   epistemic_summary:
-    verified_claims: [count]
-    qualified_claims: [count]
-    decisions_based_on: [verified claims only]
+    confirmed_claims: [count]
+    hedged_claims: [count]
+    decisions_based_on: [CONFIRMED claims only]
 
   full_epistemic_audit:
     claims:
       - claim: '[statement]'
-        source_type: <see `vlds` skill>
+        source_type: <see the vlds plugin's gate>
         contributor: claude | claudio | claudius | both
         verifiable: true | false
         verification:
@@ -277,10 +280,10 @@ post_process:
           performed: true | false
           result: confirmed | contradicted | inconclusive | not_attempted
         uncertainty_class:
-          type: <see `vlds` skill>
+          type: <see the vlds plugin's gate>
           reason: '[explanation]'
-        decision_authority: <see `vlds` skill>
-        # source_type / uncertainty_class / decision_authority enum values are defined in the `vlds` skill
+        status: CONFIRMED | PENDING | HEDGED
+        # source_type / uncertainty_class enum values are defined in the vlds plugin's gate procedure
 
     provenance_summary:
       retrieval_count: [N]
@@ -293,10 +296,10 @@ post_process:
       agreed_claims: [N]
 
     decision_summary:
-      full_authority_claims: [N]
-      blocked_claims: [N]
-      qualified_claims: [N]
-      decisions_made_on: [verified claims only]
+      confirmed_claims: [N]
+      pending_claims: [N]
+      hedged_claims: [N]
+      decisions_made_on: [CONFIRMED claims only]
 
     risk_surface:
       highest_risk_claims: [claims with unknowable source + low confidence]
@@ -326,13 +329,13 @@ file_change:
 
   session:
     response_format: file_change
-    implicit_confirmation: [create_file | str_replace | none]
+    implicit_confirmation: [Write | Edit | none]
 
   required: [filename, section, language, insertion_point]
 
   decision_gate_required: true # changes must be based on verified understanding
 
-  on_block: "BREAK — fork a prompter-prompt branch to verify [blocking_claim] before the file change proceeds"
+  on_pending: "BREAK — fork a prompter-prompt branch to verify [pending_claim] before the file change proceeds"
 
   structure: |
     ## File: `[filename]`
@@ -360,7 +363,7 @@ code_response:
 
   decision_gate_required: true # code examples must use verified API/syntax
 
-  on_block: "BREAK — fork a prompter-prompt branch to verify [blocking_claim] (e.g., API version, syntax correctness) before the example proceeds"
+  on_pending: "BREAK — fork a prompter-prompt branch to verify [pending_claim] (e.g., API version, syntax correctness) before the example proceeds"
 
   structure: |
     ```[language]
@@ -381,22 +384,22 @@ analysis:
 
   required: [subject, findings, confidence]
 
-  decision_gate_required: true # findings must distinguish verified from qualified
+  decision_gate_required: true # findings must distinguish CONFIRMED from HEDGED
 
-  on_block: "BREAK — fork a prompter-prompt branch on [blocking_claim]: one branch proceeds with qualified findings only, one verifies first"
+  on_pending: "BREAK — fork a prompter-prompt branch on [pending_claim]: one branch proceeds with hedged findings only, one verifies first"
 
   structure: |
     analysis:
       subject: [what's being analyzed]
 
-      verified_findings:
-        - [verified finding 1]
-        - [verified finding 2]
+      confirmed_findings:
+        - [confirmed finding 1]
+        - [confirmed finding 2]
 
-      qualified_findings:
-        - [qualified finding with uncertainty framing]
+      hedged_findings:
+        - [hedged finding with its uncertainty attached]
 
-      recommendation: [if applicable, based on verified findings only]
+      recommendation: [if applicable, based on confirmed findings only]
 
       confidence: [qualitative]
 ```
@@ -416,7 +419,7 @@ clarification:
   structure: |
     break:
       reason: [why clarification needed]
-      epistemic_block: [if applicable — what claim needs verification]
+      pending_claim: [if applicable — the claim that awaits verification]
       options:
         1: [option]
         2: [option]
@@ -431,8 +434,20 @@ clarification:
 | Action verbs on files | File Change    | `fix`, `update`, `modify`, `edit`          |
 | Question + code       | Code           | `how do I`, `show me`, `example`           |
 | Evaluation words      | Analysis       | `analyze`, `compare`, `review`, `evaluate` |
-| BREAK condition       | Clarification  | Automatic when ambiguity/block detected    |
+| BREAK condition       | Clarification  | Automatic when ambiguity or a pending claim is detected |
 | None of above         | Direct prose   | No special format needed                   |
+
+A Clarification from roboto running as a subagent is never asked directly: a subagent has no channel to the owner mid-run.
+It goes into the report's hand-back as a question with its reason, options and default (the agent definition's return contract), and the calling session serves it as its question panel or closing picker.
+
+## Release — What the Formats Hand Over
+
+A reply's fences are releases, and three plugins roboto declares as dependencies govern what may cross them.
+
+- **Every fence follows emission-discipline** (`emission-discipline:discipline`). Every identifier is shown, defined in the block, or marked `MISSING` (R1); no `...` or shortened literal sits inside a fence (R2); no complete block renders an option the reply argues against (R3); a block states the fixes and members it presumes landed (R11). The agent definition's plugin map says how to reach the full rule table.
+- **A change that mints or extends a seam follows envelope-discipline** (`envelope-discipline:discipline`). A new parameter, flag, option, verb or contract reveals a family: it gets one named options envelope at birth, its defaults are the null ask, and later knobs land as new named fields across every layer the seam spans (its Rules 1, 2, 5, 9 and 11).
+- **Code written to finish the task itself is a frag under src-fragger** (`src-fragger:frag`). A script, probe or generator that replaces manual labor, as opposed to the deliverable the owner asked for, names its home under the store's `src/<task-slug>/` and its register line in `src/frags.md`; roboto hands it back for the caller to write and register, since roboto does not write the project.
+- **The final message is the delivery surface** (emission-discipline R22). The deliverable, every fence and every copyable block go in the report's last message, after its last tool call; the caller carries that message on to the owner under the same rule.
 
 ## Worked Examples
 
@@ -472,10 +487,10 @@ Claude's Take      … (full thread): the migration is safe to run in-place.
 Claudio's Take     … (this message only): the request doesn't say whether traffic is live.
 Claudius's Take    … delta: "safe in-place" is contributed by memory, not this message;
                    marks the live-traffic question `unexplained`.
-Roboto's Synthesis … VLDS: "safe in-place" is verifiable but NOT verified → VERIFY_FIRST
-                   (BLOCKED). Holds the change and asks one question before applying.
+Roboto's Synthesis … the gate: "safe in-place" is verifiable but NOT verified → PENDING.
+                   Holds the change and hands back one question before it is applied.
 
-File Change — migrations/004_add_index.sql   [BLOCKED pending verification]
+File Change — migrations/004_add_index.sql   [PENDING verification]
 ```
 
 **Ambiguity → Clarification**
@@ -490,8 +505,9 @@ Clarification
 ## Dependencies & Downstream
 
 - **`depends_on`: `[]`.** `templates` builds on the always-on `identity` base (implicit — see the always-on base in the `roboto` agent), so it names no explicit prerequisite: it renders the output of the four lenses and obeys the response contract — it cannot exist without the thing it formats.
-- **`optional_depends_on`: `[vlds]`.** Without VLDS, the higher audit levels still render the four lenses; _with_ VLDS, Regular and Full additionally carry provenance and the decision-gate outcome. The dependency is optional precisely because formatting degrades gracefully when provenance isn't loaded.
-- **Configuration tiers:** `templates` ships in **Standard**, **Verification**, **Detection**, and **Full** — every closure above `minimal`. It was previously withheld from **Detection** on the reading that the branch "pairs `identity` with `bias-patterns` instead", which the resolved closure never bore out (`detection` also carries `activation` and `persistence`) and which the `rubric` gate contradicts: `detection` builds on `standard`, and `standard`'s marginal capability is this skill. A corrected framing still has to be shaped, so the higher row no longer renders less than the row beneath it. At the **Minimal** tier — `identity` alone — responses fall back to the contract's own default shape.
+- **`depends_on`: `[emission-discipline:discipline]`.** Every format that opens a fence releases into the owner's systems, so the release rules are not optional; emission-discipline is a declared dependency of roboto and is installed with it.
+- **`optional_depends_on`: `[vlds, envelope-discipline:discipline, src-fragger:frag]`.** Without VLDS, the higher audit levels still render the four lenses; _with_ VLDS, Regular and Full additionally carry provenance and the gate's statuses. The dependency is optional precisely because formatting degrades gracefully when provenance isn't loaded. Envelope-discipline applies only when a change mints or extends a seam, and src-fragger only when the reply carries a task script.
+- **Configuration tiers:** `templates` ships in **Standard**, **Verification**, **Detection**, **Full**, and **Derivation** — every closure above `minimal`. It was previously withheld from **Detection** on the reading that the branch "pairs `identity` with `bias-patterns` instead", which the resolved closure never bore out (`detection` also carries `activation` and `persistence`) and which the `rubric` gate contradicts: `detection` builds on `standard`, and `standard`'s marginal capability is this skill. A corrected framing still has to be shaped, so the higher row no longer renders less than the row beneath it. At the **Minimal** tier — `identity` alone — responses fall back to the contract's own default shape.
 
 ## Extension Points
 

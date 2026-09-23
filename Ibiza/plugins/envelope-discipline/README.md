@@ -13,7 +13,8 @@ It is a sibling of [`verification-discipline`](../verification-discipline) and [
 - **envelope-discipline** gates what the model may _mint_ — the shape of the contracts the other two operate across.
 
 The first two govern actions taken **across** existing contracts; this one fires earlier, at the only moment a contract is cheap to shape.
-Like its siblings it is deliberately standalone (no `metadata.p4`), so its **stage mapping is a prose cross-reference** to the four P4 gates defined in `roboto`, asserted rather than validated by `p4.py` — the same acknowledged tradeoff the siblings carry.
+Like its siblings it is deliberately standalone (no `metadata.p4`), so its **stage mapping is a prose cross-reference** to the four P4 gates defined in `roboto`, each rule's placement asserted rather than validated — the same acknowledged tradeoff the siblings carry.
+Since roboto 0.0.2, roboto's `p4.py` checks the mapping from roboto's side: roboto declares this plugin as a dependency, every gate the section opens a bullet with must be a P4 gate, and each roboto skill that binds this plugin must hook at least one of those gates.
 
 ## The framework obeys itself
 
