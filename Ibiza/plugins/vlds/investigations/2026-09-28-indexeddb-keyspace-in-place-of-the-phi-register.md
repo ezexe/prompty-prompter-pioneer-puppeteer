@@ -1,8 +1,8 @@
 # Design brief — an IndexedDB keyspace in place of the φ-register
 
-**Status:** proposal. Research and design only: nothing here is built, and nothing here is doctrine until the owner rules on section 8.
-**Filed:** 2026-09-28.
-**Subject plugin:** `Ibiza/plugins/vlds` at 0.0.42.
+**Status:** built and tested behind a stage switch (`index-engine:`, default `phi`). The rulings of section 8 are applied except the rename; the four rulings of section 10.5 decide the final stage and the merge into `main`.
+**Filed:** 2026-09-28; the build recorded 2026-09-29 (section 10).
+**Subject plugin:** `Ibiza/plugins/vlds` at 0.0.42, built as 0.0.43.
 **Sources:** Chromium `main` at 156.0.8077.0, read file by file from the GitHub mirror (`raw.githubusercontent.com/chromium/chromium/main/…`) on the filing date. `chromium.googlesource.com` was refused by the filing environment's network policy. Appendix A names the file behind every Chromium fact; VLDS facts cite the plugin's own files.
 
 ---
@@ -310,6 +310,8 @@ What each stage touches:
 
 ## 8. Rulings this needs
 
+Rulings 1, 2, 3, 5 and 6 are applied as recommended (section 10.2); ruling 4 moved to the final stage (section 10.5).
+
 1. **The keyspace's form.** Sorted TSV (recommended: auditable, diffable, no dependency), or an SQLite file with the same four tables (Chromium's direction, but opaque to `cat`)? The schema above is laid out so that switching later is mechanical.
 2. **Physically removing freed cold entries.** Never (recommended), or at compaction when the tombstone's `swept:` names the key?
 3. **Handles.** Keep minting `xx-NNNN` at pour time (recommended: short, readable, and cited by tombstones)?
@@ -325,6 +327,52 @@ What each stage touches:
 - Quota eviction by LRU. Nothing leaves the hot tier except by the gc's judgment or a counted light class.
 - The active journal. No process holds a handle to a cold file between hooks.
 - The SQLite era's eager-only maintenance. The owner's hand edits need LevelDB's lazy validation.
+
+## 10. What was built, and the rulings the final stage needs
+
+### 10.1 Built
+
+- `scripts/idb.py` — the engine, every subcommand of sections 5–7: `sync` (in rounds; `--full` rebuilds from the files), `light`, `pour`, `compact`, `migrate` (`--dry`, `--shadow`, `--budget-s`), `rollback`, `get` / `range` / `find`, `check`, `engine`, `pool-stamp` / `pool-diff`, `digest`.
+- `hooks/vlds_hooks.py` — the Stop hook runs what the stage names under one 55-second deadline; the prompt hook pours `dispatch.md` into `idb/blobs/dispatch/` inside a marker file; SessionStart digests the keyspace and, after a compact, says whether the pool predates writes; post-write stamps the pool when the pool file itself was written. A keyspace store never takes the φ road, even when the engine will not load.
+- `scripts/phi.py` — `check` hands a keyspace store to `idb.py check`; `barrier`, `pool`, `standing` and the store-level scans are unchanged; the tombstone rule is shared (`tombstone_hit`); `mask` is retired; `lock` and `rebuild` refuse on a keyspace store. `scripts/normalize.py` refuses there too; `scripts/record.py` reads either check's verdict.
+- Doctrine: the contract, the operator's brief, the gc's skill and reference (a new section, "The Keyspace"), the gate's reference, the README; the plugin at 0.0.43.
+
+### 10.2 The rulings of section 8, as applied
+
+| # | Ruling | Applied |
+| --- | --- | --- |
+| 1 | sorted text | `idb/keys.tsv`, byte order = key order |
+| 2 | never remove a freed cold entry | a derived `state=freed ts=` mark; compaction keeps the entry; no command removes it |
+| 3 | keep the `xx-NNNN` handles | minted at pour time from each object store's key generator; the φ ids kept at migration |
+| 5 | retire `phi.py mask` and the grid | the subcommand prints its retirement; the gc reference's Selection rewritten |
+| 6 | keep the φ pressure ratio | the kept store-level scans run on a keyspace store |
+| 4 | rename `phi-index.md` | not applied — a final-stage ruling (10.5) |
+
+### 10.3 Where the build departs from sections 5–7
+
+- The prompt hook's dispatch pour leaves its intent in a marker file (`idb/pending/<record>`), not the journal: it holds no lock, and a line appended while a locked pass rewrote the journal could be lost. A marker older than ten minutes is settled — its copy removed when `dispatch.md` still holds its rows — and a young one is never touched.
+- The rollback works at any point, not only before the first pour: every entry poured since returns to its hot file verbatim, history the runs hold is kept in `arc/`, and a crash part-way is resumed, never redone.
+- A migration and the keyspace's first pass run at consecutive turn closes, each inside the Stop hook's deadline; the migration takes a budget and stops cleanly, committing nothing, rather than run past it.
+- The index's hot table is rewritten only when something moved, as the φ light sweep did, so a turn of appends does not churn the file.
+- A run entry puts its `id:` line first and its `key:` line second — a segment's grammar with one line more — so `phi.py restore` reads a run as it reads a segment.
+
+### 10.4 Tested
+
+- `scripts/test_idb.py` — 19 tests, 181 assertions: the key lines and their order against the barrier's rows; versions and the sweep across a hand edit; the two-phase pour and a crash at each step (before the commit, after it, and after it with an edit between); the light classes through the Stop hook; the dispatch pour as an external object, torn and in flight; the freed marks, including after a partial sync; compaction, and a torn one; the migration from a store built by normalize.py's own segments — every entry verbatim under its id, every blob byte-identical, the barrier and the standing rules byte-identical before and after, the pool the same but for its `updated:` line; a refused migration said once; the φ era's legacy shapes; a crash right after the commit point; the rollback after pours, with history, with a record no sync had registered, and across two crashes; the check's scans; the stages through the hooks; the pool's stamp; the rounds; a wrapped entry and a CRLF hot file; a whitespace-only last line, a stale lock, an engine that will not load.
+- `scripts/test_hooks.py` — the 19 φ tests, green and unchanged except that their seeded index now names `index-engine: phi`.
+- Two independent review passes over the diff found 20 defects; every one is fixed, and most are pinned by a test above.
+- Not yet run: the owner's own stores, and Windows. The tests ran on Linux, so the Windows paths — CRLF files, directory renames, the lock — are exercised only by their Linux equivalents.
+
+### 10.5 The final-stage rulings
+
+The final stage, `idb`, is where the φ code paths retire. Four rulings decide it and the merge into `main`:
+
+1. **The stage `main` ships at** (`DEFAULT_ENGINE` in `scripts/idb.py`; `phi` on this branch). Recommended: **`idb-migrate-gentle`**. A new store starts on the keyspace, and a clean φ store migrates at its next turn close — verified before its commit, its arc kept aside, a rollback away from undone. A store the φ check calls corrupt keeps the φ sweep and says once why it waits. The conservative alternative is `idb-control`, which prints each store's shadow verdict and writes nothing. Either way the change is one constant and the one test that asserts it, since the φ tests already name their stage. A single check on a real store first: `idb.py --store <store> migrate --session x --dry`.
+2. **When the φ code retires** (`normalize.py`, the φ scans in `phi.py`, the φ doctrine). Recommended: **not in this merge**, but in a follow-up once every store in use reports `engine: idb` at SessionStart. A store that cannot migrate yet (a torn φ pour, a voided watermark) needs the φ sweep until its ruling is reconciled, and a rollback needs the φ code to return to.
+3. **`phi-index.md`'s name.** Recommended: **keep it.** It carries rulings (`## recall`, the budgets) under a name every hook, gate, test and habit already addresses, and the φ pressure ratio still reads its hot table. A rename would move a ruling-bearing file in every store to gain a name. If one is wanted, it belongs with the φ retirement, read under both names for one release.
+4. **`arc.phi-retired/`.** Recommended: **kept until the owner removes it by hand.** The rollback returns from it, and disposing of what the owner authored keeps the per-act word; no script deletes it.
+
+The branch `claude/sleepy-planck-cstt6m` carries the brief, the build and the review's fixes as separate commits; how they land on `main` is the owner's version-control word.
 
 ## Appendix A: Chromium sources
 
