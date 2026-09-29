@@ -136,8 +136,9 @@ def main():
         "subagent costume asked"
 
     # scratch data dropped in the project root asks — and asks for a subagent too, because the file outlives
-    # every agent that could have been told and the user is the one who finds it
-    for payload in (write("E:/projects/x/_rows.json"), write("_per.json"),
+    # every agent that could have been told and the user is the one who finds it; a drive-letter path is the root's
+    # in either spelling, whatever OS the gate runs on
+    for payload in (write("E:/projects/x/_rows.json"), write("E:\\projects\\x\\_rows.json"), write("_per.json"),
                     bash("python - <<'EOF'\nopen('E:/projects/x/dump.jsonl','w').write('x')\nEOF\n")):
         d = run(payload)
         assert d and d["permissionDecision"] == "ask", f"root data file passed: {payload['tool_input']}"
@@ -147,6 +148,7 @@ def main():
     # the project's own root files are not scratch, and neither is anything in a subdirectory
     for ok in ("E:/projects/x/package.json", "E:/projects/x/settings.json", "E:/projects/x/requirements.txt",
                "E:/projects/x/Ibiza/.claude-plugin/marketplace.json", "E:/projects/x/data/rows.json",
+               "E:\\projects\\x\\data\\rows.json",
                "E:/projects/x/README.md", "E:/projects/x/tools/build.py",
                # a build file is code by name, not a .txt dump — the project's own CMakeLists.txt never asks
                "E:/projects/x/CMakeLists.txt", "CMakeLists.txt", "E:/projects/x/Makefile"):
