@@ -52,8 +52,8 @@ Subcommands (every writer takes the lock; every reader validates what it reads):
   pool-stamp / pool-diff   the recall pool's snapshot of the hot tier, and after a compact what was written since.
   digest      the SessionStart digest lines.
 
-Stages — `index-engine:` in the index's ## recall section, a ruling; absent, DEFAULT_ENGINE:
-  phi                 the φ-register runs; this script is idle
+Stages — `index-engine:` in the index's ## recall section, a ruling; absent, DEFAULT_ENGINE (idb-migrate-gentle):
+  phi                 the φ-register runs; this script is idle — the stage a store names to stay on the φ-register
   idb-control         the φ-register runs; the turn close adds a shadow migration's verdict, writing nothing
   idb-new-stores      a store with no φ trace starts on the keyspace; a φ store stays φ
   idb-migrate-gentle  a new store starts on the keyspace; a φ store migrates at a turn close once its φ check is clean
@@ -106,7 +106,7 @@ BLOB_PENDING_GRACE_S = 600      # a blob pour younger than this may still be in 
 LOW_WATER = 0.75                # the logger pours down to this fraction of its budget
 MIGRATE_SPACE_FACTOR = 2.5      # Chromium's migration margin: the disk must hold this multiple of the old store
 ENGINES = ("phi", "idb-control", "idb-new-stores", "idb-migrate-gentle", "idb")
-DEFAULT_ENGINE = "phi"
+DEFAULT_ENGINE = "idb-migrate-gentle"
 KEYS_HEAD = ("# vlds keyspace — derived from the hot files, the runs and the blobs; never a ruling "
              "(idb.py sync --full rebuilds it)\n")
 INDEX_HEAD = ("# VLDS Store — Index\n\nDerived — the hot table is rewritten at every move; the ## recall section and "
@@ -2331,15 +2331,16 @@ def keyspace_digest(store):
 
 
 def phi_engine_line(store):
-    """For a φ store whose index names a later stage: one line on what that stage does here, or '' at the default."""
+    """For a φ store: one line on what its stage does here — '' only when the index names no stage and the default
+    leaves the store on the φ-register, so a migration the default owes is announced before it runs."""
     engine, setting, state = resolve(store)
     _s, named = engine_setting(store)
-    if not named or engine == "idb":
+    if engine == "idb" or (not named and engine == "phi"):
         return ""
     what = {"shadow": "the φ-register runs; each turn close adds a shadow migration's verdict",
             "phi": "the φ-register runs" + (" — a φ store stays φ at this stage" if setting == "idb-new-stores" else ""),
             "migrate": "migrates to the keyspace at the next turn close once the φ check is clean"}[engine]
-    return f"engine: phi (index-engine: {setting}) — {what}"
+    return f"engine: phi (index-engine: {setting}{'' if named else ', the default'}) — {what}"
 
 
 # ─── main ───────────────────────────────────────────────────────────────────────────────────────────────
