@@ -332,6 +332,7 @@ register: 0
 
 inject: local-storage.md
 digest: logger.md
+index-engine: phi
 {recall}
 ## epochs
 
