@@ -88,6 +88,7 @@ RUNS = "runs"
 BLOBS = "blobs"
 LOCK = ".sweep-lock"
 POOL_STAMP = "pool-stamp.tsv"
+ROLLBACK_MARK = "rollback-returned"   # idb/rollback-returned: a rollback's hot-file returns are made; resume, never redo
 PENDING = "pending"             # idb/pending/<record>: a dispatch pour in flight — one marker file per pour, since the
                                 # prompt hook holds no lock and a shared journal rewritten under the lock would lose it
 POOL_FILE = "recall-pool.md"
@@ -236,27 +237,26 @@ def take_lock(path, session):
         holder, age = lock_holder(path)
         if holder != session and age < LOCK_STALE_S:
             return False, f"lock held by {holder} ({int(age)} s old)"
-        # a stale or own lock is moved aside under a name only this process uses — one rename wins — and the lock is
-        # created afresh, exclusively; a lock that proves fresh once moved (another session's, just made) goes back
-        aside = f"{path}.{os.getpid()}.aside"
+        # a stale or own lock is taken over under a guard only one process can create; holding it, the lock is read
+        # again and replaced whole — never moved, so a lock another process just made is never taken from under it
+        guard = path + ".takeover"
         try:
-            os.rename(path, aside)
-        except OSError:
-            return False, "lock taken over by another session a moment ago"
-        moved, moved_age = lock_holder(aside)
-        if moved != session and moved_age < LOCK_STALE_S:
-            with contextlib.suppress(OSError):
-                os.rename(aside, path)
-            return False, f"lock held by {moved} ({int(moved_age)} s old)"
-        with contextlib.suppress(OSError):
-            os.remove(aside)
-        try:
-            fd = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+            gfd = os.open(guard, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
         except FileExistsError:
+            with contextlib.suppress(OSError):
+                if time.time() - os.path.getmtime(guard) > 60:     # a takeover a crash abandoned
+                    os.remove(guard)
             return False, "lock taken over by another session a moment ago"
-        with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as f:
-            f.write(stamp)
-        return True, f"superseding {'own' if holder == session else 'stale'} lock ({holder}, {int(age)} s)"
+        os.close(gfd)
+        try:
+            holder, age = lock_holder(path)
+            if holder is not None and holder != session and age < LOCK_STALE_S:
+                return False, f"lock held by {holder} ({int(age)} s old)"
+            write_text(path, stamp)
+            return True, f"superseding {'own' if holder == session else 'stale'} lock ({holder}, {int(age)} s)"
+        finally:
+            with contextlib.suppress(OSError):
+                os.remove(guard)
 
 
 def release_lock(path, session):
@@ -803,6 +803,28 @@ def pending_markers(store):
     return out
 
 
+def settle_pending(store, ks=None):
+    """Every dispatch pour marked in flight past the grace: its copy removed when dispatch.md still holds its rows (the
+    reseed never ran), kept otherwise; the marker closed either way. Returns (notes, young) — `young` the markers still
+    inside the grace, which may be another session's pour in flight and are never touched."""
+    notes, young = [], []
+    for name, age in sorted(pending_markers(store).items()):
+        if age < BLOB_PENDING_GRACE_S:
+            young.append(name)
+            continue
+        path = rel_path(store, f"{BLOBS}/dispatch/{name}")
+        if dispatch_holds(store, path):
+            with contextlib.suppress(OSError):
+                os.remove(path)
+            if ks is not None:
+                ks.blobs.pop(("dispatch", name), None)
+            notes.append(f"recovered a torn dispatch pour: blobs/dispatch/{name} removed, its rows still in dispatch.md")
+        else:
+            notes.append(f"recovered a dispatch pour whose marker outlived it: blobs/dispatch/{name} kept and registered")
+        pending_close(store, name)
+    return notes, young
+
+
 def dispatch_holds(store, blob):
     """True when dispatch.md still carries every row of a poured copy — the reseed never happened."""
     p = os.path.join(store, "dispatch.md")
@@ -858,6 +880,7 @@ def recover(store, ks):
                     journal_append(store, op, jid, "done", "recovered: nothing names it any longer")
             else:
                 trimmed, kept = finish_trim(store, ks, jid)
+                save_keys(store, ks)            # before the journal calls it done: a later failure must not lose it
                 journal_append(store, op, jid, "done", f"recovered: {trimmed} trimmed, {kept} kept hot")
                 notes.append(f"recovered a torn pour: {jid} committed, its trim finished ({trimmed} trimmed"
                              + (f", {kept} edited since and kept hot — the run keeps the old text" if kept else "")
@@ -879,19 +902,10 @@ def recover(store, ks):
                             os.remove(rel_path(store, f"{RUNS}/{p}"))
                 journal_append(store, op, jid, "done", "recovered: parents collected")
                 notes.append(f"recovered a torn compaction: {jid} committed, its parents collected")
-    for name, age in pending_markers(store).items():
-        if age < BLOB_PENDING_GRACE_S:
-            continue                # possibly in flight in another session's prompt hook
-        path = rel_path(store, f"{BLOBS}/dispatch/{name}")
-        if dispatch_holds(store, path):
-            with contextlib.suppress(OSError):
-                os.remove(path)
-            ks.blobs.pop(("dispatch", name), None)
-            notes.append(f"recovered a torn dispatch pour: blobs/dispatch/{name} removed, its rows still in dispatch.md")
-        else:
-            notes.append(f"recovered a dispatch pour whose marker outlived it: blobs/dispatch/{name} kept and registered")
-        pending_close(store, name)
-    return notes
+    settled, _young = settle_pending(store, ks)
+    if settled:
+        save_keys(store, ks)
+    return notes + settled
 
 
 # ─── sync ───────────────────────────────────────────────────────────────────────────────────────────────
@@ -952,12 +966,12 @@ def register_blobs(store, ks, rep, skip=()):
                 rep["registered"].append(f"{sub}/{name}")
 
 
-def mark_freed(store, ks, rep=None):
+def mark_freed(store, ks, rep=None, cache=None):
     """A cold record's state, derived at every pass from every tombstone, hot or cold: masked by the barrier's own rule
     (phi.tombstone_hit — the same owner-words, or a head within its freed:), named by id in a tombstone's freed: or
     swept:, or carrying the φ era's `(tombstoned)` annotation → freed, the tombstone's key in ts=; otherwise live.
     Nothing freed is ever removed from a run: the marker is the whole of the free."""
-    cache = RunCache(store)
+    cache = cache or RunCache(store)
     masks, named = [], {}
     texts = []
     tomb_blocks = hot_blocks(store, "tombstones.md") or []
@@ -1013,7 +1027,7 @@ def sweep_index(ks, before, rep):
     rep["swept"] = sorted(k for k in before if k not in ks.index)
 
 
-def sync(store, ks, now, budget_s=SYNC_BUDGET_S, only=None, rep=None):
+def sync(store, ks, now, budget_s=SYNC_BUDGET_S, only=None, rep=None, cache=None):
     """The hot tier re-derived into `ks` in place, in rounds: object stores in order from the sweep cursor, the next one
     left for the next pass once the budget is spent (at least one always runs); then blobs, freed marks, the sweep."""
     rep = rep if rep is not None else new_rep()
@@ -1038,7 +1052,7 @@ def sync(store, ks, now, budget_s=SYNC_BUDGET_S, only=None, rep=None):
         ks.meta[("@", "sweep-cursor")] = "-"
     pending = {f"{BLOBS}/dispatch/{n}" for n in pending_markers(store)}
     register_blobs(store, ks, rep, skip=pending)
-    mark_freed(store, ks, rep)
+    mark_freed(store, ks, rep, cache)
     sweep_index(ks, before, rep)
     ks.meta[("@", "synced")] = now
     return rep
@@ -1361,7 +1375,7 @@ def finish_migration(store, ks, now, session8):
     """A migration's steps after its commit, each idempotent, so a crash between them is finished by the next pass: the
     φ index saved into arc/, arc/ moved aside, the index rewritten in the keyspace's shape."""
     notes = []
-    if not ks.meta.get(("@", "migrated")):
+    if not ks.meta.get(("@", "migrated")) or os.path.exists(idb_path(store, ROLLBACK_MARK)):
         return notes
     arc = os.path.join(store, "arc")
     idx = os.path.join(store, INDEX_FILE)
@@ -1398,7 +1412,7 @@ def check_verdict(store):
     return lines[-1] if lines else "idb.py check: no output"
 
 
-def cmd_light(store, session, now, dry=False):
+def cmd_light(store, session, now, dry=False, budget_s=None):
     """The Stop hook's pass on the keyspace: recover, finish a migration, sync, pour the light classes, compact when
     due, rewrite the index when anything moved; one report line, `turn-close: …`."""
     session8 = session[:8]
@@ -1407,12 +1421,21 @@ def cmd_light(store, session, now, dry=False):
         spec, _expire = plan_light(store, session8, now)
         print(f"{tag}: dry run — would pour " + (", ".join(f"{len(v)} {k}" for k, v in spec.items()) or "nothing"))
         return 0
+    if os.path.exists(idb_path(store, ROLLBACK_MARK)):
+        print(f"{tag}: nothing moved — a rollback is mid-way; `idb.py rollback` finishes it")
+        return 0
+    t0 = time.monotonic()
+    budget = budget_s if budget_s is not None else float("inf")
+
+    def spent():
+        return time.monotonic() - t0 > budget
     lockp = idb_path(store, LOCK)
     ok, msg = take_lock(lockp, session)
     if not ok:
         print(f"{tag}: skipped — {msg}")
         return 0
     summary, step = [], "load"
+    cache = RunCache(store)
     first = not os.path.exists(idb_path(store, KEYS))
     try:
         ks, how = load_keys(store)
@@ -1423,16 +1446,18 @@ def cmd_light(store, session, now, dry=False):
         step = "migration"
         summary += finish_migration(store, ks, now, session8)
         step = "sync"
-        rep = sync(store, ks, now)
+        rep = sync(store, ks, now, budget_s=min(SYNC_BUDGET_S, max(budget / 3, 1)), cache=cache)
         step = "plan"
         spec, expire = plan_light(store, session8, now)
         plans = []
-        if spec:
+        if spec and not spent():
             step = "pour"
             plans = do_pour(store, ks, spec, now, session8, "the turn-close light pass (scripts/idb.py light)", expire)
             summary.append(pour_summary(plans)[1])
+        elif spec:
+            summary.append("the light pour waits for the next turn close (out of time)")
         step = "compact"
-        compacted = compact(store, ks, now, session8)
+        compacted = compact(store, ks, now, session8) if not spent() else []
         summary += compacted
         step = "logger entry"
         if plans or compacted:
@@ -1441,7 +1466,7 @@ def cmd_light(store, session, now, dry=False):
                      ([pour_summary(plans)[1]] if plans else []) + compacted,
                      "Run mechanically by scripts/idb.py light from the Stop hook; every trim after the keyspace commit")
         step = "final sync"
-        sync(store, ks, now)
+        sync(store, ks, now, budget_s=0 if spent() else SYNC_BUDGET_S, cache=cache)
         save_keys(store, ks)
         if plans or compacted or first or not os.path.exists(os.path.join(store, INDEX_FILE)):
             rewrite_index(store, now, session8, "the turn-close light pass (scripts/idb.py light)",
@@ -1458,7 +1483,8 @@ def cmd_light(store, session, now, dry=False):
     if not summary:
         print(f"{tag}: nothing to move ({sync_line(rep)})")
         return 0
-    print(f"{tag}: " + "; ".join(summary) + f"; {check_verdict(store)}")
+    print(f"{tag}: " + "; ".join(summary) + ("; the check waits for the next pass (out of time)" if spent()
+                                            else f"; {check_verdict(store)}"))
     return 0
 
 
@@ -1839,25 +1865,47 @@ def cmd_rollback(store, session, now, dry=False):
     """Return a migrated store to the φ-register, at any point: every entry poured since the migration goes back to its
     hot file verbatim (where the φ sweep can pour it again), arc/ comes back from its retired name, the φ index comes
     back with the current ## recall section and budgets and `index-engine: phi` (so the next turn close does not migrate
-    again), dispatch records poured since move into arc/ for the φ sweep to attach, and idb/ is removed. Refused when an
-    archived entry was edited in the keyspace since — the returning arc would lose the edit."""
+    again), every dispatch record poured since — registered or not — moves into arc/ for the φ sweep to attach, history
+    the runs hold is kept in arc/, and idb/ is removed. Planned under the lock; refused when an archived entry was edited
+    in the keyspace since (the returning arc would lose the edit) or a dispatch pour is in flight. Resumable: a crash
+    part-way is finished by running it again, and the keyspace's own passes wait until it is."""
     tag = "rollback"
     if store_state(store) != "idb":
         print(f"{tag}: refused — the store is not on the keyspace")
         return 1
+    if dry:
+        return rollback_plan(store, now, tag, dry=True)
+    lockp = idb_path(store, LOCK)
+    ok, msg = take_lock(lockp, session)
+    if not ok:
+        print(f"{tag}: skipped — {msg}")
+        return 0
+    try:
+        return rollback_plan(store, now, tag, dry=False)
+    finally:
+        release_lock(lockp, session)
+
+
+def rollback_plan(store, now, tag, dry):
     ks, _how = load_keys(store)
     if not ks.meta.get(("@", "migrated")):
         print(f"{tag}: refused — the keyspace was not migrated from a φ-register; there is no arc/ to return to")
         return 1
+    resuming = os.path.exists(idb_path(store, ROLLBACK_MARK))
     retired = os.path.join(store, ks.meta.get(("@", "retired"), RETIRED))
     arc = os.path.join(store, "arc")
-    if not os.path.isdir(retired) or not os.path.exists(os.path.join(retired, INDEX_FILE)):
+    source = arc if resuming and os.path.isdir(arc) and not os.path.isdir(retired) else retired
+    if not os.path.isdir(source) or not os.path.exists(os.path.join(source, INDEX_FILE)):
         print(f"{tag}: refused — {os.path.basename(retired)}/ or its saved φ index is missing")
         return 1
-    if os.path.exists(arc):
+    if os.path.exists(arc) and source != arc:
         print(f"{tag}: refused — arc/ exists; move it aside first")
         return 1
-    archived = retired_entries(retired)
+    _settled, young = settle_pending(store, ks)
+    if young:
+        print(f"{tag}: refused for now — a dispatch pour is in flight ({young[0]}); run it again in a minute")
+        return 1
+    archived = retired_entries(source)
     cache, poured, edited = RunCache(store), {}, []
     for (os_, pk), r in sorted(ks.cold().items()):
         e = cache.entry(r["at"])
@@ -1875,11 +1923,17 @@ def cmd_rollback(store, session, now, dry=False):
               f"keyspace since the migration ({', '.join(edited[:5])}); the returning arc would lose the edit")
         return 1
     absent = [os_ for os_ in poured if not os.path.exists(os.path.join(store, os_ + ".md"))]
-    if absent:
+    if absent and not resuming:
         print(f"{tag}: refused — the hot file {absent[0]}.md is gone, and {len(poured[absent[0]])} entr(ies) poured "
               "since the migration would have nowhere to return")
         return 1
-    new = sorted(name for (sub, name), f in ks.blobs.items() if sub == "dispatch" and f.get("from") != "arc")
+    source_names = set(os.listdir(source))
+    moving = []                 # every record on disk the returning arc lacks, registered or not
+    for sub in ("dispatch", "legacy"):
+        d = idb_path(store, BLOBS, sub)
+        for name in sorted(os.listdir(d)) if os.path.isdir(d) else []:
+            if name not in source_names:
+                moving.append((sub, name))
     named = {(r["at"][len("runs/"):].rpartition(":")[0], int(r["at"].rpartition(":")[2])) for r in ks.cold().values()}
     history = []
     runs_dir = idb_path(store, RUNS)
@@ -1893,29 +1947,18 @@ def cmd_rollback(store, session, now, dry=False):
     n_back = sum(len(v) for v in poured.values())
     if dry:
         print(f"{tag}: dry run — {n_back} entr(ies) poured since the migration back to their hot files, "
-              f"{os.path.basename(retired)}/ → arc/, the φ index restored, {len(new)} dispatch record(s) moved into "
-              "arc/, idb/ removed; nothing written")
+              f"{os.path.basename(retired)}/ → arc/, the φ index restored, {len(moving)} record(s) moved into arc/, "
+              f"{len(history)} history entr(ies) kept, idb/ removed; nothing written")
         return 0
-    lockp = idb_path(store, LOCK)
-    ok, msg = take_lock(lockp, session)
-    if not ok:
-        print(f"{tag}: skipped — {msg}")
-        return 0
-    try:
-        return rollback_run(store, now, retired, arc, new, poured, tag, history)
-    finally:
-        release_lock(lockp, session)
-
-
-def rollback_run(store, now, retired, arc, new, poured, tag, history=()):
-    for os_, bodies in poured.items():      # first, so a crash after it leaves the entries hot, never nowhere
-        path = os.path.join(store, os_ + ".md")
-        raw = read_raw(path)
-        text = raw.replace("\r\n", "\n").rstrip("\n") + "\n" + "".join(f"\n{b}\n" for b in bodies)
-        write_text(path, text, crlf="\r\n" in raw)
-    old_raw = read_raw(os.path.join(retired, INDEX_FILE))
-    current = index_text(store)
-    restored = splice_section(old_raw.replace("\r\n", "\n"), current, "recall")
+    if not resuming:            # the returns, once: the mark says they are made, so a crash is resumed, never redone
+        for os_, bodies in poured.items():
+            path = os.path.join(store, os_ + ".md")
+            raw = read_raw(path)
+            text = raw.replace("\r\n", "\n").rstrip("\n") + "\n" + "".join(f"\n{b}\n" for b in bodies)
+            write_text(path, text, crlf="\r\n" in raw)
+        write_text(idb_path(store, ROLLBACK_MARK), f"{now}\n" + "".join(f"{k} {len(v)}\n" for k, v in poured.items()))
+    old_raw = read_raw(os.path.join(source, INDEX_FILE))
+    restored = splice_section(old_raw.replace("\r\n", "\n"), index_text(store), "recall")
     restored = set_recall_key(restored, "index-engine", "phi")
     cur_budget = {row[0]: row[4] for row in (phi.parse_index(store) or {}).get("hot", []) if len(row) > 4}
     out = []
@@ -1925,30 +1968,32 @@ def rollback_run(store, now, retired, arc, new, poured, tag, history=()):
             cells[4] = cur_budget[cells[0]]
             l = "| " + " | ".join(cells) + " |"
         out.append(l)
-    os.replace(retired, arc)
-    write_text(os.path.join(store, INDEX_FILE), "\n".join(out), crlf="\r\n" in old_raw)
-    os.remove(os.path.join(arc, INDEX_FILE))
-    for name in new:
-        shutil.move(rel_path(store, f"{BLOBS}/dispatch/{name}"), os.path.join(arc, name))
+    if source != arc:
+        os.replace(source, arc)
     kept = ""
     if history:
         kept = f"keyspace-history-{clock(now):%Y%m%d-%H%M}.md"
-        body = "".join(f"---\n{i}\nkey: {k}\n\n{b}\n" for i, k, b in history)
         write_text(os.path.join(arc, kept), "# Keyspace history\n\nText the keyspace held as history — an older "
                    "version an edit superseded, a key held twice — kept verbatim at its rollback; the φ gc judges its "
-                   "registration or collection.\n\n" + body)
+                   "registration or collection.\n\n"
+                   + "".join(f"---\n{i}\nkey: {k}\n\n{b}\n" for i, k, b in history))
+    for sub, name in moving:
+        shutil.move(idb_path(store, BLOBS, sub, name), os.path.join(arc, name))
+    write_text(os.path.join(store, INDEX_FILE), "\n".join(out), crlf="\r\n" in old_raw)
+    with contextlib.suppress(OSError):
+        os.remove(os.path.join(arc, INDEX_FILE))
     shutil.rmtree(os.path.join(store, IDB))
-    n_back = sum(len(v) for v in poured.values())
     back = ", ".join(f"{len(v)} to {k}.md" for k, v in sorted(poured.items())) or "none"
     log_move(store, now, "Keyspace rolled back to the φ-register",
-             [f"{n_back} entr(ies) poured since the migration returned to their hot files ({back})",
+             [f"{n_back} entr(ies) poured since the migration returned to their hot files ({back})"
+              + (" — returned before a crash; the rollback resumed" if resuming else ""),
               f"{os.path.basename(retired)}/ returned to arc/", "the φ index restored with the current ## recall "
-              "section and budgets, index-engine: phi", f"{len(new)} dispatch record(s) poured since moved into arc/"]
+              "section and budgets, index-engine: phi", f"{len(moving)} record(s) poured since moved into arc/"]
              + ([f"{len(history)} history entr(ies) kept in arc/{kept}"] if history else []),
              "Run by scripts/idb.py rollback on the owner's word")
     print(f"{tag}: the store is on the φ-register again — {n_back} entr(ies) poured since the migration back in their "
-          f"hot files ({back}), arc/ restored, index-engine: phi set, {len(new)} dispatch record(s) moved into arc/ "
-          "for the light sweep to attach" + (f", {len(history)} history entr(ies) kept in arc/{kept}" if history else "")
+          f"hot files ({back}), arc/ restored, index-engine: phi set, {len(moving)} record(s) moved into arc/ for the "
+          "light sweep to attach" + (f", {len(history)} history entr(ies) kept in arc/{kept}" if history else "")
           + "; idb/ removed")
     return 0
 
@@ -2317,6 +2362,8 @@ def main():
     p.add_argument("--budget-s", type=float, default=SYNC_BUDGET_S, help="the round's wall-clock budget")
     p = writer("light")
     p.add_argument("--dry", action="store_true")
+    p.add_argument("--budget-s", type=float, default=None, help="leave the pour, the compaction and the check to the next "
+                                                                "pass once this many seconds are spent")
     p = writer("pour")
     p.add_argument("specs", nargs="+", metavar="FILE:L1,L2", help="a hot file and the head lines of its cold entries")
     p.add_argument("--dry", action="store_true")
@@ -2350,7 +2397,7 @@ def main():
     if args.cmd == "sync":
         return cmd_sync(store, args.session, now, args.full, args.budget_s)
     if args.cmd == "light":
-        return cmd_light(store, args.session, now, args.dry)
+        return cmd_light(store, args.session, now, args.dry, args.budget_s)
     if args.cmd == "pour":
         return cmd_pour(store, args.session, now, args.specs, args.dry)
     if args.cmd == "compact":

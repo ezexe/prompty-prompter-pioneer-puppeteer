@@ -1123,6 +1123,10 @@ def pour_dispatch_keyspace(store, sid, idb, data, head, sep, entries, now):
     target = os.path.join(bdir, name)
     if os.path.exists(target):
         return f"pour: skipped — idb/{rel} already exists"
+    _settled, young = idb.settle_pending(store)
+    if young:
+        return (f"pour: skipped — another pour is marked in flight ({young[0]}); this session is recorded as seen, "
+                "so the rows stay hot until the next new session's first prompt")
     digest = sha12(data)
     idb.pending_open(store, name)
     write_bytes(target, data)
@@ -1636,7 +1640,10 @@ def cmd_post_write(payload, store):
     now = datetime.datetime.now()
     sid = str(payload.get("session_id") or "unknown")
     text = f"{now_line(now)}\nVLDS check after the write to {what}:\n{check_delta(store, sid, check_summary(store))}"
-    if store_engine(store)[0] == "idb" and os.path.exists(os.path.join(store, POOL_FILE)):
+    pool = os.path.join(store, POOL_FILE)
+    just_written = os.path.exists(pool) and (what == POOL_FILE or (what.startswith("the store, via") and
+                                                                  time.time() - os.path.getmtime(pool) < 15))
+    if just_written and store_engine(store)[0] == "idb":
         m = idb_module()
         try:
             if m is not None and not m.pool_stamp_current(store):
@@ -1734,14 +1741,15 @@ def cmd_turn_close(payload, store):
         return deadline - time.monotonic()
     engine, _setting, _state = store_engine(store)
     reports = []
+
+    def light():
+        return run_idb(store, ["light", "--session", sid, "--now", stamp, "--budget-s", str(max(1, int(left()) - 10))],
+                       "turn-close:", left())[1]
     if engine == "idb":
-        reports.append(run_idb(store, ["light", "--session", sid, "--now", stamp], "turn-close:", left())[1])
+        reports.append(light())
     elif engine == "migrate":
-        fp = phi_fingerprint(store)
-        line, rc = "", 1
-        if not verdict_stands(store, ".idb-migrate", fp):
-            rc, line = run_idb(store, ["migrate", "--session", sid, "--now", stamp,
-                                       "--budget-s", str(max(1, int(left()) - 10))], "migrate:", left())
+        rc, line = run_idb(store, ["migrate", "--session", sid, "--now", stamp,
+                                   "--budget-s", str(max(1, int(left()) - 10))], "migrate:", left())
         if rc == 0 and line.startswith("migrate: migrated"):
             reports.append("turn-close: " + line[len("migrate: "):] + " — the keyspace's first pass runs at the next "
                            "turn close")
@@ -1749,11 +1757,11 @@ def cmd_turn_close(payload, store):
             # committed but unfinished: the keyspace's pass finishes it — never the φ sweep over an imported arc/
             reports.append("turn-close: " + (line[len("migrate: "):] if line else "migrated; its report was lost"))
             if left() > TURN_CLOSE_MIN_CALL_S:
-                reports.append(run_idb(store, ["light", "--session", sid, "--now", stamp], "turn-close:", left())[1])
+                reports.append(light())
         else:
             if left() > TURN_CLOSE_MIN_CALL_S:
                 reports.append(phi_light(store, sid, now, left()))
-            if line and record_verdict(store, ".idb-migrate", phi_fingerprint(store), line):
+            if line and record_verdict(store, ".idb-migrate", "-", line):
                 reports.append(f"turn-close: the migration to the keyspace waits — {line[len('migrate: '):]}")
     else:
         reports.append(phi_light(store, sid, now, left()))
@@ -1762,7 +1770,8 @@ def cmd_turn_close(payload, store):
             if not verdict_stands(store, ".idb-shadow", fp) and left() > TURN_CLOSE_MIN_CALL_S:
                 _rc, line = run_idb(store, ["migrate", "--shadow", "--session", sid, "--now", stamp,
                                             "--budget-s", str(max(1, int(left()) - 10))], "shadow:", left())
-                if line and record_verdict(store, ".idb-shadow", fp, line):
+                transient = any(t in line for t in ("out of time", "skipped", "could not run", "failed (exit"))
+                if line and not transient and record_verdict(store, ".idb-shadow", fp, line):
                     reports.append(f"turn-close: {line}")
     kept = [r for r in reports if r and not (r.startswith("turn-close: nothing to move") and "owed" not in r)]
     if not kept:

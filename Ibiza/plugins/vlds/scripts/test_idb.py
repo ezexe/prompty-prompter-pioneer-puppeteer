@@ -384,6 +384,19 @@ def test_dispatch_blob():
         assert not os.path.exists(os.path.join(store, "idb", "blobs", "dispatch", name)), "(c) the torn copy stayed"
         assert not os.listdir(os.path.join(store, "idb", "pending")), "(c) the marker stayed"
         clean_check(store, "(c)")
+        # (d) a marker still young may be another session's pour in flight: the prompt hook skips its own pour
+        th.run_hook("prompt-open", {"session_id": "second-session", "prompt": "a row to pour"}, root)
+        engine.pending_open(store, "dispatch-20260929-000000-inflight.md")
+        out = th.run_hook("prompt-open", {"session_id": "third-session", "prompt": "hello"}, root)
+        assert "pour: skipped — another pour is marked in flight" in out, f"(d) a young marker was raced:\n{out}"
+        assert "a row to pour" in read(os.path.join(store, "dispatch.md")), "(d) the rows left dispatch.md"
+        # (e) the same marker grown old, its copy torn: settled first, then the new pour takes every row once
+        torn = "dispatch-20260929-000000-inflight.md"
+        shutil.copyfile(os.path.join(store, "dispatch.md"), os.path.join(store, "idb", "blobs", "dispatch", torn))
+        os.utime(os.path.join(store, "idb", "pending", torn), (old, old))
+        out = th.run_hook("prompt-open", {"session_id": "fourth-session", "prompt": "hi again"}, root)
+        assert "→ idb/blobs/dispatch/" in out and not os.path.exists(
+            os.path.join(store, "idb", "blobs", "dispatch", torn)), f"(e) the torn copy was not settled:\n{out}"
     finally:
         shutil.rmtree(root, ignore_errors=True)
     print("dispatch blob: green")
@@ -711,6 +724,48 @@ def test_rollback():
         hist = next(n for n in os.listdir(os.path.join(store, "arc")) if n.startswith("keyspace-history-"))
         assert victim.text in read(os.path.join(store, "arc", hist)), "the history text was not kept"
         os.remove(os.path.join(store, "arc", hist))
+        # a record the prompt hook poured and no sync has registered yet still moves; a crash after the returns, and
+        # one after arc/ came back, are both resumed by running the rollback again — nothing returned twice
+        set_stage(store, "idb")
+        th.run_hook("turn-close", {"session_id": "rb-session", "cwd": root}, root)
+        first = engine.hot_blocks(store, "logger.md")[0]
+        idb(store, "pour", "--session", "rb-session", "--now", NOW, f"logger.md:{first.line1}")
+        th.run_hook("prompt-open", {"session_id": "rb-session", "prompt": "a row for the record"}, root)
+        th.run_hook("prompt-open", {"session_id": "rb-new-session", "prompt": "a new session"}, root)
+        poured = os.listdir(os.path.join(store, "idb", "blobs", "dispatch"))
+        unregistered = [n for n in poured if f"dispatch\t03\t{n}" not in keys(store)]
+        assert unregistered, "the fresh pour was already registered — the case is not under test"
+        original = _crash("splice_section")
+        try:
+            with contextlib.redirect_stdout(io.StringIO()):
+                try:
+                    engine.cmd_rollback(store, "rb-session", NOW)
+                except RuntimeError:
+                    pass
+        finally:
+            engine.splice_section = original
+        assert os.path.exists(os.path.join(store, "idb", engine.ROLLBACK_MARK)), "the returns were not marked"
+        rc, out = idb(store, "light", "--session", "rb-session", "--now", NOW)
+        assert "a rollback is mid-way" in out, f"the keyspace's pass ran during a rollback:\n{out}"
+        real_move = shutil.move
+        engine.shutil.move = lambda *_a, **_k: (_ for _ in ()).throw(RuntimeError("power cut"))
+        try:
+            with contextlib.redirect_stdout(io.StringIO()):
+                try:
+                    engine.cmd_rollback(store, "rb-session", NOW)
+                except RuntimeError:
+                    pass
+        finally:
+            engine.shutil.move = real_move
+        assert os.path.isdir(os.path.join(store, "arc")) and os.path.isdir(os.path.join(store, "idb")), \
+            "the second crash is not between arc/'s return and the end"
+        rc, out = idb(store, "rollback", "--session", "rb-session", "--now", NOW)
+        assert rc == 0 and "returned before a crash" not in out and "on the φ-register again" in out, out
+        assert read(os.path.join(store, "logger.md")).count(first.text) == 1, "an entry was returned twice"
+        for n in unregistered:
+            assert os.path.exists(os.path.join(store, "arc", n)), f"{n} was not moved into arc/"
+        assert not os.path.exists(os.path.join(store, "idb")) and "index-engine: phi" in read(idx), "not finished"
+        assert "0 corruption" in th.run_check(store), th.run_check(store)
         # an archived entry edited in the keyspace refuses the rollback: the returning arc would lose the edit
         set_stage(store, "idb")
         th.run_hook("turn-close", {"session_id": "rb-session", "cwd": root}, root)
@@ -862,6 +917,10 @@ def test_pool_stamp():
         th.run_hook("turn-close", {"session_id": "pool-session", "cwd": root}, root)
         pool = os.path.join(store, "recall-pool.md")
         write(pool, "# VLDS Recall Pool\n\nsession: pool-ses \"A title\"\ntask: t\npooled: 2026-09-29 10:00\n")
+        old = datetime.datetime(2026, 9, 1, 10, 0).timestamp()
+        os.utime(pool, (old, old))
+        th.run_hook("post-write", th.write(os.path.join(store, "ledger.md"), "x", root), root)
+        assert not os.path.exists(os.path.join(store, "idb", "pool-stamp.tsv")), "a write elsewhere stamped the pool"
         th.run_hook("post-write", {"tool_name": "Write", "cwd": root, "session_id": "pool-session",
                                    "tool_input": {"file_path": pool, "content": "x"}}, root)
         assert os.path.exists(os.path.join(store, "idb", "pool-stamp.tsv")), "the post-write hook did not stamp"
@@ -945,6 +1004,15 @@ def test_edges():
         assert ok1 and "superseding stale lock" in msg1 and not ok2 and "session-one" in msg2, (msg1, msg2)
         engine.release_lock(lock, "session-one")
         assert not os.path.exists(lock) and not [f for f in os.listdir(os.path.dirname(lock)) if f.endswith(".aside")]
+        # (b2) light keeps to its budget: past it, the pour waits for the next pass and the lock is released
+        with open(os.path.join(store, "logger.md"), "a", encoding="utf-8", newline="\n") as f:
+            for i in range(40):
+                f.write(f"\n- `[gc]` 2026-09-04 10:{i:02d} — **More {i}.** Filler.\n")
+        rc, out = idb(store, "light", "--session", "edge-session", "--now", NOW, "--budget-s", "0")
+        assert "the light pour waits for the next turn close (out of time)" in out, out
+        assert not os.path.exists(os.path.join(store, "idb", ".sweep-lock")), "(b2) the lock was left held"
+        rc, out = idb(store, "light", "--session", "edge-session", "--now", NOW)
+        assert "poured" in out, out
         # (c) the engine will not load: a keyspace store's first prompt keeps its rows hot, and no arc/ appears
         th.run_hook("turn-close", {"session_id": "edge-session", "cwd": root}, root)
         th.run_hook("prompt-open", {"session_id": "edge-session", "prompt": "hello"}, root)
