@@ -997,6 +997,12 @@ def main():
     ap.add_argument("--dry", action="store_true", help="plan and print, write nothing")
     ap.add_argument("--now", default=None, help="the clock to stamp with (default: now)")
     args = ap.parse_args()
+    idb_dir = os.path.join(os.path.abspath(args.store), "idb")
+    if os.path.exists(os.path.join(idb_dir, "keys.tsv")) or (os.path.isdir(os.path.join(idb_dir, "runs")) and any(
+            re.match(r"^[a-z][a-z-]*-\d{6,}\.md$", n) for n in os.listdir(os.path.join(idb_dir, "runs")))):
+        print("normalize.py: refused — the store is on the keyspace; `idb.py light` is its turn-close pass and "
+              "`idb.py pour` places a judged pour")
+        return 1
     if args.detach:
         now = args.now or datetime.datetime.now().strftime(NOW_FMT)
         rc = run_detach(os.path.abspath(args.store), args.session, now, args.detach.strip(), args.dry)

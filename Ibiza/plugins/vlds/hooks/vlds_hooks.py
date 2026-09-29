@@ -130,6 +130,7 @@ import os
 import re
 import subprocess
 import sys
+import time
 from collections import Counter
 
 DEFAULT_INJECT = ["local-storage.md", "index.md", "tombstones.md", "ledger.md", "session-storage.md",
@@ -172,6 +173,9 @@ BARRIER_MIN_TOKENS = 3      # a message with fewer tokens matches an earlier row
 BARRIER_JACCARD = 0.5       # token overlap at or above which an earlier row is a candidate for the operator's judgment
 SHORT_WORDS = 5             # a message of at most this many words is called short: the operator derives its intent
 TURN_CLOSE = ".turn-close"          # the Stop hook's reports, one line per session, printed by the next prompt hook
+TURN_CLOSE_BUDGET_S = 55            # the Stop hook's own deadline, under the 60 s hooks.json gives it; every call shares it
+TURN_CLOSE_MIN_CALL_S = 5           # a call with less time left than this waits for the next turn close
+VERDICT_MAX_AGE_S = 86400           # a cached shadow or refusal verdict is re-earned at least once a day
 CHECK_LAST = ".check-last"          # the last check summary each session saw, so an unchanged one comes back as a line
 VOICE_CAP = 1200            # the owner-voice digest's size cap, in characters
 VOICE_TOKEN_WORDS = 3       # a message of at most this many words counts as an adoption token
@@ -199,6 +203,46 @@ def plugin_root():
 def read_text(path):
     with open(path, encoding="utf-8", errors="replace") as f:
         return f.read()
+
+
+def idb_module():
+    """scripts/idb.py, the keyspace engine — None when it cannot be imported, and every hook path then takes the
+    φ-register's road, as it always did."""
+    try:
+        scripts = os.path.join(plugin_root(), "scripts")
+        if scripts not in sys.path:
+            sys.path.insert(0, scripts)
+        import idb  # noqa: E402
+        return idb
+    except Exception:  # noqa: BLE001 — a hook degrades, never raises
+        return None
+
+
+def store_engine(store):
+    """(engine, setting, state) from the index's `index-engine:` and what is on disk — engine 'idb' (the keyspace
+    runs), 'phi', 'shadow' (φ runs, a shadow migration reports), 'migrate' (a φ store owed its migration); φ when the
+    engine file is unreadable."""
+    m = idb_module()
+    try:
+        if m is not None:
+            return m.resolve(store)
+    except Exception:  # noqa: BLE001
+        pass
+    idb_dir = os.path.join(store, "idb")
+    runs = os.path.join(idb_dir, "runs")
+    if os.path.exists(os.path.join(idb_dir, "keys.tsv")) or (os.path.isdir(runs) and os.listdir(runs)):
+        return "idb", "unknown", "idb"      # on the keyspace, the engine unreadable: never the φ road
+    return "phi", "phi", "unknown"
+
+
+def poured_dispatch_records(store):
+    """Every dispatch record a first prompt poured out of dispatch.md, oldest first by name: arc/ on the φ-register,
+    idb/blobs/dispatch/ on the keyspace (a migrated store holds only the latter)."""
+    paths = []
+    for d in (os.path.join(store, "arc"), os.path.join(store, "idb", "blobs", "dispatch")):
+        if os.path.isdir(d):
+            paths += [os.path.join(d, f) for f in os.listdir(d) if f.startswith("dispatch-") and f.endswith(".md")]
+    return sorted(paths, key=os.path.basename)
 
 
 def read_bytes(path):
@@ -307,7 +351,7 @@ def check_summary(store):
     out = run_check(store)
     lines = out.split("\n")
     keep = [l for l in lines if l.startswith("[CORRUPT]") or l.startswith("[DEBT]") or l.startswith("[STRAY]")
-            or l.startswith("phi.py check")]
+            or l.startswith(("phi.py check", "idb.py check"))]
     notes = sum(1 for l in lines if l.startswith("[note]"))
     if not keep:
         return out
@@ -577,7 +621,7 @@ def pool_session(store):
     return None
 
 
-def operator_directive(store, tag, now, models):
+def operator_directive(store, tag, now, models, keyspace=False):
     """The one block the pooled mode injects in place of the hot files: judged operations are the operator
     subagent's and its derivation is what the model acts on; the close is the record script's, mechanical."""
     root = plugin_root()
@@ -585,7 +629,18 @@ def operator_directive(store, tag, now, models):
     pool = os.path.join(root, "hooks", "pool-prompt.md")
     record = os.path.join(root, "scripts", "record.py")
     normalize = os.path.join(root, "scripts", "normalize.py")
+    idb = os.path.join(root, "scripts", "idb.py")
     via = models.get("via")
+    sweep = (
+        f"and sweep (naming what is cold when the check shows judged debt, on {models['sweep']}; the placement is "
+        f"`python {idb} --store <store> pour --session <id> --now <the latest now:> <file>:<head lines>` — any "
+        "count pours, the keyspace opens no position). "
+    ) if keyspace else (
+        "and sweep (naming what is cold when the check shows judged debt — held when the "
+        "last sweep's `[gc]` line found no count opening one position and nothing cold has landed since — on "
+        f"{models['sweep']}; the placement is `python {normalize} --store <store> --session <id> --pour "
+        "<file>:<head lines>`). "
+    )
     conducted = (
         f"CONDUCTED — the index's `operator-via:` names {via}: every operator moment goes to it instead (the Agent "
         f"tool, subagent_type {via}, in the foreground), the same one message with one more line — `conductor: launch "
@@ -610,10 +665,7 @@ def operator_directive(store, tag, now, models):
         "its progress lines arriving as its messages and its derivation with its completion; single: the operator "
         f"alone on {models['pool']}) — the session speaks to the operator, the operator to its children; the barrier "
         f"when the prompt hook names a candidate row, and the intent of an unknown short message, on "
-        f"{models['operator']}) and sweep (naming what is cold when the check shows judged debt — held when the "
-        "last sweep's `[gc]` line found no count opening one position and nothing cold has landed since — on "
-        f"{models['sweep']}; the placement is `python {normalize} --store <store> --session <id> --pour "
-        "<file>:<head lines>`). Send it one message:\n"
+        f"{models['operator']}) " + sweep + "Send it one message:\n"
         f"  Read {brief} and do what it says. store: {store} | session: {tag} | now: <the latest now:> | "
         "moment: open or sweep | <the facts only this context holds>\n"
         f"{conducted}"
@@ -651,11 +703,7 @@ def known_short(store, preview):
     if count < KNOWN_SHORT_MIN:
         return 0, None
     prior = None
-    paths = [os.path.join(store, "dispatch.md")]
-    arc = os.path.join(store, "arc")
-    if os.path.isdir(arc):
-        paths = [os.path.join(arc, f) for f in sorted(os.listdir(arc))
-                 if f.startswith("dispatch-") and f.endswith(".md")] + paths
+    paths = poured_dispatch_records(store) + [os.path.join(store, "dispatch.md")]
     for p in paths:
         if not os.path.exists(p):
             continue
@@ -672,11 +720,13 @@ def known_short(store, preview):
     return count, prior
 
 
-def index_digest(index_text):
-    """The index in a few lines: the register, one line of hot rows (file live/budget), the updated: line."""
+def index_digest(index_text, register=True):
+    """The index in a few lines: the register (the φ-register's only), one line of hot rows (file live/budget), the
+    updated: line."""
     out = []
-    m = re.search(r"^register:\s*(\S*)", index_text, re.M)
-    out.append(f"register: {m.group(1) if m else '(none)'}")
+    if register:
+        m = re.search(r"^register:\s*(\S*)", index_text, re.M)
+        out.append(f"register: {m.group(1) if m else '(none)'}")
     section, hot = None, []
     for l in index_text.split("\n"):
         if l.startswith("## "):
@@ -689,7 +739,7 @@ def index_digest(index_text):
         if l.startswith("updated:"):
             out.append(l)
     if hot:
-        out.insert(1, "hot (live/budget): " + ", ".join(hot))
+        out.insert(1 if register else 0, "hot (live/budget): " + ", ".join(hot))
     return "\n".join(out)
 
 
@@ -764,9 +814,10 @@ def cmd_session_standing(payload, store, part):
     already; every source prints it, because a resumed or compacted conversation may predate the block or have
     summarized it away."""
     index_path = os.path.join(store, "phi-index.md")
-    if not os.path.exists(index_path):
+    if not os.path.exists(index_path) and store_engine(store)[0] != "idb":
         return 0
-    _inject, _digest, _from_index, pool, _models = recall_lists(read_text(index_path))
+    _inject, _digest, _from_index, pool, _models = recall_lists(read_text(index_path) if os.path.exists(index_path)
+                                                                else "")
     if pool != "subagent":
         return 0
     phi = os.path.join(plugin_root(), "scripts", "phi.py")
@@ -834,13 +885,11 @@ def _token(text):
 
 def voice_corpus(store):
     """Every verbatim owner field in the store: owner-words and by in the hot files, fingerprint in
-    dispatch.md and every poured dispatch record under arc/. Header template lines ([...] values) are skipped."""
+    dispatch.md and every poured dispatch record (arc/, or idb/blobs/dispatch/ on the keyspace). Header template
+    lines ([...] values) are skipped."""
     texts = []
     paths = [os.path.join(store, f) for f in ("local-storage.md", "tombstones.md", "dispatch.md")]
-    arc = os.path.join(store, "arc")
-    if os.path.isdir(arc):
-        paths += [os.path.join(arc, f) for f in sorted(os.listdir(arc))
-                  if f.startswith("dispatch-") and f.endswith(".md")]
+    paths += poured_dispatch_records(store)
     for p in paths:
         if not os.path.exists(p):
             continue
@@ -920,11 +969,16 @@ def cmd_session_open(payload, store):
             fresh = record_seen(store, sid, now, title)
             print(f"{source}: session {tag} {'recorded as seen' if fresh else 'already seen'} — its next prompt "
                   f"pours nothing; the conversation holds its own recall, so digest and verdict only")
+    engine, _setting, _state = store_engine(store)
+    keyspace = engine == "idb"
     index_path = os.path.join(store, "phi-index.md")
-    if not os.path.exists(index_path):
+    if not os.path.exists(index_path) and not keyspace:
         print("no phi-index.md yet — cold-start: read store/* yourself, then bootstrap the register per /vlds:gc")
         return 0
-    index_text = read_text(index_path)
+    index_text = read_text(index_path) if os.path.exists(index_path) else ""
+    if not index_text:
+        print("no phi-index.md yet — the keyspace writes it at the first turn close; until then the hooks' defaults "
+              "apply")
     inject, digest, from_index, pool, models = recall_lists(index_text)
     via_note = f"; via {models['via']}" if models.get("via") else ""
     model_note = (f" (operator {models['operator']}, pool {models['pool']}, children {models['child']}, "
@@ -947,14 +1001,30 @@ def cmd_session_open(payload, store):
                           "by hand before anything in it steers")
                 else:
                     print(text)
+                m = idb_module() if keyspace else None
+                if m is not None:
+                    try:
+                        print(m.pool_diff(store))
+                    except Exception as e:  # noqa: BLE001
+                        print(f"pool: its freshness could not be told ({type(e).__name__})")
             elif owner:
                 print(f"- {POOL_FILE} belongs to session {owner}, not this one — re-pool per the SessionStart directive "
                       "if the compact took the recall with it")
     elif pool == "subagent":
         print()
-        print(operator_directive(store, tag, now, models))
-        print("\n### phi-index.md — digest (the subagent reads it whole)")
-        print(index_digest(index_text))
+        print(operator_directive(store, tag, now, models, keyspace))
+        m = idb_module()
+        if keyspace and m is not None:
+            print("\n### keyspace — digest (idb/keys.tsv; the subagent reads phi-index.md whole)")
+            print(m.keyspace_digest(store))
+            if index_text:
+                print(index_digest(index_text, register=False))
+        else:
+            print("\n### phi-index.md — digest (the subagent reads it whole)")
+            print(index_digest(index_text))
+            line = m.phi_engine_line(store) if m is not None else ""
+            if line:
+                print(line)
         print("\n### read list — digest lines (the subagent reads each whole; open one by hand only when an entry there is about to steer)")
         for fname in inject + digest:
             print(digest_line(store, fname))
@@ -980,16 +1050,16 @@ def cmd_session_open(payload, store):
         if voice:
             print()
             print(voice)
-    print("\n### phi.py check")
+    print("\n### idb.py check" if keyspace else "\n### phi.py check")
     print(check_summary(store))
     return 0
 
 
 # ─── prompt-open ────────────────────────────────────────────────────────────────────────────────────────
 
-def lock_holder(store, sid):
-    """The other session holding a fresh sweep lock, or None."""
-    lock = os.path.join(store, "arc", ".sweep-lock")
+def lock_holder(store, sid, keyspace=False):
+    """The other session holding a fresh sweep lock, or None — idb/.sweep-lock on the keyspace, arc/'s otherwise."""
+    lock = os.path.join(store, "idb" if keyspace else "arc", ".sweep-lock")
     if not os.path.exists(lock):
         return None
     holder = (read_text(lock).split() or ["?"])[0]
@@ -1011,10 +1081,17 @@ def pour_dispatch(store, sid, tag, now):
     entries = entry_lines(body.decode("utf-8", errors="replace"), after_separator=False)
     if not entries:
         return "pour: dispatch.md holds no entries — nothing to pour"
-    held = lock_holder(store, sid)
+    keyspace = store_engine(store)[0] == "idb"
+    idb = idb_module() if keyspace else None
+    if keyspace and idb is None:
+        return ("pour: skipped — the store is on the keyspace but scripts/idb.py could not load; the rows stay hot "
+                "until it can")
+    held = lock_holder(store, sid, keyspace=keyspace)
     if held:
         return (f"pour: skipped — sweep lock held by {held}; this session is recorded as seen, so the entries "
                 f"stay hot until the next new session's first prompt or an in-session sweep")
+    if idb is not None:
+        return pour_dispatch_keyspace(store, sid, idb, data, head, sep, entries, now)
     arc = os.path.join(store, "arc")
     os.makedirs(arc, exist_ok=True)
     owner = previous_session_id(store, sid) or sid[:8]
@@ -1031,6 +1108,32 @@ def pour_dispatch(store, sid, tag, now):
     return (f"pour: {len(entries)} entries ({len(data):,} B) → arc/{name} (sha {digest}, verified byte-identical); "
             f"dispatch.md reseeded from its own header — registering the copy as an attachment is owed to the "
             f"next sweep")
+
+
+def pour_dispatch_keyspace(store, sid, idb, data, head, sep, entries, now):
+    """The pour on the keyspace: dispatch.md copied whole to idb/blobs/dispatch/ inside a marker — idb/pending/<name>,
+    written before the copy and removed after the reseed — so a crash between them is the next pass's to settle; the
+    sync at the turn's close registers the copy as an external object. No lock is taken: a marker file of its own is
+    how a writer without one leaves its intent, since a shared journal rewritten under the lock could lose it."""
+    bdir = os.path.join(store, "idb", "blobs", "dispatch")
+    os.makedirs(bdir, exist_ok=True)
+    owner = previous_session_id(store, sid) or sid[:8]
+    name = f"dispatch-{now:%Y%m%d-%H%M%S}-{owner}.md"
+    rel = f"blobs/dispatch/{name}"
+    target = os.path.join(bdir, name)
+    if os.path.exists(target):
+        return f"pour: skipped — idb/{rel} already exists"
+    digest = sha12(data)
+    idb.pending_open(store, name)
+    write_bytes(target, data)
+    if sha12(read_bytes(target)) != digest:
+        os.remove(target)
+        idb.pending_close(store, name)
+        return "pour: ABORTED — the copy did not read back byte-identical; dispatch.md left untouched"
+    write_bytes(os.path.join(store, "dispatch.md"), head + sep)
+    idb.pending_close(store, name)
+    return (f"pour: {len(entries)} entries ({len(data):,} B) → idb/{rel} (sha {digest}, verified byte-identical); "
+            f"dispatch.md reseeded from its own header — the next sync registers the copy in the keyspace")
 
 
 def barrier_candidates(store, preview):
@@ -1274,7 +1377,9 @@ def cmd_prompt_open(payload, store):
     if record_seen(store, sid, now, title):
         lines.append("- " + pour_dispatch(store, sid, tag, now))
         index_path = os.path.join(store, "phi-index.md")
-        if os.path.exists(index_path) and recall_lists(read_text(index_path))[3] == "subagent":
+        index_txt = read_text(index_path) if os.path.exists(index_path) else (
+            "" if store_engine(store)[0] == "idb" else None)
+        if index_txt is not None and recall_lists(index_txt)[3] == "subagent":
             lines.append("- operator (open) owed now: the pool — not yet pooled for this session; derive this first "
                          "prompt's task in one line and launch the operator before answering, per the SessionStart "
                          "directive (the Agent tool, the brief at hooks/operator-prompt.md, the pool's model); its "
@@ -1515,7 +1620,8 @@ def check_delta(store, sid, summary):
         except ValueError:
             seen = {}
     if seen.get(sid) == digest:
-        verdict = next((l for l in summary.split("\n") if l.startswith("phi.py check")), summary.split("\n")[-1])
+        verdict = next((l for l in summary.split("\n") if l.startswith(("phi.py check", "idb.py check"))),
+                       summary.split("\n")[-1])
         return f"{verdict} — unchanged since the last check this session"
     seen[sid] = digest
     with open(path, "w", encoding="utf-8", newline="\n") as f:
@@ -1530,35 +1636,141 @@ def cmd_post_write(payload, store):
     now = datetime.datetime.now()
     sid = str(payload.get("session_id") or "unknown")
     text = f"{now_line(now)}\nVLDS check after the write to {what}:\n{check_delta(store, sid, check_summary(store))}"
+    if store_engine(store)[0] == "idb" and os.path.exists(os.path.join(store, POOL_FILE)):
+        m = idb_module()
+        try:
+            if m is not None and not m.pool_stamp_current(store):
+                m.cmd_pool_stamp(store, f"{now:{NOW_FMT}}", quiet=True)
+        except Exception:  # noqa: BLE001 — the stamp is a convenience; the check above is the hook's work
+            pass
     print(json.dumps({"hookSpecificOutput": {"hookEventName": "PostToolUse", "additionalContext": text}}))
     return 0
 
 
 # ─── turn-close ─────────────────────────────────────────────────────────────────────────────────────────
 
-def cmd_turn_close(payload, store):
-    """Stop: run the light normalize sweep and leave its report for the next prompt hook. Silent when there is
-    nothing to move; every other outcome — moved, skipped for a lock, stopped at a gate, owed — is a line."""
+def phi_light(store, sid, now, timeout=50):
+    """The φ-register's light sweep — scripts/normalize.py --light — and its report line, or '' when it cannot run."""
     if not os.path.exists(os.path.join(store, "phi-index.md")):
-        return 0
-    sid = str(payload.get("session_id") or "unknown")
-    now = datetime.datetime.now()
+        return ""
     script = os.path.join(plugin_root(), "scripts", "normalize.py")
     if not os.path.exists(script):
-        return 0
+        return ""
     try:
         r = subprocess.run([sys.executable or "python3", script, "--store", store, "--session", sid, "--light",
                             "--now", f"{now:{NOW_FMT}}"], capture_output=True, text=True, encoding="utf-8",
-                           errors="replace", timeout=50)
+                           errors="replace", timeout=timeout)
         out = (r.stdout or "") + (r.stderr or "")
     except Exception as e:  # noqa: BLE001 — a hook degrades, never raises
         out = f"turn-close: could not run normalize.py — {type(e).__name__}: {e}"
-    report = next((l for l in reversed(out.split("\n")) if l.startswith("turn-close:")), "").strip()
-    if not report or report.startswith("turn-close: nothing to move") and "owed" not in report:
+    return next((l for l in reversed(out.split("\n")) if l.startswith("turn-close:")), "").strip()
+
+
+def run_idb(store, args, prefix, timeout=50):
+    """scripts/idb.py <args>: (exit code, the last line starting with `prefix` — or, when the script printed none and
+    failed, one naming the failure, so a broken engine is reported rather than silent)."""
+    script = os.path.join(plugin_root(), "scripts", "idb.py")
+    try:
+        r = subprocess.run([sys.executable or "python3", script, "--store", store, *args], capture_output=True,
+                           text=True, encoding="utf-8", errors="replace", timeout=timeout)
+        out, rc = (r.stdout or "") + (r.stderr or ""), r.returncode
+    except Exception as e:  # noqa: BLE001
+        return 1, f"{prefix} could not run idb.py — {type(e).__name__}: {e}"
+    line = next((l for l in reversed(out.split("\n")) if l.startswith(prefix)), "").strip()
+    if not line and rc != 0:
+        last = next((l for l in reversed(out.split("\n")) if l.strip()), "no output")
+        line = f"{prefix} idb.py failed (exit {rc}) — {last.strip()[:200]}"
+    return rc, line
+
+
+def phi_fingerprint(store):
+    """The φ-register's shape on disk — arc/'s listing with sizes and mtimes, and the index's — all a shadow or a
+    migration's preconditions read: while it stands, their last verdict stands."""
+    parts = []
+    arc = os.path.join(store, "arc")
+    for f in sorted(os.listdir(arc)) if os.path.isdir(arc) else []:
+        if f != ".sweep-lock":
+            st = os.stat(os.path.join(arc, f))
+            parts.append(f"{f}:{st.st_size}:{int(st.st_mtime)}")
+    idx = os.path.join(store, "phi-index.md")
+    if os.path.exists(idx):
+        st = os.stat(idx)
+        parts.append(f"index:{st.st_size}:{int(st.st_mtime)}")
+    return sha12("|".join(parts).encode("utf-8"))
+
+
+def verdict_stands(store, fname, fingerprint):
+    """True when `fname` recorded this fingerprint less than a day ago — the last verdict still stands."""
+    path = os.path.join(store, fname)
+    if not os.path.exists(path):
+        return False
+    parts = read_text(path).split()
+    return len(parts) >= 2 and parts[0] == fingerprint and time.time() - os.path.getmtime(path) < VERDICT_MAX_AGE_S
+
+
+def record_verdict(store, fname, fingerprint, line):
+    """Record the fingerprint with the verdict's digest; True when the verdict is not the one last recorded."""
+    path = os.path.join(store, fname)
+    digest = sha12(line.encode("utf-8"))
+    old = read_text(path).split() if os.path.exists(path) else []
+    with open(path, "w", encoding="utf-8", newline="\n") as f:
+        f.write(f"{fingerprint} {digest}\n")
+    return len(old) < 2 or old[1] != digest
+
+
+def cmd_turn_close(payload, store):
+    """Stop: the engine's pass, its report left for the next prompt hook. On the φ-register the light normalize sweep;
+    on the keyspace `idb.py light`; a φ store owed its migration migrates here (the keyspace's pass then waits for the
+    next turn close), or keeps the φ sweep and says once why it waits; at idb-control the φ sweep and, once per verdict,
+    the shadow migration's. Every call shares one deadline under the harness's limit, and a verdict that only changes
+    with the φ store is re-earned only when that store changed, or once a day. Silent when nothing moved; every other
+    outcome — moved, skipped for a lock, stopped at a gate, owed — is a line."""
+    sid = str(payload.get("session_id") or "unknown")
+    now = datetime.datetime.now()
+    stamp = f"{now:{NOW_FMT}}"
+    deadline = time.monotonic() + TURN_CLOSE_BUDGET_S
+
+    def left():
+        return deadline - time.monotonic()
+    engine, _setting, _state = store_engine(store)
+    reports = []
+    if engine == "idb":
+        reports.append(run_idb(store, ["light", "--session", sid, "--now", stamp], "turn-close:", left())[1])
+    elif engine == "migrate":
+        fp = phi_fingerprint(store)
+        line, rc = "", 1
+        if not verdict_stands(store, ".idb-migrate", fp):
+            rc, line = run_idb(store, ["migrate", "--session", sid, "--now", stamp,
+                                       "--budget-s", str(max(1, int(left()) - 10))], "migrate:", left())
+        if rc == 0 and line.startswith("migrate: migrated"):
+            reports.append("turn-close: " + line[len("migrate: "):] + " — the keyspace's first pass runs at the next "
+                           "turn close")
+        elif store_engine(store)[2] == "idb":
+            # committed but unfinished: the keyspace's pass finishes it — never the φ sweep over an imported arc/
+            reports.append("turn-close: " + (line[len("migrate: "):] if line else "migrated; its report was lost"))
+            if left() > TURN_CLOSE_MIN_CALL_S:
+                reports.append(run_idb(store, ["light", "--session", sid, "--now", stamp], "turn-close:", left())[1])
+        else:
+            if left() > TURN_CLOSE_MIN_CALL_S:
+                reports.append(phi_light(store, sid, now, left()))
+            if line and record_verdict(store, ".idb-migrate", phi_fingerprint(store), line):
+                reports.append(f"turn-close: the migration to the keyspace waits — {line[len('migrate: '):]}")
+    else:
+        reports.append(phi_light(store, sid, now, left()))
+        if engine == "shadow":
+            fp = phi_fingerprint(store)
+            if not verdict_stands(store, ".idb-shadow", fp) and left() > TURN_CLOSE_MIN_CALL_S:
+                _rc, line = run_idb(store, ["migrate", "--shadow", "--session", sid, "--now", stamp,
+                                            "--budget-s", str(max(1, int(left()) - 10))], "shadow:", left())
+                if line and record_verdict(store, ".idb-shadow", fp, line):
+                    reports.append(f"turn-close: {line}")
+    kept = [r for r in reports if r and not (r.startswith("turn-close: nothing to move") and "owed" not in r)]
+    if not kept:
         return 0
     with open(os.path.join(store, TURN_CLOSE), "a", encoding="utf-8", newline="\n") as f:
-        f.write(f"{sid} {now:{NOW_FMT}} {report[len('turn-close: '):]}\n")
-    print(report)
+        for r in kept:
+            f.write(f"{sid} {stamp} {r[len('turn-close: '):]}\n")
+    print("\n".join(kept))
     return 0
 
 

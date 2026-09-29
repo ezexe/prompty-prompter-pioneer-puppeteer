@@ -253,7 +253,7 @@ def run_check(store):
     r = subprocess.run([sys.executable, phi, "--store", store, "check"], capture_output=True, text=True,
                        encoding="utf-8", errors="replace")
     lines = (r.stdout or "").split("\n")
-    keep = [l for l in lines if l.startswith(("[CORRUPT]", "[DEBT]", "[STRAY]", "phi.py check"))]
+    keep = [l for l in lines if l.startswith(("[CORRUPT]", "[DEBT]", "[STRAY]", "phi.py check", "idb.py check"))]
     return "\n".join(keep) if keep else (r.stdout or "").strip()
 
 

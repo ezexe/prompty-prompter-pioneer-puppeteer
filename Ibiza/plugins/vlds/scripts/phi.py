@@ -10,9 +10,10 @@ Subcommands:
                 exit 0 = clean, debt-only, or stray-only — '2'/'11' states are owed work, not corruption;
                 a [STRAY] is a store-named, store-shaped file found OUTSIDE the store, to depth 2 under
                 the project root, owed a re-home the user performs; shape drift is notes-only, because
-                an off-schema entry can be the user's edit — a ruling)
-  mask          run the literal zeckendorf_dp over model-supplied scores with pins; pure function,
-                JSON in / JSON out; asserts the exact guarantee kept <= ceil(n_i/2) per segment
+                an off-schema entry can be the user's edit — a ruling). A store on the keyspace
+                (idb/keys.tsv) is handed to scripts/idb.py check, which runs its own scans and this
+                one's store-level scans with it.
+  mask          retired: naming what is cold is the sweep moment's judgment, by head line; no score grid
   verify-merge  the merge deletion gate: every parent entry body must be verbatim-contained in the
                 child, and the child may not exceed its parents' bytes (override with --allow-growth)
   verify-pour   the trim deletion gate: every entry body in a hot file's mask=A:B span must be
@@ -20,7 +21,8 @@ Subcommands:
   lock/unlock   the sweep lock (arc/.sweep-lock, session-stamped, stale after 60 minutes) — taken
                 before any arc write; without it a session only reports owed work
   rebuild       regenerate phi-index.md from segment headers + store grammar — corruption recovery ONLY:
-                refuses to run while the drift scan shows a voided watermark (a user edit is a ruling)
+                refuses to run while the drift scan shows a voided watermark (a user edit is a ruling);
+                on a store on the keyspace, `idb.py sync --full` is the rebuild
   restore       print a segment's entries to stdout for judged re-insertion
   lint          the tier guard: scan the PLUGIN's own doctrine files for store-tier content that leaked
                 into the portable layer — session dates, "per the user" attributions, dated rulings,
@@ -74,7 +76,16 @@ LIVENESS_HORIZON_S = 24 * 3600
 FACT_ID_RE = re.compile(r"^id: ([a-z]{2}-\d{4})( \(tombstoned\))?\s*$", re.M)
 SEG_NAME_RE = re.compile(r"^arc-(\d+)-([A-Za-z0-9]+)\.md$")
 POURED_DISPATCH_RE = re.compile(r"^dispatch-\d{8}-\d{6}-[0-9A-Za-z-]{1,12}\.md$")  # the prompt hook's pour — the tail is the owner session's short id
+RUN_FILE_RE = re.compile(r"^[a-z][a-z-]*-\d{6,}\.md$")    # a keyspace run, scripts/idb.py's RUN_NAME_RE
 LOGGER_ENTRY_RE = re.compile(r"^- `\[(?:gate|guide|gc|inspector|looper)\]` 20\d\d-\d\d-\d\d(?: \d\d:\d\d)? — \*\*")
+
+
+def on_keyspace(store):
+    """True when the store is on the keyspace — idb/keys.tsv, or runs whose keys.tsv is gone: scripts/idb.py's rule."""
+    if os.path.exists(os.path.join(store, "idb", "keys.tsv")):
+        return True
+    runs = os.path.join(store, "idb", "runs")
+    return os.path.isdir(runs) and any(RUN_FILE_RE.match(n) for n in os.listdir(runs))
 
 
 def read(path):
@@ -243,34 +254,7 @@ def stray_files(store):
     return found
 
 
-# ─── the DP (masks.py's zeckendorf_dp, transplanted line-faithfully) ───────────────────────────────────
-
-def zeckendorf_dp(scores):
-    n = len(scores)
-    if n == 0:
-        return []
-    if n == 1:
-        return [1]
-    keep = [0.0] * n
-    skip = [0.0] * n
-    keep[0], skip[0] = float(scores[0]), 0.0
-    for i in range(1, n):
-        keep[i] = skip[i - 1] + float(scores[i])
-        skip[i] = max(keep[i - 1], skip[i - 1])
-    mask = [0] * n
-    i = n - 1
-    while i >= 0:
-        if i == 0:
-            if keep[0] >= skip[0]:
-                mask[0] = 1
-            break
-        if keep[i] >= skip[i]:
-            mask[i] = 1
-            i -= 2
-        else:
-            i -= 1
-    return mask
-
+# ─── legacy mask records ──────────────────────────────────────────────────────────────────────────────
 
 def verify_mask(mask):
     prev = 0
@@ -283,7 +267,10 @@ def verify_mask(mask):
 
 # ─── subcommands ────────────────────────────────────────────────────────────────────────────────────────
 
-def cmd_check(store):
+def cmd_check(store, delegate=True):
+    if delegate and on_keyspace(store):
+        import idb  # noqa: E402 — the keyspace engine beside this file; it calls back here for the store-level scans
+        return idb.cmd_check(store)
     corrupt, debt, stray, notes = [], [], [], []
     arc = os.path.join(store, "arc")
     idx = parse_index(store)
@@ -543,46 +530,6 @@ def cmd_check(store):
     return 1 if corrupt else 0
 
 
-def cmd_mask(args):
-    data = json.load(open(args.scores, encoding="utf-8")) if args.scores != "-" else json.load(sys.stdin)
-    scores, pins = data["scores"], set(data.get("pins", []))
-    if any(not isinstance(s, int) or not (0 <= s <= 54) for s in scores):
-        print("scores must be INTEGERS on the 8-digit Zeckendorf grid 0..54", file=sys.stderr)
-        return 2
-    n = len(scores)
-    mask = [None] * n
-    seg, segs = [], []
-    for i in range(n + 1):
-        if i == n or i in pins:
-            if seg:
-                segs.append(seg)
-            if i < n:
-                mask[i] = 1  # pins always keep
-            seg = []
-        else:
-            seg.append(i)
-    kept_unpinned = 0
-    for seg in segs:
-        sub = zeckendorf_dp([scores[i] for i in seg])
-        for j, i in enumerate(seg):
-            mask[i] = sub[j]
-        kept = sum(sub)
-        kept_unpinned += kept
-        # the exact guarantee — kept <= ceil(n_i/2) per pin-delimited segment; density <= 0.5 only
-        # asymptotically, and only for unfragmented even-length runs. Explicit checks, not asserts,
-        # so python -O cannot strip the guarantee.
-        if kept > (len(seg) + 1) // 2 or not verify_mask(sub):
-            print("internal error: DP guarantee violated", file=sys.stderr)
-            return 1
-    # pin adjacency is a model-side owed merge, not a script failure — reported, never asserted
-    adjacent_pairs = [(i, i + 1) for i in range(n - 1) if mask[i] == 1 and mask[i + 1] == 1]
-    out = {"mask": mask, "kept_unpinned": kept_unpinned, "pinned": len(pins),
-           "segments": len(segs), "ceiling": sum((len(s) + 1) // 2 for s in segs),
-           "adjacent_keeps": adjacent_pairs}
-    print(json.dumps(out))
-    return 0
-
-
 def cmd_verify_merge(args):
     child = read(args.child)
     ok = True
@@ -644,6 +591,9 @@ def cmd_verify_pour(args, store):
 
 def cmd_lock(args, store, release=False):
     """The sweep lock: session-stamped, stale after 60 minutes; taken before any arc write."""
+    if on_keyspace(store):
+        print("REFUSED: the store is on the keyspace — its lock is idb/.sweep-lock, which idb.py takes itself")
+        return 1
     lock = os.path.join(store, "arc", ".sweep-lock")
     if release:
         if not os.path.exists(lock):
@@ -672,6 +622,9 @@ def cmd_lock(args, store, release=False):
 
 def cmd_rebuild(store):
     # corruption recovery ONLY: a voided watermark is a user ruling this script must not pave over
+    if on_keyspace(store):
+        print("rebuild: the store is on the keyspace — `idb.py sync --full` rebuilds idb/keys.tsv from the files")
+        return 0
     class Silent:
         def write(self, *_):
             pass
@@ -817,6 +770,20 @@ def tombstone_masks(store, span=None):
     return out
 
 
+def tombstone_hit(value, fields, masks):
+    """(ref, time, why) for the first tombstone that masks an entry — the same owner-words, or a head contained in its
+    freed: (or the reverse), the shorter side at least MASK_MIN characters — or None. `masks` is tombstone_masks()'
+    shape; its first element is whatever the caller locates a tombstone by (a line here, a key in idb.py)."""
+    head, own = norm_text(value), norm_text(fields.get("owner-words", ""))
+    for ref, freed, words, when in masks:
+        if own and words and own == words:
+            return ref, when, "the same owner-words"
+        short, long_ = (head, freed) if len(head) <= len(freed) else (freed, head)
+        if len(short) >= MASK_MIN and short in long_:
+            return ref, when, "head within its freed:"
+    return None
+
+
 def barrier_state(fname, field, value, fields, session, masks):
     """(STATE, reason) by the read barrier's rules, judgment-free: a `status:` field is the entry's own word;
     a tombstone masks what it freed — the same owner-words, or a head contained in its freed: (or the reverse), the
@@ -828,13 +795,10 @@ def barrier_state(fname, field, value, fields, session, masks):
         return status, "its own status field"
     if fname == "tombstones.md":
         return "LIVE", "the mask itself"
-    head, own = norm_text(value), norm_text(fields.get("owner-words", ""))
-    for line, freed, words, when in masks:
-        if own and words and own == words:
-            return "FREED", f"masked by tombstones.md:{line} ({when}) — the same owner-words"
-        short, long_ = (head, freed) if len(head) <= len(freed) else (freed, head)
-        if len(short) >= MASK_MIN and short in long_:
-            return "FREED", f"masked by tombstones.md:{line} ({when}) — head within its freed:"
+    hit = tombstone_hit(value, fields, masks)
+    if hit:
+        line, when, why = hit
+        return "FREED", f"masked by tombstones.md:{line} ({when}) — {why}"
     if fname == "virtual.md":
         disp = fields.get("disposition", "").strip().lower()
         if disp.startswith("expired") or disp.startswith("promoted"):
@@ -1269,8 +1233,7 @@ def main():
                                                     ".claude", "vlds"))
     sub = ap.add_subparsers(dest="cmd")
     sub.add_parser("check")
-    p = sub.add_parser("mask")
-    p.add_argument("--scores", required=True, help="JSON file ('-' for stdin): {scores:[0..54], pins:[i]}")
+    sub.add_parser("mask", help="retired")
     p = sub.add_parser("verify-merge")
     p.add_argument("--child", required=True)
     p.add_argument("--parents", nargs="+", required=True)
@@ -1310,11 +1273,15 @@ def main():
     p.add_argument("--session", default="", help="this session's short id, for the barrier's expiry of virtual entries")
     p.add_argument("--part", type=int, default=0, help="which part to print when the rules outgrow one hook output")
     p.add_argument("--budget", type=int, default=STANDING_BUDGET, help="one part's size in characters")
-    args = ap.parse_args()
+    args, extra = ap.parse_known_args()
+    if args.cmd != "mask" and extra:
+        ap.error(f"unrecognized arguments: {' '.join(extra)}")
     if args.cmd == "check":
         sys.exit(cmd_check(args.store))
     if args.cmd == "mask":
-        sys.exit(cmd_mask(args))
+        print("phi.py mask: retired — naming what is cold is the sweep moment's judgment, by head line "
+              "(hooks/operator-prompt.md); nothing scores entries on a grid", file=sys.stderr)
+        sys.exit(2)
     if args.cmd == "verify-merge":
         sys.exit(cmd_verify_merge(args))
     if args.cmd == "verify-pour":

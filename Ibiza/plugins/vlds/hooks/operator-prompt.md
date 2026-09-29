@@ -7,7 +7,7 @@ The message that sent you here names: `store` (the session's `.claude/vlds/` dir
 ## Before anything
 
 - Every store file's header declares its entry shape inside a yaml fence. Write entries bare, in that shape, one field per line, never folded or wrapped. The header is the authority; on divergence the file wins, because a user's edit is a ruling.
-- Never read `store/arc/` or a span `store/phi-index.md` marks as masked. Never delete, move, or rename a file. Touch nothing outside the store except the plugin's own briefs and scripts.
+- Never read `store/arc/`, `store/idb/`, or a span `store/phi-index.md` marks as masked — an archived entry a derivation needs comes through `scripts/idb.py get <object store> <id>` on the keyspace, which validates it, and arrives as weakened provenance, re-traced before it steers. Never delete, move, or rename a file. Touch nothing outside the store except the plugin's own briefs and scripts.
 - Every entry you read passes the gc read barrier before it steers a derivation: LIVE applies; SPENT, FREED, EXPIRED, and UNOWNED are surfaced, never applied; a tombstone's `freed:` masks whatever matches it.
 - A PreToolUse gate asks before a store-named file is written outside the store or an entry carries a placeholder or guessed-ahead time. If it asks, stop and report why rather than working around it.
 - Read economy: for an append, read the file's header (the shape fence — the first forty lines) and its last entry as the anchor, never the whole file; read a file whole only when the moment needs its entries — `dispatch.md` for the barrier, the read list for the pool, the files a retraction's sweep must search, `phi-index.md` for a budget or recall edit.
@@ -32,7 +32,7 @@ pool: <the pool's text, or: already pooled at <time> for <task>>
 
 ## sweep — when the check shows judged work owed
 
-Held, not run, when the last sweep's own derivation — `logger.md`'s latest `[gc]` line — found no cold set that reaches a count opening one position, and nothing cold has landed since: then the sweep waits for new candidates or the owner's move, and the check's debt line is reported as standing, not re-scored.
+On the φ-register: held, not run, when the last sweep's own derivation — `logger.md`'s latest `[gc]` line — found no cold set that reaches a count opening one position, and nothing cold has landed since: then the sweep waits for new candidates or the owner's move, and the check's debt line is reported as standing, not re-scored.
 
 Score, do not place. Read the hot files the check names whole; decide which entries are cold by the gc reference's rules — a ruling spent with its tombstone written, a claim acted on or superseded, a correction or key event whose lesson lives in doctrine now, the oldest logger entries past the budget; keep every correction of the last two days, every LIVE ruling, every claim a live ruling leans on. Name them by the 1-based line of each entry's head (verify each with a numbered read), then run, from the project root:
 
@@ -41,6 +41,14 @@ python <plugin root>/scripts/normalize.py --store <store> --session <id> --now "
 ```
 
 The dry run either accepts the count — one child at the one position it opens, byte-checked — or names the counts near yours that would open exactly one position; adjust which entries you name until it accepts, then run it without `--dry`, then the check. Return what poured where, the child and its bytes of capacity, the refusals on the way, and the check's verdict after. The store's own sweep frag (`src/sweep-20260903/sweep.py`, where the store keeps one) is the older road to the same place, for a plan that merges segments by hand.
+
+On a store the keyspace indexes — the SessionStart digest reads `engine: idb` — the placement is `scripts/idb.py`, any count places, and nothing is held:
+
+```
+python <plugin root>/scripts/idb.py --store <store> pour --session <id> --now "<now>" <file>:<l1>,<l2> <file>:<l> --dry
+```
+
+then the same without `--dry`: the pour is two-phase — the run written and verified, the keyspace committed, the hot file trimmed — and its report names the run and the check's verdict. Return what poured into which run, the ids minted, and the verdict.
 
 ## close — only when the session has no script to run
 
