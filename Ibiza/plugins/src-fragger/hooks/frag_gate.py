@@ -129,11 +129,18 @@ def is_data(path):
     return os.path.splitext(path)[1].lower().lstrip(".") in DATA_EXT
 
 
+# A drive-letter path is absolute on every OS, and its backslashes are separators: the owner works on Windows, and a
+# payload's paths keep that form wherever the gate runs — off Windows, os.path alone reads `E:/projects/x/_rows.json`
+# as relative and joins it under the root a second time.
+DRIVE_RE = re.compile(r"^[A-Za-z]:/")
+
+
 def in_project_root(path, root):
     if not path or not root:
         return False
     try:
-        full = path if os.path.isabs(path) else os.path.join(root, path)
+        path, root = path.replace("\\", "/"), root.replace("\\", "/")
+        full = path if os.path.isabs(path) or DRIVE_RE.match(path) else os.path.join(root, path)
         return _norm(os.path.normpath(os.path.dirname(full))) == _norm(os.path.normpath(root))
     except Exception:
         return False
