@@ -1035,6 +1035,10 @@ def cmd_session_open(payload, store):
     else:
         print("\n### phi-index.md")
         print(index_text.rstrip("\n"))
+        m = idb_module() if not keyspace else None
+        line = m.phi_engine_line(store) if m is not None else ""
+        if line:
+            print(line)
         plan = chunk_plan(store, inject)
         print(f"\n### inject — each chunk arrives as its own hook output (slots 0..{SLOTS - 1}), split at entry "
               f"boundaries under the harness's {HOOK_OUTPUT_CAP:,}-character cap")

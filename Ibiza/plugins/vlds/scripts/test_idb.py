@@ -883,18 +883,53 @@ def test_stages():
                 f.write(f"\n- `[gc]` 2026-09-05 10:{i:02d} — **Late {i}.** More.\n")
         out = th.run_hook("turn-close", {"session_id": "stage-session", "cwd": root}, root)
         assert "into arc-" in out and not os.path.exists(os.path.join(store, "idb")), f"a φ store left φ:\n{out}"
+        # phi: the stage a store names to stay on the φ-register, whatever the default
+        set_stage(store, "phi")
+        with open(os.path.join(store, "logger.md"), "a", encoding="utf-8", newline="\n") as f:
+            for i in range(20):
+                f.write(f"\n- `[gc]` 2026-09-06 10:{i:02d} — **Later {i}.** More.\n")
+        out = th.run_hook("turn-close", {"session_id": "stage-session", "cwd": root}, root)
+        assert "into arc-" in out and not os.path.exists(os.path.join(store, "idb")), f"a store naming phi left φ:\n{out}"
     finally:
         shutil.rmtree(root, ignore_errors=True)
-    # the default: a store that names no stage stays on the φ-register, and the keyspace is never touched
+    # the default, idb-migrate-gentle: a φ store that names no stage is told at SessionStart, in either pool mode, that
+    # it migrates at the next turn close, and it does — the stage left unnamed, so the store keeps following the default
+    assert engine.DEFAULT_ENGINE == "idb-migrate-gentle", engine.DEFAULT_ENGINE
     root, store = seed_phi_store()
     try:
         idx = os.path.join(store, "phi-index.md")
         write(idx, read(idx).replace("index-engine: phi\n", ""))
-        th.run_hook("turn-close", {"session_id": "stage-session", "cwd": root}, root)
-        assert not os.path.exists(os.path.join(store, "idb")), "the default stage wrote a keyspace"
+        owed = ("engine: phi (index-engine: idb-migrate-gentle, the default) — migrates to the keyspace at the next turn "
+                "close once the φ check is clean")
+        out = th.run_hook("session-open", {"source": "startup", "session_id": "stage-session"}, root)
+        assert owed in out, f"the migration the default owes was not announced:\n{out}"
+        write(idx, engine.set_recall_key(read(idx), "pool", "inject"))
+        out = th.run_hook("session-open", {"source": "startup", "session_id": "stage-session"}, root)
+        assert owed in out and "### inject" in out, f"inject mode did not announce the migration:\n{out}"
+        write(idx, read(idx).replace("pool: inject\n", ""))
+        out = th.run_hook("turn-close", {"session_id": "stage-session", "cwd": root}, root)
+        assert "turn-close: migrated to the keyspace" in out and os.path.isdir(os.path.join(store, "arc.phi-retired")), out
+        assert "index-engine" not in read(idx), "the migration wrote the stage the default chose into the index"
         rc, out = idb(store, "engine")
-        assert f"engine: phi (index-engine: {engine.DEFAULT_ENGINE}; the store: phi)" in out and \
-            engine.DEFAULT_ENGINE == "phi", out
+        assert "engine: idb (index-engine: idb-migrate-gentle; the store: idb)" in out, out
+        out = th.run_hook("session-open", {"source": "startup", "session_id": "stage-session"}, root)
+        assert "engine: idb (index-engine: idb-migrate-gentle, the default)" in out, out
+    finally:
+        shutil.rmtree(root, ignore_errors=True)
+    # ...and a new store starts on the keyspace: its first pour lands in idb/blobs/, its first turn close writes the
+    # keyspace and the index, and no arc/ ever appears
+    root, store = th.seed_project()
+    try:
+        out = th.run_hook("session-open", {"source": "startup", "session_id": "new-session"}, root)
+        assert "the keyspace writes it at the first turn close" in out, out
+        th.run_hook("prompt-open", {"session_id": "new-session", "prompt": "a first row"}, root)
+        th.run_hook("prompt-open", {"session_id": "next-session", "prompt": "hello"}, root)
+        assert os.listdir(os.path.join(store, "idb", "blobs", "dispatch")), "a new store's pour missed idb/blobs/"
+        th.run_hook("turn-close", {"session_id": "next-session", "cwd": root}, root)
+        assert os.path.exists(os.path.join(store, "idb", "keys.tsv")), "a new store's first turn close wrote no keyspace"
+        assert os.path.exists(os.path.join(store, "phi-index.md")), "a new store's first turn close wrote no index"
+        assert not os.path.exists(os.path.join(store, "arc")), "a new store grew an arc/"
+        clean_check(store, "a new store at the default")
     finally:
         shutil.rmtree(root, ignore_errors=True)
     # idb: every store on the keyspace — a φ store migrates at its next turn close

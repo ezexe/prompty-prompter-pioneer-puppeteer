@@ -269,6 +269,7 @@ def test_owner_voice():
 
 def test_session_title():
     root, store = seed_project()
+    seed_register(store)    # the φ road names its stage: a store with no index now starts on the keyspace (test_idb.py)
     try:
         # (a) the chat title comes from the transcript's LAST custom-title record and names the session, beside
         # its short id, in the prompt hook's header and in the stamp; (b) the .sessions ledger carries it

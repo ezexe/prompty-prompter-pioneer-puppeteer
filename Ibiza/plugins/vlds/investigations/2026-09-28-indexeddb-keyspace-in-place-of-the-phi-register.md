@@ -1,8 +1,8 @@
 # Design brief — an IndexedDB keyspace in place of the φ-register
 
-**Status:** built and tested behind a stage switch (`index-engine:`, default `phi`). The rulings of section 8 are applied except the rename; the four rulings of section 10.5 decide the final stage and the merge into `main`.
-**Filed:** 2026-09-28; the build recorded 2026-09-29 (section 10).
-**Subject plugin:** `Ibiza/plugins/vlds` at 0.0.42, built as 0.0.43.
+**Status:** built, tested and ruled. The rulings of section 8 are applied, the rename declined at the final stage; the four final-stage rulings of section 10.5 are ruled as recommended and applied (section 10.6): the default stage is `idb-migrate-gentle`, and the φ code retires in a follow-up. How the branch lands on `main` stays the owner's word.
+**Filed:** 2026-09-28; the build recorded 2026-09-29 (section 10), the final stage ruled the same day (section 10.6).
+**Subject plugin:** `Ibiza/plugins/vlds` at 0.0.42, built as 0.0.43, ruled as 0.0.44.
 **Sources:** Chromium `main` at 156.0.8077.0, read file by file from the GitHub mirror (`raw.githubusercontent.com/chromium/chromium/main/…`) on the filing date. `chromium.googlesource.com` was refused by the filing environment's network policy. Appendix A names the file behind every Chromium fact; VLDS facts cite the plugin's own files.
 
 ---
@@ -283,10 +283,10 @@ A new key in the `## recall` section, `index-engine:`, selects the stage:
 
 | stage | `index-engine:` | Chromium's stage | what runs |
 | --- | --- | --- | --- |
-| 0 | `phi` (the default) | `UseLevelDbOnly` | today's system |
+| 0 | `phi` | `UseLevelDbOnly` | today's system |
 | 1 | `idb-control` | `UseLevelDbAsControl` | φ stays the authority. `idb.py sync` builds the keyspace in shadow at each close, and the check reports where the two disagree: counts per file, and whether every arc entry is found in the shadow |
 | 2 | `idb-new-stores` | `UseSqliteForNewStores` | a store with no register in `phi-index.md` starts on the keyspace |
-| 3 | `idb-migrate-gentle` | `MigrateDataToSqliteGentle` | a clean φ store migrates once, at a turn close |
+| 3 | `idb-migrate-gentle` (the default, as ruled in 10.6) | `MigrateDataToSqliteGentle` | a clean φ store migrates once, at a turn close |
 | 4 | `idb` | `UseSqliteOnly` | the φ code paths retire |
 
 The gentle migration (stage 3) runs at a turn close:
@@ -310,7 +310,7 @@ What each stage touches:
 
 ## 8. Rulings this needs
 
-Rulings 1, 2, 3, 5 and 6 are applied as recommended (section 10.2); ruling 4 moved to the final stage (section 10.5).
+Rulings 1, 2, 3, 5 and 6 are applied as recommended (section 10.2); ruling 4 moved to the final stage (section 10.5), where the name was kept.
 
 1. **The keyspace's form.** Sorted TSV (recommended: auditable, diffable, no dependency), or an SQLite file with the same four tables (Chromium's direction, but opaque to `cat`)? The schema above is laid out so that switching later is mechanical.
 2. **Physically removing freed cold entries.** Never (recommended), or at compaction when the tombstone's `swept:` names the key?
@@ -328,7 +328,7 @@ Rulings 1, 2, 3, 5 and 6 are applied as recommended (section 10.2); ruling 4 mov
 - The active journal. No process holds a handle to a cold file between hooks.
 - The SQLite era's eager-only maintenance. The owner's hand edits need LevelDB's lazy validation.
 
-## 10. What was built, and the rulings the final stage needs
+## 10. What was built, and the rulings the final stage needed
 
 ### 10.1 Built
 
@@ -346,7 +346,7 @@ Rulings 1, 2, 3, 5 and 6 are applied as recommended (section 10.2); ruling 4 mov
 | 3 | keep the `xx-NNNN` handles | minted at pour time from each object store's key generator; the φ ids kept at migration |
 | 5 | retire `phi.py mask` and the grid | the subcommand prints its retirement; the gc reference's Selection rewritten |
 | 6 | keep the φ pressure ratio | the kept store-level scans run on a keyspace store |
-| 4 | rename `phi-index.md` | not applied — a final-stage ruling (10.5) |
+| 4 | rename `phi-index.md` | declined at the final stage (10.5): the name is kept |
 
 ### 10.3 Where the build departs from sections 5–7
 
@@ -358,21 +358,43 @@ Rulings 1, 2, 3, 5 and 6 are applied as recommended (section 10.2); ruling 4 mov
 
 ### 10.4 Tested
 
-- `scripts/test_idb.py` — 19 tests, 181 assertions: the key lines and their order against the barrier's rows; versions and the sweep across a hand edit; the two-phase pour and a crash at each step (before the commit, after it, and after it with an edit between); the light classes through the Stop hook; the dispatch pour as an external object, torn and in flight; the freed marks, including after a partial sync; compaction, and a torn one; the migration from a store built by normalize.py's own segments — every entry verbatim under its id, every blob byte-identical, the barrier and the standing rules byte-identical before and after, the pool the same but for its `updated:` line; a refused migration said once; the φ era's legacy shapes; a crash right after the commit point; the rollback after pours, with history, with a record no sync had registered, and across two crashes; the check's scans; the stages through the hooks; the pool's stamp; the rounds; a wrapped entry and a CRLF hot file; a whitespace-only last line, a stale lock, an engine that will not load.
+- `scripts/test_idb.py` — 19 tests, 192 assertions after the final stage's rulings (section 10.6): the key lines and their order against the barrier's rows; versions and the sweep across a hand edit; the two-phase pour and a crash at each step (before the commit, after it, and after it with an edit between); the light classes through the Stop hook; the dispatch pour as an external object, torn and in flight; the freed marks, including after a partial sync; compaction, and a torn one; the migration from a store built by normalize.py's own segments — every entry verbatim under its id, every blob byte-identical, the barrier and the standing rules byte-identical before and after, the pool the same but for its `updated:` line; a refused migration said once; the φ era's legacy shapes; a crash right after the commit point; the rollback after pours, with history, with a record no sync had registered, and across two crashes; the check's scans; the stages through the hooks; the pool's stamp; the rounds; a wrapped entry and a CRLF hot file; a whitespace-only last line, a stale lock, an engine that will not load.
 - `scripts/test_hooks.py` — the 19 φ tests, green and unchanged except that their seeded index now names `index-engine: phi`.
 - Two independent review passes over the diff found 20 defects; every one is fixed, and most are pinned by a test above.
 - Not yet run: the owner's own stores, and Windows. The tests ran on Linux, so the Windows paths — CRLF files, directory renames, the lock — are exercised only by their Linux equivalents.
 
 ### 10.5 The final-stage rulings
 
-The final stage, `idb`, is where the φ code paths retire. Four rulings decide it and the merge into `main`:
+The final stage, `idb`, is where the φ code paths retire. Four rulings decide it and the merge into `main`. All four were ruled as recommended; section 10.6 records what changed.
 
 1. **The stage `main` ships at** (`DEFAULT_ENGINE` in `scripts/idb.py`; `phi` on this branch). Recommended: **`idb-migrate-gentle`**. A new store starts on the keyspace, and a clean φ store migrates at its next turn close — verified before its commit, its arc kept aside, a rollback away from undone. A store the φ check calls corrupt keeps the φ sweep and says once why it waits. The conservative alternative is `idb-control`, which prints each store's shadow verdict and writes nothing. Either way the change is one constant and the one test that asserts it, since the φ tests already name their stage. A single check on a real store first: `idb.py --store <store> migrate --session x --dry`.
 2. **When the φ code retires** (`normalize.py`, the φ scans in `phi.py`, the φ doctrine). Recommended: **not in this merge**, but in a follow-up once every store in use reports `engine: idb` at SessionStart. A store that cannot migrate yet (a torn φ pour, a voided watermark) needs the φ sweep until its ruling is reconciled, and a rollback needs the φ code to return to.
 3. **`phi-index.md`'s name.** Recommended: **keep it.** It carries rulings (`## recall`, the budgets) under a name every hook, gate, test and habit already addresses, and the φ pressure ratio still reads its hot table. A rename would move a ruling-bearing file in every store to gain a name. If one is wanted, it belongs with the φ retirement, read under both names for one release.
 4. **`arc.phi-retired/`.** Recommended: **kept until the owner removes it by hand.** The rollback returns from it, and disposing of what the owner authored keeps the per-act word; no script deletes it.
 
-The branch `claude/sleepy-planck-cstt6m` carries the brief, the build and the review's fixes as separate commits; how they land on `main` is the owner's version-control word.
+### 10.6 As ruled
+
+1. **The default is `idb-migrate-gentle`** (`DEFAULT_ENGINE` in `scripts/idb.py`). A store whose index names no stage now takes it:
+   - a new store starts on the keyspace: its first dispatch pour lands in `idb/blobs/dispatch/`, its first turn close writes `idb/keys.tsv` and the index, and no `arc/` appears;
+   - a clean φ store migrates at its next turn close, and one the φ check calls corrupt keeps the φ sweep and says once why it waits;
+   - the migration writes no `index-engine:` line, so the store keeps following the default.
+
+   `index-engine: phi` keeps a store on the φ-register, and the rollback writes it, so a rolled-back store is not migrated again.
+2. **A migration the default owes is announced before it runs.** SessionStart prints `engine: phi (index-engine: idb-migrate-gentle, the default) — migrates to the keyspace at the next turn close once the φ check is clean`, and the turn close's report follows at the next prompt. Before the ruling this line was silent whenever the index named no stage, which was right only while the default moved nothing. The `pool: inject` road printed no engine line at all; it now prints the same line under the index.
+3. **Tests.** `test_idb.py`'s stage test asserts the new default:
+   - the announcement in both pool modes, the migration, and the stage still unnamed after it;
+   - the keyspace's digest naming the default;
+   - a new store starting on the keyspace;
+   - `phi` as the stage that keeps a store on the φ-register.
+
+   Undoing any one of the constant, the announcement or the inject line fails it. Section 10.5 said the change was "one constant and the one test that asserts it". That undercounted: `test_hooks.py`'s session-title test had also relied on the default, since its store had no index. It now seeds the φ register, and so names its stage like every other φ test.
+4. **The φ code stays** (ruling 2): `normalize.py`, the φ scans in `phi.py` and the φ doctrine. The gc's reference now names when they retire: once every store in use reads `engine: idb` at SessionStart.
+5. **`phi-index.md` keeps its name** (ruling 3). Nothing changed.
+6. **`arc.phi-retired/` is kept until the owner removes it by hand** (ruling 4). No script deletes it: the migration moves `arc/` aside, and the rollback moves it back. The rollback refuses when the directory or its saved φ index is missing. The gc's reference and the README now say that removing it gives the rollback up, the contract says the rollback returns from it, and the descriptions say it is kept until the owner removes it by hand.
+7. **Not run: the dry run on a real store.** There is no store in this repository; the owner's stores live in their own projects. Before a φ store in use meets the default, `idb.py --store <store> migrate --session x --dry` says whether it would pass, and writes nothing.
+8. The plugin is at 0.0.44. The contract's parts measure 8928, 4098, 8875 and 4434 bytes, all under the 9,500-byte cap.
+
+The branch `claude/sleepy-planck-cstt6m` carries the brief, the build, the review's fixes and these rulings as separate commits. How they land on `main` is the owner's version-control word.
 
 ## Appendix A: Chromium sources
 
