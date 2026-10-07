@@ -40,6 +40,14 @@ Subcommands:
                 by file only when the cap forces it), open (live tasks, this session's inferences, the index's
                 debts), surfaced (SPENT / FREED / EXPIRED with the mask's source) and read-on-demand — and an
                 empty steering section for the operator's one judged pass. --session, --task, --now required.
+  trace         the write barrier's mechanical half, run by the post-write and turn-close hooks: every hot
+                entry whose head is new since the last trace (store/.gc-heads, the remembered set) is an
+                allocation traced against the tombstone masks — a new entry a tombstone masks, dated no
+                earlier than the free, is freed garbage allocated again; a new tombstone's reach is listed
+                with the LIVE entries that hold a handle to what it freed (the head's opening 32 characters
+                verbatim in a field, or a field that is wholly a verbatim quote from within the head),
+                each owed its pre-finalizer that turn. One
+                `gc:` line per finding; the first trace on a store records a baseline. --dry, --json.
 
 Watermark convention (shared by reader and writer, pinned in gc/reference.md): `mask=A:B sha=H` is a
 0-based, HALF-OPEN line range — the masked span is lines[A:B]; live entries are counted outside it.
@@ -58,6 +66,7 @@ import os
 import re
 import sys
 import time
+from collections import Counter
 
 CACHE = [1, 2]
 while len(CACHE) < 40:
@@ -1222,6 +1231,177 @@ def cmd_standing(args, store):
     return 0
 
 
+# ─── the write barrier's trace — the always-on collector's mechanical half ──────────────────────────────
+
+GC_HEADS = ".gc-heads"        # the hot heads the last trace saw, per file: the write barrier's remembered set
+REALLOC_FILES = ("local-storage.md", "index.md", "data-store.md", "virtual.md")    # where a re-learned free steers
+STRONG_FILES = ("local-storage.md", "index.md", "data-store.md", "virtual.md", "session-storage.md")  # Member edges
+WEAK_FILES = ("ledger.md", "logger.md", "briefs.md")       # WeakMember edges: history that cites, never swept with it
+HANDLE_CHARS = 32             # a handle quotes a head from its opening, at least this many characters verbatim
+TRACE_LINES = 8               # the most findings one trace prints; the rest are counted
+
+
+def head_keys(es):
+    """[key per entry] — the sha of each head line, `#n` on its nth repeat (the keyspace's own rule), so a head
+    written again beside an identical one is a new allocation, the later line the new one."""
+    count, out = Counter(), []
+    for _line, field, value, _fields in es:
+        h = sha(f"- {field}: {value}" if field != "log" else f"- {value}")
+        count[h] += 1
+        out.append(h if count[h] == 1 else f"{h}#{count[h]}")
+    return out
+
+
+def cites(text, head):
+    """True when `text` holds a handle to the entry whose normalized head value is `head`: the head's opening
+    HANDLE_CHARS characters verbatim (the whole head when it is shorter), or the text itself a verbatim quote from
+    within the head — either side at least MASK_MIN characters. A paraphrase is a raw pointer: never followed."""
+    t = norm_text(text)
+    if len(head) < MASK_MIN or len(t) < MASK_MIN:
+        return False
+    return head[:HANDLE_CHARS] in t or t in head
+
+
+def allocated_after(entry_time, free_time):
+    """True unless the entry's own time is plainly earlier than the free's — an entry new to the trace but older than
+    the tombstone (a rollback's return, an old line pasted back) is freed history, not an allocation; a missing time
+    on either side, or the same day with minutes on one side only, cannot tell, and counts as after."""
+    a, b = STAMP_RE.search(entry_time or ""), STAMP_RE.search(free_time or "")
+    if not a or not b:
+        return True
+    a, b = a.group(1), b.group(1)
+    if len(a) != len(b):
+        a, b = a[:10], b[:10]
+        if a == b:
+            return True
+    return a >= b
+
+
+def load_heads(store):
+    """{file: set of head shas} the last trace recorded, or None when no trace has run (or the file is unreadable)."""
+    path = os.path.join(store, GC_HEADS)
+    if not os.path.exists(path):
+        return None
+    try:
+        data = json.loads(read(path))
+        return {f: set(v) for f, v in (data.get("heads") or {}).items()}
+    except (ValueError, AttributeError, TypeError):
+        return None
+
+
+def save_heads(store, heads):
+    path = os.path.join(store, GC_HEADS)
+    tmp = f"{path}.{os.getpid()}.tmp"
+    with open(tmp, "w", encoding="utf-8", newline="\n") as f:
+        f.write(json.dumps({"heads": heads}, sort_keys=True))
+    os.replace(tmp, path)
+
+
+def gc_trace(store, session="", record=True):
+    """(findings, baseline) — the write barrier's trace. Every hot entry whose head line is new since the last trace
+    (GC_HEADS) is an allocation, traced against the tombstone masks the read barrier applies:
+
+      re-allocated  a new entry in a file that steers (REALLOC_FILES), dated no earlier than the tombstone that masks
+                    it, its own status not already SPENT or FREED: freed garbage allocated again, or the owner ruled it
+                    again after the free. Which one is the operator's call; until it is made, the read barrier keeps
+                    the entry FREED.
+      free          a new tombstone: the hot entries it masks (the dying), and the LIVE entries in STRONG_FILES that
+                    hold a handle to one of them (`cites`) — each owed its pre-finalizer in the turn of the free,
+                    before the reply ends: rewritten, or swept into the tombstone's swept:. Handles held from
+                    WEAK_FILES are counted, never owed: history that cites a freed entry is cleared at recall.
+
+    The first trace on a store records the heads and reports nothing — a baseline. `record` False leaves GC_HEADS as
+    it was. Judgment-free: what a finding means is the operator's; this only says where the edges run."""
+    spans = masked_spans(store)
+    entries = {}
+    for fname in SEED_HOT:
+        got = hot_entries(store, fname, spans.get(fname))
+        if got is not None:
+            entries[fname] = got
+    keys = {f: head_keys(es) for f, es in entries.items()}
+    current = {f: sorted(k) for f, k in keys.items()}
+    seen = load_heads(store)
+    if seen is None:
+        if record:
+            save_heads(store, current)
+        return [], True
+    new = {f: [e for e, k in zip(es, keys[f]) if k not in seen.get(f, set())] for f, es in entries.items()}
+    masks = tombstone_masks(store, spans.get("tombstones.md"))
+    fresh = {e[0] for e in new.get("tombstones.md", []) if e[1] == "freed"}
+    old_masks = [m for m in masks if m[0] not in fresh]
+    findings = []
+    for fname in REALLOC_FILES:
+        for line, field, value, fields in new.get(fname, []):
+            status = fields.get("status", "").strip().upper().split(" ")[0] if fields.get("status") else ""
+            if status in ("SPENT", "FREED"):
+                continue
+            hit = tombstone_hit(value, fields, old_masks)
+            if hit and allocated_after(fields.get("time", ""), hit[1]):
+                findings.append({"kind": "re-allocated", "file": fname, "line": line,
+                                 "head": f"- {field}: {value}", "tombstone": hit[0], "why": hit[2]})
+    for mask in (m for m in masks if m[0] in fresh):
+        dying = [(f, e) for f in STRONG_FILES for e in entries.get(f, []) if tombstone_hit(e[2], e[3], [mask])]
+        gone = {(f, e[0]) for f, e in dying}
+        heads = [norm_text(e[2]) for _f, e in dying]
+        strong, weak = [], 0
+        for fname in STRONG_FILES + WEAK_FILES:
+            for line, field, value, fields in entries.get(fname, []):
+                if (fname, line) in gone or not heads:
+                    continue
+                if fname in STRONG_FILES and barrier_state(fname, field, value, fields, session, masks)[0] != "LIVE":
+                    continue
+                if any(cites(t, h) for t in [value, *fields.values()] for h in heads):
+                    if fname in STRONG_FILES:
+                        strong.append(f"{fname}:{line}")
+                    else:
+                        weak += 1
+        findings.append({"kind": "free", "tombstone": mask[0], "dying": [f"{f}:{e[0]}" for f, e in dying],
+                         "strong": strong, "weak": weak})
+    if record:
+        save_heads(store, current)
+    return findings, False
+
+
+def trace_lines(findings, limit=TRACE_LINES):
+    """One `gc:` line per finding, at most `limit`, the rest counted — the lines the hooks hand to the model."""
+    out = []
+    for f in findings[:limit]:
+        if f["kind"] == "re-allocated":
+            out.append(f"gc: write barrier — {f['file']}:{f['line']} ({clip(f['head'], 90)}) is new and masked by "
+                       f"tombstones.md:{f['tombstone']} ({f['why']}): freed garbage allocated again, or the owner ruled "
+                       f"it again after the free — the operator's call; the read barrier keeps it FREED until then")
+            continue
+        where = f"a free (tombstones.md:{f['tombstone']})"
+        weak = (f"; {f['weak']} weak reference{'' if f['weak'] == 1 else 's'} in history stay, cleared at recall"
+                if f["weak"] else "")
+        if not f["dying"]:
+            out.append(f"gc: {where} masks no hot entry — what it freed lives outside the hot tier (base memory, a "
+                       f"plan doc, the cold tier), where the sweep is the operator's")
+        elif not f["strong"]:
+            out.append(f"gc: {where} reaches {', '.join(f['dying'][:4])}{' …' if len(f['dying']) > 4 else ''} and no "
+                       f"live entry holds a handle to them — the sweep's inbound half is clean{weak}")
+        else:
+            out.append(f"gc: {where} reaches {', '.join(f['dying'][:4])}{' …' if len(f['dying']) > 4 else ''} — "
+                       f"held by {', '.join(f['strong'][:6])}{' …' if len(f['strong']) > 6 else ''}: each one's "
+                       f"pre-finalizer is owed this turn, before the reply ends — rewrite it, or sweep it into the "
+                       f"tombstone's swept:{weak}")
+    if len(findings) > limit:
+        out.append(f"gc: … and {len(findings) - limit} more — `phi.py barrier` shows every FREED state")
+    return out
+
+
+def cmd_trace(args, store):
+    findings, baseline = gc_trace(store, args.session, record=not args.dry)
+    if args.json:
+        print(json.dumps({"baseline": baseline, "findings": findings}, ensure_ascii=False, indent=1))
+        return 0
+    if baseline:
+        print("gc: write barrier — first trace on this store; the heads are recorded, nothing reported")
+    for line in trace_lines(findings):
+        print(line)
+    return 0
+
+
 def main():
     # the store is UTF-8; Windows consoles default to a legacy codepage, which made restore crash on
     # '→' and check print mojibake — force UTF-8 out, replacing anything a weirder console still rejects
@@ -1273,6 +1453,10 @@ def main():
     p.add_argument("--session", default="", help="this session's short id, for the barrier's expiry of virtual entries")
     p.add_argument("--part", type=int, default=0, help="which part to print when the rules outgrow one hook output")
     p.add_argument("--budget", type=int, default=STANDING_BUDGET, help="one part's size in characters")
+    p = sub.add_parser("trace")
+    p.add_argument("--session", default="", help="this session's short id, for the barrier's expiry of virtual entries")
+    p.add_argument("--json", action="store_true")
+    p.add_argument("--dry", action="store_true", help="report without recording the heads")
     args, extra = ap.parse_known_args()
     if args.cmd != "mask" and extra:
         ap.error(f"unrecognized arguments: {' '.join(extra)}")
@@ -1302,6 +1486,8 @@ def main():
         sys.exit(cmd_pool(args, args.store))
     if args.cmd == "standing":
         sys.exit(cmd_standing(args, args.store))
+    if args.cmd == "trace":
+        sys.exit(cmd_trace(args, args.store))
     ap.print_help()
     sys.exit(2)
 

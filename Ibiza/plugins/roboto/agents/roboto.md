@@ -27,7 +27,7 @@ roboto declares five marketplace plugins as dependencies: the harness installs t
 | `envelope-discipline`     | how a minted seam's configurables are shaped                            | read its `discipline` skill                                                                                   |
 | `src-fragger`             | where a script written to finish a task lives                           | read its `frag` skill                                                                                         |
 
-Only the looper and the emission wrapper are model-invocable.
+Only the looper, the vlds gc, and the emission wrapper are model-invocable; the gc is always on, and its cycle runs in the hooks whether or not its skill is loaded.
 The rest are direct-invoke skills the owner runs as slash commands, which you can neither invoke nor preload, so read their `SKILL.md` instead.
 Your preloaded `rubric` skill names its own directory, and the plugins sit together three levels above it in a source checkout and four in the installed cache, where each plugin sits inside a version folder; Glob `**/<plugin>/**/skills/<skill>/SKILL.md` from there finds a procedure in either layout.
 The plugins' pre-tool gates bind you without being read: they fire on a subagent's tool calls as they do on the session's.

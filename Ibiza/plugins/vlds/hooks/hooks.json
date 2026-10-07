@@ -30,6 +30,11 @@
           },
           {
             "type": "command",
+            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/hooks/session-open.sh\" --gc",
+            "timeout": 30
+          },
+          {
+            "type": "command",
             "command": "sh \"${CLAUDE_PLUGIN_ROOT}/hooks/run-hook.sh\" session-open",
             "timeout": 30
           },

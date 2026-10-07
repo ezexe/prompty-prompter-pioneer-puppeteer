@@ -245,6 +245,113 @@ def test_clock_and_post_write():
     print("clock + post-write: green")
 
 
+TOMBSTONES = """# VLDS GC — Tombstones
+
+```yaml
+- freed: [the decision that was disposed]
+  time: [YYYY-MM-DD HH:MM]
+  cause: retraction | superseded | fixed-cause | world-drift
+  owner-words: "[the user's words]"
+  swept: [what went with it]
+```
+
+---
+"""
+
+INDEX = """# VLDS Guide — Index
+
+```yaml
+- key: [need-shape + claim-kind]
+  decision: [the rule]
+  time: [YYYY-MM-DD HH:MM]
+```
+
+---
+
+- key: integration tests
+  decision: "stub the suite — the plan goes in the reply as one fenced block, so nothing runs locally"
+  time: 2026-09-03 10:20
+
+- key: say the clock line once in every reply, at its top
+  decision: "the now: line, copied"
+  time: 2026-09-03 10:21
+"""
+
+
+def test_gc_trace():
+    root, store = seed_project()
+    ls, tomb = os.path.join(store, "local-storage.md"), os.path.join(store, "tombstones.md")
+
+    def append(path, text):
+        with open(path, "a", encoding="utf-8", newline="\n") as f:
+            f.write(text)
+
+    def ctx_of(out):
+        d = decision(out)
+        return d["additionalContext"] if d else ""
+    try:
+        with open(os.path.join(store, "index.md"), "w", encoding="utf-8", newline="\n") as f:
+            f.write(INDEX)
+        # (a) the first trace on a store records a baseline and reports nothing
+        out = run_hook("post-write", write(ls, "x", root), root)
+        assert "gc:" not in ctx_of(out), f"(a) the baseline reported:\n{out}"
+        assert os.path.exists(os.path.join(store, ".gc-heads")), "(a) no remembered set"
+        # (b) a free: the tombstone masks the fence ruling, and the index rule quoting its opening holds a handle —
+        # its pre-finalizer is owed this turn; the unrelated rule is not named
+        with open(tomb, "w", encoding="utf-8", newline="\n") as f:
+            f.write(TOMBSTONES + '\n- freed: "the plan goes in the reply as one fenced block"\n  time: 2026-10-01 09:00\n'
+                    '  cause: retraction\n  owner-words: "drop the fence rule"\n  swept: []\n')
+        ctx = ctx_of(run_hook("post-write", write(tomb, "x", root), root))
+        assert "gc: a free (tombstones.md:" in ctx and "reaches local-storage.md:" in ctx, f"(b) the reach:\n{ctx}"
+        assert "held by index.md:" in ctx and "pre-finalizer is owed this turn" in ctx, f"(b) the holder:\n{ctx}"
+        assert ctx.count("index.md:") == 1, f"(b) the unrelated rule was named:\n{ctx}"
+        # (c) nothing new since: no gc: line
+        ctx = ctx_of(run_hook("post-write", write(ls, "x", root), root))
+        assert "gc:" not in ctx, f"(c) a trace with nothing new reported:\n{ctx}"
+        # (d) the freed ruling written again after the free is a re-allocation; the same text dated before the free
+        # (an old line returned) is freed history, not reported
+        append(ls, '\n- ruling: "the plan goes in the reply as one fenced block"\n  time: 2026-10-02 11:00\n'
+                   '  owner-words: "fence it"\n  scope: durable\n  status: LIVE\n'
+                   '\n- ruling: "the plan goes in the reply as one fenced block"\n  time: 2026-08-02 11:00\n'
+                   '  owner-words: "fence it, old"\n  scope: durable\n  status: LIVE\n')
+        ctx = ctx_of(run_hook("post-write", write(ls, "x", root), root))
+        assert ctx.count("is new and masked by tombstones.md:") == 1, f"(d) the re-allocation:\n{ctx}"
+        assert "local-storage.md:29 (" in ctx, f"(d) the wrong entry named:\n{ctx}"
+        # (e) a write no post-write saw (a hand edit) is traced at the turn's close and printed at the next prompt
+        append(tomb, '\n- freed: "say the clock line once in every reply, at its top"\n  time: 2026-10-02 12:00\n  cause: superseded\n'
+                     '  owner-words: "no clock line"\n  swept: [the index rule]\n')
+        out = run_hook("turn-close", {"session_id": "trace-session", "cwd": root}, root)
+        assert "turn-close: gc: a free (tombstones.md:" in out and "no live entry holds a handle" in out, \
+            f"(e) the close's trace:\n{out}"
+        out = run_hook("prompt-open", {"session_id": "trace-session", "prompt": "next"}, root)
+        assert "- turn-close (" in out and "gc: a free" in out, f"(e) the report not printed at the next prompt:\n{out}"
+        # (f) a free whose target is not in the hot tier says so; phi.py trace --dry records nothing
+        append(tomb, '\n- freed: "a memory file outside the store that said to warn before audio tests"\n'
+                     '  time: 2026-10-02 12:10\n  cause: retraction\n  owner-words: "that gate was a hallucination"\n')
+        r = subprocess.run([sys.executable, PHI, "--store", store, "trace", "--dry"], capture_output=True, timeout=60)
+        dry = r.stdout.decode("utf-8", "replace")
+        assert "masks no hot entry" in dry, f"(f) the out-of-tier free:\n{dry}"
+        r = subprocess.run([sys.executable, PHI, "--store", store, "trace", "--json"], capture_output=True, timeout=60)
+        assert len(json.loads(r.stdout.decode("utf-8"))["findings"]) == 1, "(f) --dry recorded the heads"
+        # (g) the always-on block: its own SessionStart output, under the hook cap, registered in hooks.json
+        env = dict(os.environ, CLAUDE_PROJECT_DIR=root, CLAUDE_PLUGIN_ROOT=PLUGIN)
+        r = subprocess.run(["sh", os.path.join(PLUGIN, "hooks", "session-open.sh"), "--gc"], capture_output=True,
+                           env=env, timeout=60)
+        block = r.stdout.decode("utf-8", "replace")
+        assert block.startswith("## VLDS gc (always on)") and len(block) < 9500, \
+            f"(g) the block: {len(block)} chars"
+        with open(os.path.join(PLUGIN, "hooks", "hooks.json"), encoding="utf-8") as f:
+            hooks = json.load(f)
+        assert any(h["command"].endswith("session-open.sh\" --gc") for h in hooks["hooks"]["SessionStart"][0]["hooks"]), \
+            "(g) the block is not registered"
+        with open(os.path.join(PLUGIN, "skills", "gc", "SKILL.md"), encoding="utf-8") as f:
+            front = f.read().split("\n---\n", 1)[0]
+        assert "disable-model-invocation" not in front, "(g) the gc skill is still direct-invoke only"
+    finally:
+        shutil.rmtree(root, ignore_errors=True)
+    print("gc trace: green")
+
+
 def test_owner_voice():
     root, store = seed_project()
     try:
@@ -1210,6 +1317,7 @@ if __name__ == "__main__":
     test_pre_write()
     test_stray_scan()
     test_clock_and_post_write()
+    test_gc_trace()
     test_owner_voice()
     test_session_title()
     test_pool_mode()

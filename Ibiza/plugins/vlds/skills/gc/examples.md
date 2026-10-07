@@ -1,6 +1,6 @@
 # VLDS GC — Examples
 
-Three collections walked end to end: a use-after-free swept on retraction, a read-barrier catch on recall, and a write-barrier refusal at allocation.
+Four collections walked end to end: a use-after-free swept on retraction, a read-barrier catch on recall, a write-barrier refusal at allocation, and a pre-finalizer the write barrier's trace called for.
 The first two are drawn from a real incident pair on a real project, generalized.
 
 ## Example 1: the use-after-free — an incident laundered into doctrine
@@ -58,10 +58,35 @@ Stored as written it would be an `UNOWNED` allocation — and an avoidance rule,
 **What gets stored instead**: the incident as fact ("service X timed out N times on <date>, cost an afternoon"), plus an OPEN question for the user ("stub it by default, or fix the retry config?").
 The decision stays where it belongs; the store carries evidence, not self-issued policy.
 
+## Example 4: the pre-finalizer — Y still lists X after X died
+
+**The graph.** A ruling in `local-storage.md` says _"the plan goes in the reply as one fenced block"_.
+An index rule built on it quotes its opening as a handle: _"stub the suite — the plan goes in the reply as one fenced block, so nothing runs locally"_.
+This is Oilpan's X and Y: X (the ruling) is a client in Y's list (the index rule).
+
+**The free.** The owner retracts the fence ruling mid-task. The operator writes the tombstone.
+The post-write hook's write barrier traces the new tombstone and hands back one line:
+
+```text
+gc: a free (tombstones.md:13) reaches local-storage.md:9 — held by index.md:11: each one's pre-finalizer is owed this turn, before the reply ends — rewrite it, or sweep it into the tombstone's swept:
+```
+
+**Why this turn, and not the close.** The ruling's bytes leave the hot tier at some later turn's close, when a sweep pours it. If the index rule were left to "go away when the ruling does", the next turn would resume with Y still listing a dead X.
+The guide would hit the index rule, the rule would steer the plan's form, and the session would dereference a freed decision through a live entry. That is the use-after-free Oilpan's README warns of, met in the store.
+The read barrier masks the ruling itself, because the tombstone names it. It does not mask the index rule, because nothing names that.
+
+**The pre-finalizer.** Still in the turn of the free, the index rule is rewritten so that it no longer leans on the fence. Its own lesson stays, that the suite is stubbed in CI, while the fence citation goes.
+The tombstone's `swept:` names the index line. Only then does the reply end.
+The ruling's reclamation is left to the closes. It reads nothing but the entry it moves, and nothing waits on it.
+
+**Cost of the barrier.** One line in the post-write output, and one rewrite.
+**Cost of skipping it.** A rule that keeps re-imposing a form the owner disposed of, surviving because it never mentions the ruling by anything but a quote.
+Had the index rule paraphrased the ruling instead (_"fence the plan, per the owner"_), the trace could not have seen the edge. That is why the allocation discipline forbids a paraphrase.
+
 ## The Shape to Notice
 
-All three examples are one lesson at three phases of an object's life:
-at allocation, name the owner or store a question (Example 3);
+All four examples are one lesson at four phases of an object's life:
+at allocation, name the owner or store a question, and cite by handle (Example 3);
 at recall, trace before applying (Example 2);
-at free, sweep transitively and tombstone (Example 1).
-Liveness is provenance — and the rules that most need collecting are precisely the ones whose nature keeps them from ever being tested.
+at free, run the pre-finalizers in the turn of the free (Example 4), then sweep transitively and tombstone (Example 1).
+Liveness is reachability — and the rules that most need collecting are precisely the ones whose nature keeps them from ever being tested.

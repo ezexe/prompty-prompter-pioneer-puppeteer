@@ -1,7 +1,55 @@
 # VLDS GC — Reference
 
 The model behind the collector defined in [SKILL.md](SKILL.md).
-Load this for the generational model, the tombstone schema, the provenance-tracing procedure, and how the gc composes with the other instruments.
+Load this for Oilpan's model and what transfers from it, the generational model, the tombstone schema, the provenance-tracing procedure, and how the gc composes with the other instruments.
+
+## Oilpan — the Model the Always-On Collector Follows
+
+The source is V8's `include/cppgc/README.md`, "Oilpan: C++ Garbage Collection". Oilpan is a trace-based mark-and-sweep collector with limited compaction, built to run beside a mutator that never stops for long.
+Its key properties land as follows.
+
+| Oilpan | The gc |
+| --- | --- |
+| trace-based collection | liveness is reachability from the roots through handles, so an island that only its own members cite is unreachable, whatever its reference count |
+| incremental and concurrent marking | the hooks' barriers mark in small steps beside the turn, and the operator's pool traces the store in the background |
+| incremental and concurrent sweeping | the light sweep reclaims at every turn's close, and the judged sweep's placements finish over later closes |
+| precise on-heap layout | every hot file declares its entry shape in its own header, so a script knows where each head and field lies. That is what lets the write barrier's trace follow handles without a model |
+| conservative on-stack layout | the live turn's reasoning, which no script can read, so anything the conversation names counts as a root |
+| collection with and without the stack | mid-turn the collector reclaims nothing the turn names; at the turn's close, with the stack empty, it collects precisely |
+| non-incremental, non-concurrent compaction for selected spaces | the cold tier's merges only, under the sweep lock within one turn close; a hot file is never compacted by a script |
+
+**Threading model, read as sessions.** Oilpan heaps are thread-local: an object is allocated, accessed, and reclaimed on one thread, which lets collection run in parallel with mutators on other threads. A reference into another thread's heap, even from one on-heap object to another, goes through a cross-thread root.
+A session is the gc's thread. Its dispatch rows, inferences, and tasks are its heap, and another session reaches them only through a cross-session root: an entry promoted into a shared tier (`local-storage.md`, `data-store.md`, `index.md`). The shared tiers are not anyone's thread-local heap, which is why every write to them passes the write barrier and every read passes the read barrier. The one departure, the pour of another session's unpromoted inferences, is in [SKILL.md](SKILL.md).
+
+**Heap partitioning, read as spaces.** Oilpan puts each object in a space: a large-object space for anything over 64 KiB, custom spaces (some marked compactable), and normal page spaces bucketed by size.
+- The **normal spaces** are the hot files, bucketed by kind rather than size, one per tier, each budgeted in entries.
+- The **large-object space** is the keyspace's `blobs/`, at the same 64 KiB threshold: an entry past it, a poured dispatch record, a legacy attachment.
+- The **compactable custom space** is the cold tier, the keyspace's runs or the φ-register's segments. It is the only space any script compacts.
+
+**Precise and conservative.** Oilpan's conservative collection runs while the native stack may hold references, and anything a stack value seems to point at stays alive. That over-retention is the price of not knowing which words are pointers. The precise collection runs at the end of an event loop, when the embedder guarantees the stack is empty.
+The gc's event loop is the turn, and its embedder is the plugin's hooks. Mid-turn it reclaims nothing the conversation names. At the Stop hook it collects precisely. An owner's retraction is not the collector's free but an explicit one, and it takes effect at once, so only its reclamation waits for the close.
+
+**Atomic, incremental, concurrent.** Atomic is `/vlds:gc full`: every phase in one stop-the-world pass, the most jank and the least overhead, needing no write barrier because nothing else runs.
+Incremental is the hooks' steps between the turn's acts. Concurrent, the default and Oilpan's most common mode, moves the heavy tracing (the pool) and the heavy sweeping (the judged sweep) to the operator, off the session's context, so the mutator spends its context on the work rather than on the collector.
+
+**Marking and handles.** Oilpan marks the root set, then everything transitively reachable through each object's `Trace()`, then clears the weak handles to unreachable objects and runs their callbacks.
+To prevent use-after-free it must know every edge in the graph, so every pointer except one on the native stack is a handle (`Persistent<>`, `Member<>`, `WeakMember<>`), and a raw pointer to an on-heap object is an edge it cannot observe.
+The gc's handle is textual: the cited entry's head quoted from its opening (at least its first 32 characters, verbatim, anywhere in a field), its fact id, or the owner's words verbatim. A field whose whole value is a verbatim quote of at least 24 characters from within the head also counts. A paraphrase is the raw pointer.
+`phi.py trace` follows the head quotes in the hot tier. A fact id is followed by the keyspace, which marks a cold record freed when a tombstone names its id. The owner's words are followed by the barrier's mask.
+
+**Sweeping, pre-finalizers first.** Oilpan invokes pre-finalizers first, while nothing has been reclaimed, and each may touch any other object. Destructors run afterwards, in no order, touching nothing else, and the mutator resumes before all of them have run.
+Its README gives the example of X, a client in Y's list, whose destructor is the only thing removing it. Y can walk the list after the mutator resumes and call into a dead X, so X must leave in a pre-finalizer.
+In the gc, a free's pre-finalizers are the rewrites and sweeps of every live holder of a handle to what was freed, and they run in the turn of the free. The reclamation, the pour that moves the dead entry's bytes to the cold tier, is the destructor. It runs at a later close, reads only the entry it moves, and is never what detaches a reference.
+
+**Its two notes, transferred whole.**
+- *Weak processing runs only when the holder outlives the target.* If both die together, nothing clears the weak edge, and code that assumes it was cleared is wrong. A ledger event citing a freed rule may still read as written, and the read barrier, not its clearing, is what keeps it from steering.
+- *Pre-finalizers are heavy.* Every sweep scans all of them, so they stay off frequently allocated objects. The gc owes them only for entries that get cited (rulings, rules, claims, tombstones), never for dispatch rows, logger lines, or a turn's inferences.
+
+**What does not transfer.**
+- *Reclamation for reuse.* Oilpan frees memory so it can be allocated again. The gc frees steering: a dead entry stops shaping decisions, and its bytes move to the cold tier, where nothing freed is ever removed. What the gc reclaims for reuse is the next session's recall and context, not storage.
+- *Reclamation on the allocating thread.* The pour of another session's unpromoted inferences is the deliberate exception, explained in [SKILL.md](SKILL.md).
+- *A program-owned heap.* The owner edits the store by hand, outside every barrier, and a hand edit is a ruling. Oilpan has no mutator the collector cannot see. The gc's answer is the trace at the turn's close, which catches whatever no post-write saw.
+- *Exact edges.* Oilpan's graph is exact; the gc's handle test is a text match. It finds every citation written as a handle and no citation written as a paraphrase, which is why the write barrier's allocation discipline forbids paraphrase rather than trying to detect it.
 
 ## The Generational Model
 
@@ -71,6 +119,8 @@ A stale claim carried forward merely misleads; a handled message carried forward
 Per-item tracing has a blind spot the literature already named: **reference counting cannot collect a cycle.**
 A cluster whose every inbound reference comes from another member keeps all of them "referenced," so each one audited alone passes — and the procedure above audits them one at a time.
 Only asking whether the _cluster_ reaches a live root, rather than whether an item has a referrer, sees the island float free.
+That is marking's question, asked from the roots, and it is why the always-on collector traces rather than counts: Oilpan collects an unreachable cycle as a matter of course, because its trace never arrives there.
+The gc marks such an island `UNOWNED` and surfaces it, because the sweep of doctrine nobody ruled on is the owner's call. The signals below count toward where to look.
 
 Applied to stored doctrine, that island is a rule patching the previous rule's gap, patched in turn by the next: every link locally justified, the whole anchored to nothing anyone asked for.
 It is the one failure the other marks structurally cannot catch, because each member really does have an owner — just a local one.
@@ -98,7 +148,7 @@ The audit is an allocation like any other; if its own footprint grows across pas
 
 The store's compression and session-start recall are modeled on the fib/phi-binary machinery of `zeckendorf-prune`: the hot files are an unnormalized φ-register's pour cells, `store/arc/` is the normalized register, and the gc's compaction is the codec's normalization sweep.
 The mechanical companion is `scripts/phi.py` (check / verify-merge / verify-pour / lock / rebuild / restore) — it computes and verifies; every judgment stays here, with the gc, in-session. The keyspace below replaces this machinery stage by stage.
-The plugin's hooks (`hooks/vlds_hooks.py`) are its mechanical peers: the SessionStart hook hands the recall — and every store operation — to the operator subagent (or injects the recall, one index key away), the prompt hook stamps dispatch rows (naming the session by its short id and its chat title), writes `state: FRESH` when no earlier row resembles the message and names the candidate when one does, pours `dispatch.md` whole-file at a new session's first prompt, the copy named after the session whose rows it holds, and prints the last turn close's report, the pre-write hook asks before a store-named file is written outside a `.claude/vlds/` directory or a persisted entry carries a placeholder `time:` or one later than the latest `now:` by more than a minute, the post-write hook runs `check` after any store write or store-named write, and the Stop hook runs the light sweep (`scripts/normalize.py --light`); every hook output carries the clock (`now:`) the model copies its stamps from.
+The plugin's hooks (`hooks/vlds_hooks.py`) are its mechanical peers: the SessionStart hook hands the recall — and every store operation — to the operator subagent (or injects the recall, one index key away), the prompt hook stamps dispatch rows (naming the session by its short id and its chat title), writes `state: FRESH` when no earlier row resembles the message and names the candidate when one does, pours `dispatch.md` whole-file at a new session's first prompt, the copy named after the session whose rows it holds, and prints the last turn close's report, the pre-write hook asks before a store-named file is written outside a `.claude/vlds/` directory or a persisted entry carries a placeholder `time:` or one later than the latest `now:` by more than a minute, the post-write hook runs `check` after any store write or store-named write, and the Stop hook runs the light sweep (`scripts/normalize.py --light`); the post-write and Stop hooks also run the write barrier's trace (`phi.py trace`); every hook output carries the clock (`now:`) the model copies its stamps from.
 The machinery governs **structure only** — what is hot, where history lives, how it parses — never the content of entries; that boundary is the source project's own measured lesson, transferred whole.
 
 **Conventions, pinned once.**
@@ -213,7 +263,7 @@ Its coverage is structural, as the φ check's was: the keyspace makes the cold t
 - **Gate** — the gate stamps a claim's status now; the gc governs how long a stamp stays good. A recalled `CONFIRMED` whose verification has aged re-enters as `PENDING`: verification decays, and the gc's read barrier is where the decay is noticed. The gate's `source_type: training` is the gc's Gen 2, met at claim scope.
 - **Guide** — the guide's `hit` is a read from the rule heap, so every hit passes the gc's read barrier before it is applied: a hit on a freed rule is exactly a use-after-free with good intentions. The guide's ledger records the liveness call beside the reuse it justified.
 - **Inspector** — a contested liveness call (the trace is ambiguous, or the sweep is consequential) escalates to the inspector's independent eyes before anything is deleted.
-- **Looper** — the looper carries the gc's triggers (the instruments' own `when_to_use` is inert): it runs the dispatch barrier before the loop opens, the read barrier at intake on whatever stored state the request leans on, and the transitive sweep the moment a turn contains a retraction.
+- **Looper** — the gc is always on, so the looper does not carry its triggers. Its cycle runs in the hooks and the operator whether or not the loop opens. The looper reads what the cycle already marked: the dispatch barrier's state before the loop opens, the read barrier's marks on whatever stored state the request leans on, and any `gc:` line the write barrier raised. It applies the gc's procedure inline only where a judgment is owed, such as the transitive sweep and its pre-finalizers the moment a turn contains a retraction.
 
 ## The Honest Limit
 
