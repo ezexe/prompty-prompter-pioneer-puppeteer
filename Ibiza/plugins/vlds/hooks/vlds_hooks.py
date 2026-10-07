@@ -99,7 +99,14 @@ whatever the console codepage says):
                           whose `[STRAY]` line names the file. The full verdict is handed back when it differs
                           from the last one this session saw; an unchanged verdict comes back as one line, so a
                           turn of store writes does not re-paste the same debt list into the context each time.
-  turn-close              Stop: the light normalize sweep, mechanical — scripts/normalize.py --light under the
+                          Then the always-on collector's write barrier — `phi.py trace`: every hot entry new since
+                          the last trace is traced against the tombstone masks, and each finding is one `gc:` line
+                          — a new entry a tombstone masks (freed garbage allocated again), or a new tombstone's
+                          reach and the live entries holding a handle to what it freed (their pre-finalizers owed
+                          this turn). Nothing found: no line.
+  turn-close              Stop: first the always-on collector's finalization — the write barrier's trace once
+                          more, for any write no post-write saw (a hand edit, a script outside a tool call) — then
+                          the light normalize sweep, mechanical — scripts/normalize.py --light under the
                           sweep lock: attach a hook-poured dispatch record where a live segment has room, expire
                           and pour the virtual entries another session minted, pour the logger's oldest past its
                           budget — every step through phi.py's gates — then leave its one-line report in
@@ -216,6 +223,31 @@ def idb_module():
         return idb
     except Exception:  # noqa: BLE001 — a hook degrades, never raises
         return None
+
+
+def phi_module():
+    """scripts/phi.py, the store's mechanical companion — None when it cannot be imported."""
+    try:
+        scripts = os.path.join(plugin_root(), "scripts")
+        if scripts not in sys.path:
+            sys.path.insert(0, scripts)
+        import phi  # noqa: E402
+        return phi
+    except Exception:  # noqa: BLE001 — a hook degrades, never raises
+        return None
+
+
+def gc_trace_lines(store, sid):
+    """The write barrier's trace (`phi.py trace`) — one `gc:` line per finding, [] when nothing was found or the trace
+    could not run (a failure is one line, never a raise): what the always-on collector owes the turn it runs in."""
+    m = phi_module()
+    if m is None or not os.path.isdir(store):
+        return []
+    try:
+        findings, _baseline = m.gc_trace(store, sid)
+        return m.trace_lines(findings)
+    except Exception as e:  # noqa: BLE001
+        return [f"gc: the write barrier's trace could not run — {type(e).__name__}: {e}"]
 
 
 def store_engine(store):
@@ -1644,6 +1676,9 @@ def cmd_post_write(payload, store):
     now = datetime.datetime.now()
     sid = str(payload.get("session_id") or "unknown")
     text = f"{now_line(now)}\nVLDS check after the write to {what}:\n{check_delta(store, sid, check_summary(store))}"
+    traced = gc_trace_lines(store, sid)
+    if traced:
+        text += "\n" + "\n".join(traced)
     pool = os.path.join(store, POOL_FILE)
     just_written = os.path.exists(pool) and (what == POOL_FILE or (what.startswith("the store, via") and
                                                                   time.time() - os.path.getmtime(pool) < 15))
@@ -1744,7 +1779,7 @@ def cmd_turn_close(payload, store):
     def left():
         return deadline - time.monotonic()
     engine, _setting, _state = store_engine(store)
-    reports = []
+    reports = [f"turn-close: {l}" for l in gc_trace_lines(store, sid)]   # finalization: what no post-write saw
 
     def light():
         return run_idb(store, ["light", "--session", sid, "--now", stamp, "--budget-s", str(max(1, int(left()) - 10))],

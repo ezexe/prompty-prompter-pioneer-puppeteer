@@ -17,7 +17,15 @@
 # prove a session began; the pour of dispatch.md belongs to the UserPromptSubmit hook, which fires only when a
 # real turn exists and keys on the store's .sessions ledger to tell a first prompt from a resumed, forked, or
 # compacted conversation's.
+#
+# `--gc` prints hooks/gc-contract.md instead, whole: the always-on collector's own block, in an output of its own so
+# the memory override's parts keep their cut, and short enough that one output holds it under the cap.
 set -u
+
+if [ "${1:-}" = "--gc" ]; then
+  cat "${CLAUDE_PLUGIN_ROOT}/hooks/gc-contract.md"
+  exit 0
+fi
 
 seed="${CLAUDE_PLUGIN_ROOT}/hooks/dispatch-seed.md"
 briefs_seed="${CLAUDE_PLUGIN_ROOT}/hooks/briefs-seed.md"

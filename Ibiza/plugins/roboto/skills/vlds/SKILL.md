@@ -34,8 +34,9 @@ It is the machinery behind the guiding line of the `identity` skill — _being u
 
 ## Reaching the Instruments
 
-The gate, gc, guide and inspector are direct-invoke skills: the owner runs them as slash commands, and the model can neither invoke them through the Skill tool nor preload them into a subagent.
-The looper is the plugin's one model-invocable skill, and it applies the other four by reading their procedures rather than invoking them.
+The gate, guide and inspector are direct-invoke skills: the owner runs them as slash commands, and the model can neither invoke them through the Skill tool nor preload them into a subagent.
+The gc is always on: its cycle runs in the plugin's hooks and its operator every turn, and its skill is model-invocable so that a phase reaching a judgment can load the doctrine.
+The looper is the plugin's other model-invocable skill, and it applies the instruments by reading their procedures rather than invoking them.
 Roboto does the same, reading the procedures from the vlds plugin's directory.
 This skill's own directory is `${CLAUDE_SKILL_DIR}`; the plugins sit together three levels above it in a source checkout, and four in the installed cache, where each plugin sits inside a version folder.
 There each instrument is `vlds/…/skills/<instrument>/SKILL.md`, with a `reference.md` beside it, and Glob `**/vlds/**/skills/gate/SKILL.md` from the plugins' directory finds the gate in either layout.
