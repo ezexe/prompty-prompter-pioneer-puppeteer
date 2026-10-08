@@ -58,6 +58,16 @@ pre { margin: 0; background: var(--code-bg); border-radius: 6px; padding: 12px; 
 .round li:not(.got)::before { content: "– "; }
 .round .note { display: block; margin-left: 1.2em; font-size: 0.85rem; color: var(--muted); }
 .waiting { color: var(--muted); }
+.round ul.stored { margin: 4px 0 4px 1.2em; gap: 4px; }
+.round ul.stored li::before { content: none; }
+.round ul.stored li { display: grid; color: var(--fg); }
+.round ul.stored a { font-family: var(--font-mono); font-size: 0.8rem; color: var(--accent); text-decoration: none; }
+.round ul.stored a:hover { text-decoration: underline; }
+.round ul.stored a { word-break: break-all; }
+.round ul.stored a.vscode { font-family: var(--font-body); font-size: 0.75rem; color: var(--muted); }
+.round ul.stored .head { font-size: 0.8rem; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.round ul.stored .gone { font-size: 0.8rem; color: var(--muted); font-style: italic; }
+.stored-label { margin: 8px 0 0; font-size: 0.8rem; color: var(--muted); }
 </style>
 </head>
 <body>
@@ -104,6 +114,35 @@ function el(tag, cls, text) {
   if (text != null) e.textContent = text;
   return e;
 }
+// the VLDS store entries a finished act wrote, each a link that opens its file at its line in VS Code; the
+// builder re-finds every entry by its head at each build, so a pour that moved it moves the link with it
+function storedList(parent, items) {
+  if (!items.length) return;
+  const ul = el("ul", "stored");
+  for (const s of items) {
+    const li = el("li");
+    if (s.line && s.path) {
+      // the link is the entry's full local path; a file: URL carries no line, so the line rides as a fragment
+      // and in the text, and a second link opens the same file at that line in VS Code
+      const full = s.path.replace(/\//g, "\\");
+      const a = el("a", "", full + ":" + s.line);
+      a.href = "file:///" + s.path.replace(/\\/g, "/") + "#L" + s.line;
+      a.title = s.head;
+      const vs = el("a", "vscode", "open at line " + s.line + " in VS Code");
+      vs.href = "vscode://file/" + s.path.replace(/\\/g, "/") + ":" + s.line;
+      for (const link of [a, vs]) {
+        link.addEventListener("click", (e) => { if (typeof openLink === "function") { e.preventDefault(); openLink(link.href); } });
+      }
+      li.appendChild(a);
+      li.appendChild(vs);
+    } else {
+      li.appendChild(el("span", "gone", s.file + " — no longer found"));
+    }
+    li.appendChild(el("span", "head", s.head.replace(/^- /, "")));
+    ul.appendChild(li);
+  }
+  parent.appendChild(ul);
+}
 function renderLog() {
   const done = ROUNDS.filter((r) => r !== LIVE);
   $("log-wrap").hidden = !done.length;
@@ -115,12 +154,19 @@ function renderLog() {
     head.appendChild(el("span", "when", [r.at, state].filter(Boolean).join(" · ")));
     card.appendChild(head);
     const ul = el("ul");
+    const stored = r.stored || [];
     for (const a of r.acts) {
       const li = el("li", r.picked.includes(a.id) ? "got" : "", a.title);
       if (r.notes && r.notes[a.id]) li.appendChild(el("span", "note", r.notes[a.id]));
+      storedList(li, stored.filter((s) => s.act === a.id));
       ul.appendChild(li);
     }
     card.appendChild(ul);
+    const shared = stored.filter((s) => !s.act);
+    if (shared.length) {
+      card.appendChild(el("p", "stored-label", "Store entries this closing's turn wrote"));
+      storedList(card, shared);
+    }
     $("log").appendChild(card);
   }
 }

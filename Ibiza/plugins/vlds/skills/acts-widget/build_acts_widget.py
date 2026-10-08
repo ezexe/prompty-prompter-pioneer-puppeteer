@@ -7,6 +7,8 @@ Usage:
                             [--round N] [--note ID=TEXT ...] [--now TIME]
   build_acts_widget.py show (--page PAGE | --session ID [--root DIR])
   build_acts_widget.py widget (--page PAGE | --session ID [--root DIR]) [--out FILE]
+  build_acts_widget.py stored (--page PAGE | --session ID [--root DIR]) --store DIR
+                              (--record FILE | --entry FILE:HEAD ...) [--round N] [--act ID]
 
 ACTS.json is one closing:
   {"title": "...", "repo": "owner/name", "branch": "...",
@@ -22,6 +24,7 @@ append or pick, and the page is rewritten whole. It inlines assemble.js, so the 
 same function the test runs.
 """
 import argparse
+import glob
 import html
 import json
 import os
@@ -103,10 +106,77 @@ def record_pick(state, ids=None, round_n=None, notes=None, skipped=False, now=No
     return rnd
 
 
+def parse_record(path):
+    """[(store file, head line)] for every entry a turn record (the notebook file scripts/record.py applies) holds:
+    a `## <file>` heading opens a file's blocks, and each `- key: …` line at column zero is an entry's head."""
+    out, fname = [], None
+    with open(path, encoding="utf-8") as f:
+        for line in f:
+            line = line.rstrip("\n")
+            if line.startswith("## "):
+                fname = line[3:].strip()
+            elif fname and line.startswith("- ") and ":" in line:
+                out.append((fname, line.rstrip()))
+    return out
+
+
+def locate(store, fname, head):
+    """(absolute path, store-relative path, line number) of an entry's head, looked up in its hot file first and
+    then in the keyspace runs it is poured into (newest first), since a pour moves an entry and its line; None
+    when it is found nowhere."""
+    stem = os.path.splitext(fname)[0]
+    runs = sorted(glob.glob(os.path.join(store, "idb", "runs", f"{stem}-*.md")), reverse=True)
+    for path in [os.path.join(store, fname)] + runs:
+        if not os.path.exists(path):
+            continue
+        with open(path, encoding="utf-8", errors="replace") as f:
+            lines = [l.rstrip() for l in f]
+        hits = [i for i, l in enumerate(lines) if l == head]
+        if hits:
+            return os.path.abspath(path), os.path.relpath(path, store).replace(os.sep, "/"), hits[-1] + 1
+    return None
+
+
+def record_stored(state, store, entries, round_n=None, act=None):
+    """Attach the store entries a finished act's turn wrote to that act — or to its round when the round picked
+    several acts and the turn did not say which one wrote them. Entries are kept by file and head, never by line:
+    every build re-finds them, so a link follows an entry into the run a pour moved it to."""
+    answered = [r for r in state["rounds"] if r.get("picked")]
+    if not answered:
+        raise ValueError("no answered round to attach store entries to")
+    rnd = answered[-1] if round_n is None else next((r for r in answered if r["n"] == round_n), None)
+    if rnd is None:
+        raise ValueError(f"round {round_n} is not an answered round")
+    if act is not None and act not in rnd["picked"]:
+        raise ValueError(f"round {rnd['n']}: {act!r} was not picked; picked: {', '.join(rnd['picked'])}")
+    target = act or (rnd["picked"][0] if len(rnd["picked"]) == 1 else None)
+    state["store"] = os.path.abspath(store)
+    stored = rnd.setdefault("stored", [])
+    added = 0
+    # an entry is its file, head and act; the location fields a build fills in are not part of its identity
+    have = {(i["file"], i["head"], i["act"]) for i in stored}
+    for fname, head in entries:
+        if (fname, head, target) not in have:
+            stored.append({"file": fname, "head": head, "act": target})
+            have.add((fname, head, target))
+            added += 1
+    return rnd, added
+
+
+def resolve_stored(state):
+    """Fill each stored entry's current location (path, rel, line) from the store, or mark it not found."""
+    store = state.get("store")
+    for rnd in state["rounds"]:
+        for item in rnd.get("stored", []):
+            loc = locate(store, item["file"], item["head"]) if store else None
+            item["path"], item["rel"], item["line"] = loc if loc else (None, item["file"], None)
+
+
 def build(state):
     """The whole page for a state; its title is the latest closing's."""
     if not state["rounds"]:
         raise ValueError("a page needs at least one round")
+    resolve_stored(state)
     with open(os.path.join(HERE, "template.html"), encoding="utf-8") as f:
         page = f.read()
     with open(os.path.join(HERE, "assemble.js"), encoding="utf-8") as f:
@@ -170,8 +240,14 @@ def summary(state):
 def main(argv):
     p = argparse.ArgumentParser(prog="build_acts_widget.py")
     sub = p.add_subparsers(dest="cmd", required=True)
-    for name in ("append", "pick", "show", "widget"):
+    for name in ("append", "pick", "show", "widget", "stored"):
         s = sub.add_parser(name)
+        if name == "stored":
+            s.add_argument("--store", required=True, help="the VLDS store, <working dir>/.claude/vlds")
+            s.add_argument("--record", help="the turn record scripts/record.py applied")
+            s.add_argument("--entry", action="append", default=[], help="FILE:HEAD, one entry by its head line")
+            s.add_argument("--round", type=int)
+            s.add_argument("--act")
         if name == "widget":
             s.add_argument("--out", help="write the fragment here instead of stdout")
         if name == "append":
@@ -194,6 +270,26 @@ def main(argv):
             if state is None:
                 raise ValueError(f"{path}: no page yet")
             print(f"{path}\n{summary(state)}")
+            return 0
+        if args.cmd == "stored":
+            if state is None:
+                raise ValueError(f"{path}: no page yet — append a closing first")
+            entries = parse_record(args.record) if args.record else []
+            for e in args.entry:
+                fname, sep, head = e.partition(":")
+                if not sep or not head.strip():
+                    raise ValueError(f"--entry {e!r}: expected FILE:HEAD")
+                entries.append((fname.strip(), head.strip()))
+            if not entries:
+                raise ValueError("no entries: pass --record or --entry")
+            rnd, added = record_stored(state, args.store, entries, args.round, args.act)
+            write_page(path, state)
+            found = [i for i in rnd["stored"] if i.get("line")]
+            print(f"attached {added} store entr{'y' if added == 1 else 'ies'} to round {rnd['n']} in {path}; "
+                  f"{len(found)} of {len(rnd['stored'])} located")
+            for i in rnd["stored"]:
+                where = f"{i['rel']}:{i['line']}" if i.get("line") else f"{i['file']} (not found)"
+                print(f"  {where}  {i['head'][:70]}")
             return 0
         if args.cmd == "widget":
             if state is None:

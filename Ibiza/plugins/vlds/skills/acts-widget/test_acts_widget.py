@@ -121,7 +121,14 @@ def test_page_runs():
     state = fresh()
     b.record_pick(state, ["commit"])
     b.append_round(state, json.loads(json.dumps(NEXT)))
-    page = b.build(state)
+    with tempfile.TemporaryDirectory() as store:
+        with open(os.path.join(store, "ledger.md"), "w", encoding="utf-8") as f:
+            f.write("# Ledger\n- event: \"committed\"\n")
+        b.record_stored(state, store, [("ledger.md", '- event: "committed"'), ("index.md", "- key: gone")])
+        page = b.build(state)
+        full = os.path.join(os.path.abspath(store), "ledger.md")
+        want = [[full.replace("/", "\\") + ":2", "file:///" + full.replace(os.sep, "/") + "#L2", '- event: "committed"'],
+                ["open at line 2 in VS Code", "vscode://file/" + full.replace(os.sep, "/") + ":2", None]]
     scripts = page.split("<script")
     state_js = scripts[1].split(">", 1)[1].split("</script>")[0]
     main_js = scripts[2].split(">", 1)[1].split("</script>")[0]
@@ -135,7 +142,8 @@ function mk(tag){const e={tagName:tag,children:[],hidden:false,disabled:false,cl
   addEventListener(t,f){(this._on=this._on||{})[t]=f;},scrollIntoView(){},setAttribute(){},after(){},
   select(){global.__sel=this.value;},querySelector(){return mk('q');}};return e;}
 global.document={getElementById:(id)=>id==='acts-state'?{textContent:STATE_TEXT}:(els[id]=els[id]||mk(id)),
-  createElement:mk,createRange:()=>({selectNodeContents(){}}),body:mk('body'),
+  createElement:(t)=>{const e=mk(t);if(t==='a')(global.__links=global.__links||[]).push(e);return e;},
+  createRange:()=>({selectNodeContents(){}}),body:mk('body'),
   execCommand:(c)=>{if(c!=='copy')return false;if(EXEC_OK)seen.copy=global.__sel;return EXEC_OK;}};
 global.getSelection=()=>({removeAllRanges(){},addRange(){}});global.navigator={};
 els.send=Object.assign(mk('send'),{hidden:true});
@@ -144,7 +152,8 @@ if (SEND) global.sendPrompt=(t)=>{seen.sent=t;};
     probe = (";picked.add('tag');render();els.copy._on.click();if(SEND)els.send._on.click();"
              "process.stdout.write(JSON.stringify({log:els.log.children.length,acts:els.acts.children.length,"
              "label:els['acts-label'].textContent,panesHidden:document.getElementById('panes').hidden,prompt:current(),"
-             "sendHidden:els.send.hidden,status:els.status.textContent,seen}))")
+             "sendHidden:els.send.hidden,status:els.status.textContent,seen,"
+             "links:(global.__links||[]).map((a)=>[a.textContent,a.href,a.title])}))")
 
     def run(send, exec_ok):
         js = ("const STATE_TEXT=" + json.dumps(state_js) + ";const SEND=" + json.dumps(send) +
@@ -156,6 +165,7 @@ if (SEND) global.sendPrompt=(t)=>{seen.sent=t;};
     r = run(False, True)
     assert r["log"] == 1 and r["acts"] == 1 and r["label"] == "Closing 2 · pending acts" and r["panesHidden"] is False, r
     assert "### Act 1 of 1: Tag it" in r["prompt"]
+    assert r["links"] == want, r["links"]
     assert r["seen"]["copy"] == r["prompt"], "the Copy click did not copy the prompt itself"
     assert r["status"].startswith("Copied."), r["status"]
     assert r["sendHidden"] is True, "Send showed where there is no sendPrompt"
@@ -194,6 +204,53 @@ def test_widget_fragment():
         assert "briefs" in str(e)
     else:
         raise AssertionError("a briefs list was accepted")
+
+
+def test_stored_entries():
+    """A finished act's store entries are attached from the turn record, found at their line, and followed into
+    the keyspace run a pour moves them to."""
+    with tempfile.TemporaryDirectory() as root:
+        store = os.path.join(root, "vlds")
+        os.makedirs(os.path.join(store, "idb", "runs"))
+        head = '- claim: "the fix is committed as abc1234"'
+        with open(os.path.join(store, "data-store.md"), "w", encoding="utf-8") as f:
+            f.write("# Data store\n\nheader prose\n\n" + head + "\n  time: 2026-10-08 19:20\n")
+        rec = os.path.join(root, "record.md")
+        with open(rec, "w", encoding="utf-8") as f:
+            f.write("## data-store.md\n" + head + "\n  time: 2026-10-08 19:20\n\n## ledger.md\n- correction: \"gone\"\n")
+        assert b.parse_record(rec) == [("data-store.md", head), ("ledger.md", '- correction: "gone"')]
+
+        acts = os.path.join(root, "a.json")
+        with open(acts, "w", encoding="utf-8") as f:
+            json.dump(SAMPLE, f)
+        run = lambda *a: b.main(["x", *a, "--session", "s1", "--root", root])  # noqa: E731
+        assert run("append", acts) == 0
+        assert run("stored", "--store", store, "--record", rec) == 1, "entries were attached to an unanswered round"
+        assert run("pick", "--acts", "commit,push") == 0
+        assert run("stored", "--store", store, "--record", rec, "--act", "pr") == 1, "an unpicked act took entries"
+        assert run("stored", "--store", store, "--record", rec, "--act", "commit") == 0
+        assert run("stored", "--store", store, "--record", rec, "--act", "commit") == 0, "a re-run failed"
+        page = os.path.join(root, ".claude", "scratchpad", "acts-widget", "s1.html")
+        rnd = b.load_state(page)["rounds"][0]
+        assert len(rnd["stored"]) == 2, "a re-run attached the same entries twice"
+        claim, gone = rnd["stored"]
+        assert claim["act"] == "commit" and claim["rel"] == "data-store.md" and claim["line"] == 5, claim
+        assert claim["path"].endswith("data-store.md") and gone["line"] is None
+
+        # a pour moves the entry into a run; the next build finds it there
+        os.replace(os.path.join(store, "data-store.md"), os.path.join(store, "idb", "runs", "data-store-000001.md"))
+        assert run("stored", "--store", store, "--entry", "data-store.md:" + head, "--act", "push") == 0
+        rnd = b.load_state(page)["rounds"][0]
+        assert rnd["stored"][0]["rel"] == "idb/runs/data-store-000001.md" and rnd["stored"][0]["line"] == 5
+
+        state = b.load_state(page)
+        b.append_round(state, json.loads(json.dumps(NEXT)))
+        assert b.record_stored(state, store, [("x.md", "- a: b")])[0]["n"] == 1, "the latest answered round"
+        many = b.new_state()
+        b.append_round(many, json.loads(json.dumps(SAMPLE)))
+        b.record_pick(many, ["commit", "push"])
+        assert b.record_stored(many, store, [("x.md", "- a: b")])[0]["stored"][0]["act"] is None, \
+            "entries of a several-act round were pinned to one act unasked"
 
 
 def test_hook_reads_acts_page():

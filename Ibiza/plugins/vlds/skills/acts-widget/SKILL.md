@@ -48,6 +48,18 @@ python "${CLAUDE_PLUGIN_ROOT}/skills/acts-widget/build_acts_widget.py" pick --se
 Then run exactly the picked acts, in the order the prompt lists them, and report as its "How to report" section says.
 A message that answers the closing some other way — a skip, a typed reply — is recorded with `pick --skipped`, so the round does not stay open.
 
+## After the close of a turn that ran picked acts
+
+When `scripts/record.py` has applied the turn's record, attach what it wrote to the acts that wrote it, so the page's log lists each finished act's VLDS store entries as links that open the store file at that entry's line in VS Code:
+
+```bash
+python "${CLAUDE_PLUGIN_ROOT}/skills/acts-widget/build_acts_widget.py" stored --session <short id> --store <working dir>/.claude/vlds --record <the turn record> --act ID
+```
+
+Leave `--act` off when the round picked several acts and the record's entries are the turn's as a whole: they are listed under the closing instead of under one act; a round with one picked act takes them under that act on its own.
+`--entry FILE:HEAD` attaches an entry the record did not carry, by its head line.
+The page keeps each entry by its file and head, never by its line: every build finds it again — in its hot file, or in the keyspace run a pour moved it to — so a link always points at where the entry is now, and an entry found nowhere is shown as no longer found.
+
 `show --session <short id>` prints the rounds and their state without touching the page.
 
 ## Files
