@@ -6,15 +6,18 @@ Usage:
   build_acts_widget.py pick (--page PAGE | --session ID [--root DIR]) (--acts ID,ID | --skipped)
                             [--round N] [--note ID=TEXT ...] [--now TIME]
   build_acts_widget.py show (--page PAGE | --session ID [--root DIR])
+  build_acts_widget.py widget (--page PAGE | --session ID [--root DIR]) [--out FILE]
 
 ACTS.json is one closing:
   {"title": "...", "repo": "owner/name", "branch": "...",
    "acts": [{"id": "...", "title": "...", "summary": "...", "goal": "...",
-             "files": ["..."], "constraints": ["..."], "done": "...", "recommended": true}]}
+             "files": ["..."], "constraints": ["..."], "done": "...", "recommended": true,
+             "briefs": {"changes": "...", "scope": "..."}}]}
 
 Every act needs id, title and goal; ids are unique within a round. --session alone puts the page at
 <root>/.claude/scratchpad/acts-widget/<session>.html (root defaults to the working directory), so a session
-recycles one page. The page is its own state: the rounds live in a JSON block inside it, read back on every
+recycles one page. `widget` prints that page as a chat widget's code, for show_widget, where its Send button posts
+the assembled prompt as the next message. The page is its own state: the rounds live in a JSON block inside it, read back on every
 append or pick, and the page is rewritten whole. It inlines assemble.js, so the prompt it shows is built by the
 same function the test runs.
 """
@@ -45,6 +48,9 @@ def validate(data):
         for key in ("files", "constraints"):
             if not isinstance(act.get(key, []), list):
                 raise ValueError(f"acts[{i}].{key}: a list is required")
+        briefs = act.get("briefs", {})
+        if not isinstance(briefs, dict) or not all(isinstance(v, str) for v in briefs.values()):
+            raise ValueError(f"acts[{i}].briefs: a {{label: text}} object is required")
 
 
 def new_state(session=None):
@@ -117,6 +123,21 @@ def build(state):
     return page
 
 
+FRAGMENT_DROP_RE = re.compile(r"<!doctype[^>]*>|</?html[^>]*>|</?head>|<meta[^>]*>|<title>.*?</title>|</?body>", re.I | re.S)
+
+
+def fragment(state):
+    """The page as a chat widget's code: no document skeleton (the widget host supplies its own), the body's
+    rules scoped to a wrapper with a transparent background, the rest — the state block, the scripts — as is.
+    In the widget frame the host defines sendPrompt, so the page's Send button shows and posts the prompt."""
+    page = build(state)
+    page = page.replace("\nbody {", "\n.acts-page {", 1)
+    page = page.replace("background: var(--bg); color: var(--fg);", "background: transparent; color: var(--fg);", 1)
+    page = FRAGMENT_DROP_RE.sub("", page)
+    style_end = page.index("</style>") + len("</style>")
+    return (page[:style_end].strip() + '\n<div class="acts-page">\n' + page[style_end:].strip() + "\n</div>\n")
+
+
 def write_page(page_path, state):
     os.makedirs(os.path.dirname(os.path.abspath(page_path)), exist_ok=True)
     tmp = page_path + ".tmp"
@@ -149,14 +170,16 @@ def summary(state):
 def main(argv):
     p = argparse.ArgumentParser(prog="build_acts_widget.py")
     sub = p.add_subparsers(dest="cmd", required=True)
-    for name in ("append", "pick", "show"):
+    for name in ("append", "pick", "show", "widget"):
         s = sub.add_parser(name)
+        if name == "widget":
+            s.add_argument("--out", help="write the fragment here instead of stdout")
         if name == "append":
             s.add_argument("acts_json")
         s.add_argument("--page")
         s.add_argument("--session")
         s.add_argument("--root")
-        if name != "show":
+        if name in ("append", "pick"):
             s.add_argument("--now")
         if name == "pick":
             s.add_argument("--acts", default="")
@@ -171,6 +194,19 @@ def main(argv):
             if state is None:
                 raise ValueError(f"{path}: no page yet")
             print(f"{path}\n{summary(state)}")
+            return 0
+        if args.cmd == "widget":
+            if state is None:
+                raise ValueError(f"{path}: no page yet — append a closing first")
+            code = fragment(state)
+            if args.out:
+                os.makedirs(os.path.dirname(os.path.abspath(args.out)), exist_ok=True)
+                with open(args.out, "w", encoding="utf-8", newline="\n") as f:
+                    f.write(code)
+                print(f"wrote the widget fragment of {path} to {args.out} ({len(code):,} chars)")
+            else:
+                sys.stdout.reconfigure(encoding="utf-8")
+                sys.stdout.write(code)
             return 0
         if args.cmd == "append":
             with open(args.acts_json, encoding="utf-8") as f:

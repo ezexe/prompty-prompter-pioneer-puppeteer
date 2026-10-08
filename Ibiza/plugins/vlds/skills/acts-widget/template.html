@@ -146,6 +146,13 @@ function render() {
     card.querySelector("label").htmlFor = cb.id;
     card.querySelector(".act-title").textContent = a.title;
     card.querySelector(".act-sum").textContent = a.summary || "";
+    // the standing brief labels (changes:, scope:, …) the owner reads before picking — one line each
+    let at = card.querySelector(".act-sum");
+    for (const [k, v] of Object.entries(a.briefs || {})) {
+      const line = el("span", "act-sum act-brief", k + ": " + v);
+      line.style.display = "block";
+      at.after(line); at = line;
+    }
     const ta = card.querySelector("textarea");
     ta.id = "note-" + a.id; ta.hidden = !on; ta.value = notes[a.id] || "";
     ta.addEventListener("input", () => { notes[a.id] = ta.value; show(); });

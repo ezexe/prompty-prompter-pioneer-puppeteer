@@ -162,6 +162,11 @@ PICKER_TOOL_RE = re.compile(r"^(AskUserQuestion|mcp__[A-Za-z0-9_-]+__show_widget
 # the elicitation shell's own submit line ("<Title> details — Label: value · Label: value") and its skip
 SUBMIT_RE = re.compile(r"^(.{1,120}?) details — (.+)$")
 SKIP_RE = re.compile(r"^\(Skipped the form\b")
+# the acts page's submit: the prompt it assembles ends with this marker (skills/acts-widget/assemble.js), its
+# title rides in the opening paragraph, and the owner's per-act context is where a riding question would sit
+ACTS_MARK_RE = re.compile(r"<!-- acts-widget round=(\d+) picked=([^ ]*) -->")
+ACTS_TITLE_RE = re.compile(r"from your closing widget \(“(.{1,120}?)”\)")
+ACTS_NOTE_RE = re.compile(r"My added context for this act: (.*?)(?= ### | <!-- acts-widget |$)")
 NOW_FMT = "%Y-%m-%d %H:%M"
 POOL_FILE = "recall-pool.md"        # the recall subagent's pooled report — derived, one per store, session-named
 POOL_MODES = ("subagent", "inject")
@@ -1262,6 +1267,11 @@ def picker_shape(preview):
     m = SUBMIT_RE.match(preview)
     if m:
         return ("submit", m.group(1).strip(), "?" in m.group(2))
+    m = ACTS_MARK_RE.search(preview)
+    if m:
+        t = ACTS_TITLE_RE.search(preview)
+        title = t.group(1).strip() if t else f"acts page round {m.group(1)}"
+        return ("submit", title, any("?" in n for n in ACTS_NOTE_RE.findall(preview)))
     if SKIP_RE.match(preview):
         return ("skip", None, False)
     return None
@@ -1578,7 +1588,32 @@ def picker_options(payload):
             if "data-other" in attrs.lower():
                 continue
             opts.append((" ".join(label.split()), " ".join(TAG_RE.sub(" ", m.group(1)).split())))
+        opts.extend(acts_page_options(html))
     return opts, " ".join(key.split())
+
+
+ACTS_STATE_RE = re.compile(r'<script type="application/json" id="acts-state">(.*?)</script>', re.S)
+
+
+def acts_page_options(html):
+    """[(act title, brief_text)] for the open round of an acts page served as a widget (skills/acts-widget) —
+    its options are rendered from a JSON block, not .elicit-pill buttons, so the gate reads that block: the
+    brief is the act's summary plus one `label: text` line per brief the act carries."""
+    m = ACTS_STATE_RE.search(html)
+    if not m:
+        return []
+    try:
+        rounds = json.loads(m.group(1)).get("rounds") or []
+    except (ValueError, AttributeError):
+        return []
+    live = rounds[-1] if rounds and isinstance(rounds[-1], dict) and rounds[-1].get("picked") is None else None
+    out = []
+    for a in (live or {}).get("acts") or []:
+        if isinstance(a, dict):
+            briefs = a.get("briefs") if isinstance(a.get("briefs"), dict) else {}
+            text = " ".join([str(a.get("summary") or "")] + [f"{k}: {v}" for k, v in briefs.items()])
+            out.append((" ".join(str(a.get("title") or "").split()), " ".join(text.split())))
+    return out
 
 
 def cmd_pre_ask(payload, store):

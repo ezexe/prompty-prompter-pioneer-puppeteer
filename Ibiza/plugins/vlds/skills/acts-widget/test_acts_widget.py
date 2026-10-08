@@ -12,13 +12,17 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import build_acts_widget as b  # noqa: E402
 
+sys.path.insert(0, os.path.join(HERE, "..", "..", "hooks"))
+import vlds_hooks as vh  # noqa: E402
+
 SAMPLE = {
     "title": "Release the fix",
     "repo": "owner/repo",
     "branch": "work",
     "acts": [
         {"id": "commit", "title": "Commit the fix", "summary": "One commit.", "goal": "Commit the staged fix with a descriptive message.",
-         "files": ["src/a.py"], "constraints": ["Do not amend earlier commits"], "done": "The commit exists.", "recommended": True},
+         "files": ["src/a.py"], "constraints": ["Do not amend earlier commits"], "done": "The commit exists.", "recommended": True,
+         "briefs": {"changes": "one commit on main", "scope": "this repo only"}},
         {"id": "push", "title": "Push the branch", "goal": "Push the branch to origin."},
         {"id": "pr", "title": "Open a PR", "goal": "Open a pull request.</script><!--<script>__TITLE__ __STATE__"},
     ],
@@ -128,7 +132,7 @@ const els = {}; const seen = {copy: null, sent: null};
 function mk(tag){const e={tagName:tag,children:[],hidden:false,disabled:false,className:'',textContent:'',value:'',style:{},
   set innerHTML(v){this._html=v;this.children=[];},get innerHTML(){return this._html||'';},
   appendChild(c){this.children.push(c);return c;},removeChild(c){this.children=this.children.filter((x)=>x!==c);},
-  addEventListener(t,f){(this._on=this._on||{})[t]=f;},scrollIntoView(){},setAttribute(){},
+  addEventListener(t,f){(this._on=this._on||{})[t]=f;},scrollIntoView(){},setAttribute(){},after(){},
   select(){global.__sel=this.value;},querySelector(){return mk('q');}};return e;}
 global.document={getElementById:(id)=>id==='acts-state'?{textContent:STATE_TEXT}:(els[id]=els[id]||mk(id)),
   createElement:mk,createRange:()=>({selectNodeContents(){}}),body:mk('body'),
@@ -162,6 +166,71 @@ if (SEND) global.sendPrompt=(t)=>{seen.sent=t;};
     r = run(True, True)
     assert r["sendHidden"] is False and r["seen"]["sent"] == r["prompt"], "the Send click did not send the prompt"
     assert r["status"].startswith("Sent."), r["status"]
+
+def test_widget_fragment():
+    """The page as a chat widget's code: no document skeleton, the body scoped to a transparent wrapper, the
+    state still readable — by the page, and by the hook's pre-ask gate."""
+    code = b.fragment(fresh())
+    low = code.lower()
+    for tag in ("<!doctype", "<html", "<head>", "</head>", "<body", "</body", "</html", "<title", "<meta"):
+        assert tag not in low, f"the fragment keeps {tag}"
+    assert code.startswith("<style>") and '<div class="acts-page">' in code and "\nbody {" not in code
+    assert ".acts-page { margin: 0; background: transparent;" in code
+    assert b.STATE_RE.search(code) and code.count("</script>") == 2
+    with tempfile.TemporaryDirectory() as root:
+        acts = os.path.join(root, "a.json")
+        with open(acts, "w", encoding="utf-8") as f:
+            json.dump(SAMPLE, f)
+        out = os.path.join(root, "w.html")
+        assert b.main(["x", "append", acts, "--session", "s1", "--root", root]) == 0
+        assert b.main(["x", "widget", "--session", "s1", "--root", root, "--out", out]) == 0
+        with open(out, encoding="utf-8") as f:
+            written = f.read()
+        assert written.startswith("<style>") and "Release the fix" in written, "the widget command wrote no fragment"
+        assert b.main(["x", "widget", "--session", "nope", "--root", root]) == 1, "a widget of no page was printed"
+    try:
+        b.append_round(b.new_state(), {"acts": [{"id": "a", "title": "A", "goal": "g", "briefs": ["x"]}]})
+    except ValueError as e:
+        assert "briefs" in str(e)
+    else:
+        raise AssertionError("a briefs list was accepted")
+
+
+def test_hook_reads_acts_page():
+    """The prompt hook takes the page's prompt for a picker submit, not a detail-ask; the pre-ask gate reads
+    the open round's acts as the widget's options and bounces one that lacks a standing label."""
+    md = ("## Picked acts I picked one act from your closing widget (“Release the fix”). Run it exactly as "
+          "written below. ### Act 1 of 1: Commit the fix Commit it. My added context for this act: draft only "
+          "### How to report Open your reply. <!-- acts-widget round=3 picked=commit -->")
+    assert vh.picker_shape(md) == ("submit", "Release the fix", False)
+    asked = md.replace("draft only", "why main?")
+    assert vh.picker_shape(asked) == ("submit", "Release the fix", True), "a question in the context did not ride"
+    assert vh.picker_shape("## Picked acts with no marker") is None
+
+    state = fresh()
+    payload = {"tool_name": "mcp__visualize__show_widget",
+               "tool_input": {"title": "release_closing", "widget_code": b.fragment(state)}}
+    opts, _key = vh.picker_options(payload)
+    assert [o for o, _ in opts] == ["Commit the fix", "Push the branch", "Open a PR"], opts
+    assert "changes: one commit on main" in opts[0][1] and "scope: this repo only" in opts[0][1]
+    b.record_pick(state, ["commit"])
+    payload["tool_input"]["widget_code"] = b.fragment(state)
+    assert vh.picker_options(payload)[0] == [], "an answered round still offered options"
+
+    real = vh.standing_labels
+    vh.standing_labels = lambda store: {"changes": 2, "scope": 2}
+    try:
+        import contextlib, io
+        for code, want in ((b.fragment(fresh()), "deny"), (b.fragment(fresh(dict(SAMPLE, acts=SAMPLE["acts"][:1]))), "")):
+            with tempfile.TemporaryDirectory() as store:
+                buf = io.StringIO()
+                with contextlib.redirect_stdout(buf):
+                    vh.cmd_pre_ask({"tool_name": "mcp__visualize__show_widget",
+                                    "tool_input": {"title": "t", "widget_code": code}}, store)
+                assert (want in buf.getvalue()) if want else buf.getvalue() == "", (want, buf.getvalue())
+    finally:
+        vh.standing_labels = real
+
 
 if __name__ == "__main__":
     for name, fn in list(globals().items()):

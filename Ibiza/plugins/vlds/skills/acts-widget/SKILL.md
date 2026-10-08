@@ -13,8 +13,9 @@ A path that already holds something other than an acts page is refused, never ov
 
 ## At a closing
 
-1. Write the closing's acts as JSON to the notebook — one object per act: `id`, `title`, `goal` required; `summary`, `files`, `constraints`, `done`, `recommended` optional; `title`, `repo`, `branch` at the top.
+1. Write the closing's acts as JSON to the notebook — one object per act: `id`, `title`, `goal` required; `summary`, `files`, `constraints`, `done`, `recommended`, `briefs` optional; `title`, `repo`, `branch` at the top.
 The `goal` is the instruction the prompt carries, so write it as the act exactly as it should run.
+`briefs` is `{label: text}`, one line per standing brief label of the store's `briefs.md` (`changes`, `scope`, …): the pre-ask gate reads the acts out of the served page and bounces a closing whose acts lack one.
 2. Append it as the next round:
 
 ```bash
@@ -22,11 +23,18 @@ python "${CLAUDE_PLUGIN_ROOT}/skills/acts-widget/build_acts_widget.py" append <a
 ```
 
 A round still open when the next one is appended is marked superseded — the owner never answered it — so only one closing is ever open.
-3. Open the page in the built-in browser: `mcp__Claude_Browser__preview_start` with `url` set to the page's `file:///` URL.
-The pane shows a local file as a snapshot, so after every append or pick, navigate to the same URL again to show the new round.
-The page's Copy button runs the copy itself, in the click — `execCommand("copy")` first, which needs no clipboard permission, then the clipboard API, and only when both are blocked does it select the prompt for a manual copy.
-Where the page runs inside the chat's widget frame, the host's `sendPrompt` exists and a Send button appears that puts the prompt in as the next message, so nothing is copied at all.
-4. In the final message, say that the closing is on the acts page and name what it asks.
+3. Serve the page in chat as the turn's last tool call: print its widget code and pass it whole as `show_widget`'s `widget_code`, with a `title` naming the closing.
+
+```bash
+python "${CLAUDE_PLUGIN_ROOT}/skills/acts-widget/build_acts_widget.py" widget --session <short id> --out <notebook>/acts-widget/<short id>.widget.html
+```
+
+The fragment is the same page without its document skeleton — the widget host supplies one — and with a transparent background.
+In the widget frame the host defines `sendPrompt`, so the page shows a Send button that posts the assembled prompt as the next message: no copy, no paste.
+Copy stays beside it, and runs the copy itself in the click — `execCommand("copy")` first, which needs no clipboard permission, then the clipboard API, and only when both are blocked does it select the prompt for a manual copy.
+The same page file also opens in the built-in browser (`mcp__Claude_Browser__preview_start` with its `file:///` URL) as a read view of the session's closings; there Send is absent, since a page in the pane has no channel to the chat.
+In a session shown in a pop-out window the widget never renders, so the native question panel serves the closing there, as the contract says.
+4. In the final message, say what the closing asks in one line, so a widget that does not render still leaves a readable question.
 
 ## When the pick arrives
 
