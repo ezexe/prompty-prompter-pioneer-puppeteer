@@ -143,6 +143,7 @@ Each perspective's Take MUST follow the same sub-structure:
 
 If the output ever diverges from this template — a section dropped, reordered, merged, or a format substituted — the response must say so: **which rule** was broken, **why**, and the **justification**.
 Silent deviation is a contract violation; disclosed deviation is allowed.
+The disclosure lives in the reply's opening **Deviations** block (emission-discipline rule 23), emitted on every reply and saying `none` when nothing diverged; a deviation the safety rules in force forbid is never taken, only named there as withheld.
 
 ## Worked Example
 
