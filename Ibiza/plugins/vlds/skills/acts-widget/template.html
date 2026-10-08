@@ -46,17 +46,33 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px
 pre { margin: 0; background: var(--code-bg); border-radius: 6px; padding: 12px; overflow: auto; font-family: var(--font-mono); font-size: 0.8rem; line-height: 1.55; white-space: pre-wrap; word-break: break-word; max-height: 70vh; }
 .status { font-size: 0.85rem; color: var(--ok); min-height: 1.2em; }
 .empty { color: var(--muted); font-style: italic; }
+/* The session's log: one card per answered closing, oldest first, above the open one */
+.log { display: grid; gap: 10px; }
+.round { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 10px 14px; }
+.round-head { display: flex; gap: 8px; flex-wrap: wrap; align-items: baseline; }
+.round-head .when { color: var(--muted); font-size: 0.85rem; }
+.round ul { margin: 6px 0 0; padding-left: 0; list-style: none; display: grid; gap: 2px; }
+.round li { font-size: 0.9rem; color: var(--muted); }
+.round li.got { color: var(--fg); }
+.round li.got::before { content: "✓ "; color: var(--ok); font-weight: 700; }
+.round li:not(.got)::before { content: "– "; }
+.round .note { display: block; margin-left: 1.2em; font-size: 0.85rem; color: var(--muted); }
+.waiting { color: var(--muted); }
 </style>
 </head>
 <body>
 <div class="wrap">
   <header>
     <h1 id="title"></h1>
-    <p class="lede">Tick the acts you want and add context if you like. The prompt on the right is what you send: it names each picked act in order, lists what you left out, and says how the reply must report.</p>
+    <p class="lede">This page is the session's closings, oldest first. Each answered closing keeps the acts you picked; the open one at the bottom is where you pick next. The prompt on the right is what you send: it names each picked act in order, lists what you left out, and says how the reply must report.</p>
   </header>
-  <div class="panes">
+  <section aria-labelledby="log-label" id="log-wrap" hidden>
+    <p class="label" id="log-label">Earlier closings</p>
+    <div class="log" id="log"></div>
+  </section>
+  <div class="panes" id="panes">
     <section aria-labelledby="acts-label">
-      <p class="label" id="acts-label">Pending acts</p>
+      <p class="label" id="acts-label"></p>
       <div class="row" style="margin-bottom:10px">
         <button class="ghost" id="all" type="button">Select all</button>
         <button class="ghost" id="none" type="button">Clear</button>
@@ -66,22 +82,57 @@ pre { margin: 0; background: var(--code-bg); border-radius: 6px; padding: 12px; 
     <section class="out" aria-labelledby="out-label">
       <p class="label" id="out-label">Prompt to send</p>
       <pre id="prompt"></pre>
-      <div class="row"><button class="primary" id="copy" type="button">Copy prompt</button></div>
+      <div class="row"><button class="primary" id="send" type="button" hidden>Send to Claude</button><button class="primary" id="copy" type="button">Copy prompt</button></div>
       <div class="status" id="status" role="status"></div>
     </section>
   </div>
+  <p class="waiting" id="waiting" hidden>Every closing so far is answered. The next one appends here.</p>
 </div>
+<script type="application/json" id="acts-state">__STATE__</script>
 <script>
 /*__ASSEMBLE__*/
-const DATA = /*__DATA__*/null;
-const picked = new Set(DATA.acts.filter((a) => a.recommended).map((a) => a.id));
-const notes = {};
+const STATE = JSON.parse(document.getElementById("acts-state").textContent);
+const ROUNDS = STATE.rounds;
+const last = ROUNDS[ROUNDS.length - 1];
+const LIVE = last && last.picked == null ? last : null;
 const $ = (id) => document.getElementById(id);
-$("title").textContent = DATA.title || "Pending acts";
+$("title").textContent = (last && last.title) || STATE.title || "Pending acts";
 
+function el(tag, cls, text) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (text != null) e.textContent = text;
+  return e;
+}
+function renderLog() {
+  const done = ROUNDS.filter((r) => r !== LIVE);
+  $("log-wrap").hidden = !done.length;
+  for (const r of done) {
+    const card = el("div", "round");
+    const head = el("div", "round-head");
+    head.appendChild(el("span", "act-title", "Closing " + r.n + (r.title ? ": " + r.title : "")));
+    const state = r.superseded ? "superseded, never answered" : r.skipped ? "skipped" : "picked " + r.picked.length + " of " + r.acts.length;
+    head.appendChild(el("span", "when", [r.at, state].filter(Boolean).join(" · ")));
+    card.appendChild(head);
+    const ul = el("ul");
+    for (const a of r.acts) {
+      const li = el("li", r.picked.includes(a.id) ? "got" : "", a.title);
+      if (r.notes && r.notes[a.id]) li.appendChild(el("span", "note", r.notes[a.id]));
+      ul.appendChild(li);
+    }
+    card.appendChild(ul);
+    $("log").appendChild(card);
+  }
+}
+
+const picked = new Set(LIVE ? LIVE.acts.filter((a) => a.recommended).map((a) => a.id) : []);
+const notes = {};
+function liveData() {
+  return { title: LIVE.title || STATE.title, repo: STATE.repo, branch: STATE.branch, acts: LIVE.acts, round: LIVE.n };
+}
 function render() {
   $("acts").innerHTML = "";
-  for (const a of DATA.acts) {
+  for (const a of LIVE.acts) {
     const on = picked.has(a.id);
     const card = document.createElement("div");
     card.className = "act" + (on ? " on" : "");
@@ -103,26 +154,58 @@ function render() {
   }
   show();
 }
-function current() { return assemblePrompt(DATA, DATA.acts.map((a) => a.id).filter((id) => picked.has(id)), notes); }
+function current() { return assemblePrompt(liveData(), LIVE.acts.map((a) => a.id).filter((id) => picked.has(id)), notes); }
 function show() {
   const md = current();
   if (md) $("prompt").textContent = md;
   else $("prompt").innerHTML = '<span class="empty">Tick at least one act to build the prompt.</span>';
 }
-$("all").addEventListener("click", () => { DATA.acts.forEach((a) => picked.add(a.id)); render(); });
-$("none").addEventListener("click", () => { picked.clear(); render(); });
-$("copy").addEventListener("click", () => {
-  const md = current();
-  if (!md) { $("status").textContent = "Nothing to copy yet: tick an act first."; return; }
-  const fallback = () => {
-    const r = document.createRange(); r.selectNodeContents($("prompt"));
-    const s = getSelection(); s.removeAllRanges(); s.addRange(r);
-    $("status").textContent = "Copying is blocked here, so the prompt is selected: press Ctrl+C or ⌘C.";
-  };
-  try { navigator.clipboard.writeText(md).then(() => { $("status").textContent = "Copied. Paste it as your next message."; }, fallback); }
-  catch (e) { fallback(); }
-});
-render();
+
+renderLog();
+if (!LIVE) {
+  $("panes").hidden = true;
+  $("waiting").hidden = false;
+} else {
+  $("acts-label").textContent = "Closing " + LIVE.n + " · pending acts";
+  // inside the chat's widget frame the host gives sendPrompt: the prompt goes straight in as the next message
+  const CAN_SEND = typeof sendPrompt === "function";
+  if (CAN_SEND) { $("send").hidden = false; $("copy").className = "ghost"; }
+  $("send").addEventListener("click", () => {
+    const md = current();
+    if (!md) { $("status").textContent = "Nothing to send yet: tick an act first."; return; }
+    sendPrompt(md);
+    $("send").disabled = true;
+    $("status").textContent = "Sent. Claude records the pick on this page before running it.";
+  });
+  $("all").addEventListener("click", () => { LIVE.acts.forEach((a) => picked.add(a.id)); render(); });
+  $("none").addEventListener("click", () => { picked.clear(); render(); });
+  $("copy").addEventListener("click", () => {
+    const md = current();
+    if (!md) { $("status").textContent = "Nothing to copy yet: tick an act first."; return; }
+    const copied = () => { $("status").textContent = "Copied. Paste it as your next message."; };
+    // the page runs the copy itself, inside the click: execCommand needs no clipboard permission, so it works
+    // where the async clipboard API is blocked (a file snapshot, a sandboxed frame); selection is the last resort
+    const viaCommand = () => {
+      const ta = document.createElement("textarea");
+      ta.value = md; ta.setAttribute("readonly", ""); ta.style.position = "absolute"; ta.style.left = "-9999px";
+      document.body.appendChild(ta); ta.select();
+      let ok = false;
+      try { ok = document.execCommand("copy"); } catch (e) { ok = false; }
+      document.body.removeChild(ta);
+      return ok;
+    };
+    const manual = () => {
+      const r = document.createRange(); r.selectNodeContents($("prompt"));
+      const s = getSelection(); s.removeAllRanges(); s.addRange(r);
+      $("status").textContent = "This frame blocks every copy route, so the prompt is selected: press Ctrl+C or ⌘C.";
+    };
+    if (viaCommand()) { copied(); return; }
+    try { navigator.clipboard.writeText(md).then(copied, manual); }
+    catch (e) { manual(); }
+  });
+  render();
+  if (!CAN_SEND) $("panes").scrollIntoView({ block: "start" });
+}
 </script>
 </body>
 </html>

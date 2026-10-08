@@ -59,6 +59,11 @@ function assemblePrompt(data, pickedIds, notes) {
     "Then report each act in order: what you changed, the checks you ran and their results, and the commit hash if you committed. " +
     "If an act cannot be done as written, stop at that act, say what blocked it, and do not substitute a different act."
   );
+  if (data.round) {
+    // the reply records this pick into the session's acts page from this line: build_acts_widget.py pick
+    L.push("");
+    L.push(`<!-- acts-widget round=${data.round} picked=${picked.map((a) => a.id).join(",")} -->`);
+  }
   return L.join("\n");
 }
 if (typeof module !== "undefined") module.exports = { assemblePrompt };
