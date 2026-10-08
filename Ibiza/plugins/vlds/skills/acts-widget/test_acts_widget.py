@@ -51,7 +51,7 @@ def test_prompt():
     js = ("const {assemblePrompt}=require(process.argv[1]);const d=JSON.parse(process.argv[2]);"
           "process.stdout.write(JSON.stringify([assemblePrompt(d,['commit','pr'],{pr:'draft only'}),assemblePrompt(d,[],{})]))")
     out = subprocess.run([node, "-e", js, os.path.join(HERE, "assemble.js"), json.dumps(SAMPLE)],
-                         capture_output=True, text=True, check=True).stdout
+                         capture_output=True, text=True, encoding="utf-8", check=True).stdout
     md, empty = json.loads(out)
     assert empty == ""
     assert md.startswith("## Picked acts\n"), md[:40]
