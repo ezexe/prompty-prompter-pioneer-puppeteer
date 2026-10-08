@@ -708,7 +708,7 @@ def operator_directive(store, tag, now, models, keyspace=False):
         "shell tag lists that plan as a short-form bulleted prose summary — both process text, carrying no "
         "deliverable: every fence, every copyable block and the answer itself go in the FINAL message, after the "
         "turn's last tool call, since the Code tab does not reliably show what sits before the closing tool calls; "
-        "the popup is that last call, and the final message names what it asks. The CLOSE — every "
+        "the final message opens with the Deviations block and closes with the checklist of pending acts — numbered checkbox lines in the text, picked by the owner's reply naming the numbers — never a widget. The CLOSE — every "
         "turn, before the final message — is mechanical: write the turn's record to the notebook (one `## <file>` block per "
         "entry in the file's own shape; a dispatch row by its fingerprint's opening plus the fields to add) and run "
         f"`python {record} --store {store} --session <id> --now <the latest now:> --record <path>`; its derivation "
