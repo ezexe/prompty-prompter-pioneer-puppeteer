@@ -438,7 +438,7 @@ clarification:
 | None of above         | Direct prose   | No special format needed                   |
 
 A Clarification from roboto running as a subagent is never asked directly: a subagent has no channel to the owner mid-run.
-It goes into the report's hand-back as a question with its reason, options and default (the agent definition's return contract), and the calling session serves it as its question panel or closing checklist.
+It goes into the report's hand-back as a question with its reason, options and default (the agent definition's return contract), and the calling session serves it as its question panel or closing picker.
 
 ## Release — What the Formats Hand Over
 
